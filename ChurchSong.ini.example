@@ -1,0 +1,16 @@
+[ChurchTools.Settings]
+base_url = https://YOUR-DOMAIN.church.tools
+login_token = YOUR_LOGIN_TOKEN
+kigo_group = GROUP_NAME_OF_PRIMARY_GROUP
+
+[ChurchTools.Replacements]
+Jonathan Doe = Jon Doe
+
+[SongBeamer.Settings]
+template_pptx = ./Data/PowerPoint/KIGO_TEAM_SLIDE.pptx
+portraits_dir = ./Data/Portraits
+temp_dir = ./Temp
+
+[SongBeamer.Replacements]
+< = <\n    item\n      Caption = 'Beamer-Check'\n      Color = clBlack\n      FileName = '../../Data/PowerPoint/BeamerCheck.pptx'\n    end\n    item\n      Caption = 'KiGo-Mitarbeiter'\n      Color = clBlack\n      FileName = '../KIGO_TEAM_SLIDE.pptx'\n    end
+16711920 = clBlack\n      BGColor = clYellow
