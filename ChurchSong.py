@@ -148,7 +148,7 @@ class ChurchTools:
             sys.stderr.write(f"Cannot find service group '{self._kigo_group}'.\n")
             return {}
         kigo_groups = {
-            service["id"]: service["name"].strip("KiGo").strip()
+            service["id"]: service["name"]
             for service in self._get_services()
             if service.get("serviceGroupId") == kigo_group_id
         }
