@@ -176,8 +176,14 @@ class ChurchTools:
 
     def get_url_for_songbeamer_agenda(self, from_date: str | None = None) -> str:
         next_event = self._get_events(from_date)[0]
-        _date = next_event["startDate"][0:10]
-        agenda = self._get_event_agenda(next_event["id"])
+        date = next_event["startDate"][0:10]
+        try:
+            agenda = self._get_event_agenda(next_event["id"])
+        except requests.HTTPError as e:
+            if e.response.status_code == requests.codes["not_found"]:
+                sys.stderr.write(f"No event agenda present for {date} in ChurchTools\n")
+                sys.exit(1)
+            raise
         return self._get_agenda_export(agenda["id"])["url"]
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
