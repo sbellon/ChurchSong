@@ -20,6 +20,7 @@ ignore = [
     "PLC0415", # import-outside-top-level
     "PLC2701", # private name import
     "PLC2801", # unnecessary dunder call
+    "S101", # assert
     "D", # docstring
 ]
 
