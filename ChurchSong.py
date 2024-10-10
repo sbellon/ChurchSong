@@ -197,7 +197,7 @@ class PowerPoint:
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            name = kigo_team.get(ph._base_placeholder.name)
+            name = kigo_team.get(ph._base_placeholder.name)  # noqa: SLF001
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
                 ph.insert_picture(os.fspath(self._portraits_dir / f"{name}.jpeg"))
             elif (
