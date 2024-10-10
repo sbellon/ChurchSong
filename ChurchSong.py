@@ -14,6 +14,8 @@ import zipfile
 from collections import defaultdict
 
 import pptx
+import pptx.shapes
+import pptx.shapes.placeholder
 import requests
 
 
@@ -178,6 +180,7 @@ class ChurchTools:
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
         r = self._get(url)
+        assert isinstance(r.content, bytes)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
 
@@ -193,7 +196,7 @@ class PowerPoint:
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            name = service_leads[ph._base_placeholder.name]  # noqa: SLF001
+            name = service_leads[ph._base_placeholder.name]  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
                 ph.insert_picture(os.fspath(self._portraits_dir / f'{name}.jpeg'))
             elif (
