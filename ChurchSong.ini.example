@@ -1,9 +1,9 @@
 [ChurchTools.Settings]
 base_url = https://YOUR-DOMAIN.church.tools
 login_token = YOUR_LOGIN_TOKEN
-kigo_group = GROUP_NAME_OF_PRIMARY_GROUP
 
 [ChurchTools.Replacements]
+None = Nobody
 Jonathan Doe = Jon Doe
 
 [SongBeamer.Settings]
