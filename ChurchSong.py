@@ -155,15 +155,24 @@ class ChurchTools:
         next_event = self._get_events(from_date)[0]
         _date = next_event["startDate"][0:10]
         event = self._get_event(next_event["id"])
-        return {
-            kigo_group: self._person_dict.get(
-                eventservice["name"],
-                eventservice["name"],
-            )
-            for eventservice in event["eventServices"]
-            for kigo_id, kigo_group in kigo_groups.items()
-            if eventservice["serviceId"] == kigo_id
+        # Initialize result with all possible groups and the "None" person.
+        kigo_team = {
+            kigo_group: self._person_dict.get(str(None), str(None))
+            for kigo_group in kigo_groups.values()
         }
+        # Update with the actual persons of the eventservice.
+        kigo_team.update(
+            {
+                kigo_group: self._person_dict.get(
+                    eventservice["name"],
+                    eventservice["name"],
+                )
+                for eventservice in event["eventServices"]
+                for kigo_id, kigo_group in kigo_groups.items()
+                if eventservice["serviceId"] == kigo_id
+            },
+        )
+        return kigo_team
 
     def get_url_for_songbeamer_agenda(self, from_date: str | None = None) -> str:
         next_event = self._get_events(from_date)[0]
@@ -188,7 +197,7 @@ class PowerPoint:
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            name = kigo_team.get(ph._base_placeholder.name) or "Niemand"  # noqa: SLF001
+            name = kigo_team.get(ph._base_placeholder.name)
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
                 ph.insert_picture(os.fspath(self._portraits_dir / f"{name}.jpeg"))
             elif (
@@ -259,6 +268,7 @@ def main() -> None:
         if args.verbose:
             raise
         sys.stderr.write(f"{e}\n")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
