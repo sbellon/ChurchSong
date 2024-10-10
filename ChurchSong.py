@@ -225,7 +225,12 @@ class SongBeamer:
             fd.write(content)
 
     def launch(self) -> None:
-        _ = subprocess.Popen([self._schedule_file], shell=True, cwd=self._temp_dir)  # noqa: S602
+        subprocess.run(  # noqa: S602
+            ['start', self._schedule_file],  # noqa: S607
+            shell=True,
+            check=True,
+            cwd=self._temp_dir,
+        )
 
 
 def main() -> None:
