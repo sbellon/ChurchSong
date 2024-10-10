@@ -180,7 +180,7 @@ class ChurchTools:
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
         r = self._get(url)
-        assert isinstance(r.content, bytes)
+        assert isinstance(r.content, bytes)  # noqa: S101
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
 

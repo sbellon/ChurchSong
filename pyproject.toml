@@ -6,21 +6,9 @@ select = ["ALL"]
 
 fixable = [
     "I", # isort
-    "F401", # imported but unused
 ]
 
 ignore = [
-    "PLW0603", # "global-statement"
-    "PLW2901", # "redefined-loop-name"
-    "PLW0602", # "global-variable-not-assigned"
-    "PLC1901", # compare-to-empty-string
-    #"PLW1514", # unspecified-encoding
-    "PLW1641", # eq-without-hash
-    "PLW3201", # bad-dunder-method-name
-    "PLC0415", # import-outside-top-level
-    "PLC2701", # private name import
-    "PLC2801", # unnecessary dunder call
-    "S101", # assert
     "D", # docstring
 ]
 
