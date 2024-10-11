@@ -8,8 +8,9 @@ and portraits to be presented at the beginning of the event.
 
 ## Prerequisites
 
-A recent Python 3.x is required as well as Python packages `python-pptx` and `requests`
-which can be installed via `py -3 -m pip install python-pptx requests`.
+A recent Python 3.x is required as well as some additional Python packages which
+can be installed via `py -3 -m pip install python-pptx requests marshmallow
+marshmallow_dataclass`.
 
 ## Configuration
 
