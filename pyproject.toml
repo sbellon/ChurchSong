@@ -9,8 +9,9 @@ fixable = [
 ]
 
 ignore = [
-    "D", # docstring
-    "S101", # assert
+    "D",      # docstring
+    "S101",   # assert
+    "S603",   # subprocess-without-shell-equals-true
     "COM812", # missing-trailing-comma
 ]
 

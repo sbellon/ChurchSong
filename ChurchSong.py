@@ -307,10 +307,9 @@ class PowerPoint:
 
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
-        self._replacements = config.replacements
         self._temp_dir = config.temp_dir.resolve()
-        self._schedule_filename = 'Schedule.col'
-        self._schedule_filepath = self._temp_dir / self._schedule_filename
+        self._schedule_filepath = self._temp_dir / 'Schedule.col'
+        self._replacements = config.replacements
 
     def modify_and_save_agenda(self) -> None:
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
@@ -321,9 +320,8 @@ class SongBeamer:
             fd.write(content)
 
     def launch(self) -> None:
-        subprocess.run(  # noqa: S602
-            ['start', self._schedule_filename],  # noqa: S607
-            shell=True,
+        subprocess.run(
+            [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
             check=True,
             cwd=self._temp_dir,
         )
