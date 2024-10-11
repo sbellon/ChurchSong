@@ -11,6 +11,7 @@ fixable = [
 ignore = [
     "D", # docstring
     "S101", # assert
+    "COM812", # missing-trailing-comma
 ]
 
 [tool.ruff.lint.flake8-quotes]

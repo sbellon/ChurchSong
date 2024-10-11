@@ -205,7 +205,15 @@ class ChurchTools:
         return result.data
 
     def _get_next_event(self, from_date: str | None = None) -> EventShort:
-        return self._get_events(from_date)[0]
+        try:
+            return self._get_events(from_date)[0]
+        except IndexError:
+            sys.stderr.write(
+                'No events present{} in ChurchTools\n'.format(
+                    f' after {from_date}' if from_date else ''
+                )
+            )
+            sys.exit(1)
 
     def _get_event(self, event_id: int) -> EventFull:
         r = self._get(f'/api/events/{event_id}')
