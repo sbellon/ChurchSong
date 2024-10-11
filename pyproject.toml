@@ -10,6 +10,7 @@ fixable = [
 
 ignore = [
     "D", # docstring
+    "S101", # assert
 ]
 
 [tool.ruff.lint.flake8-quotes]

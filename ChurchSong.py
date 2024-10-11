@@ -13,6 +13,8 @@ import typing
 import zipfile
 from collections import defaultdict
 
+import marshmallow
+import marshmallow_dataclass
 import pptx
 import pptx.shapes
 import pptx.shapes.placeholder
@@ -65,7 +67,86 @@ class Configuration:
         ]
 
 
-JSON = typing.Any
+@typing.dataclass_transform()
+def deserialize(cls: type) -> type:
+    class Meta:
+        unknown = marshmallow.EXCLUDE
+
+    cls.Meta = Meta
+    return marshmallow_dataclass.dataclass(cls)
+
+
+SchemaType = typing.ClassVar[type[marshmallow.Schema]]  # for pylance
+
+
+@deserialize
+class Service:
+    Schema: SchemaType  # for pylance
+    id: int
+    name: str
+
+
+@deserialize
+class ServicesData:
+    Schema: SchemaType  # for pylance
+    data: list[Service]
+
+
+@deserialize
+class EventShort:
+    Schema: SchemaType  # for pylance
+    id: int
+    startDate: str  # noqa: N815
+
+
+@deserialize
+class EventsData:
+    Schema: SchemaType  # for pylance
+    data: list[EventShort]
+
+
+@deserialize
+class EventService:
+    Schema: SchemaType  # for pylance
+    serviceId: int  # noqa: N815
+    name: str
+
+
+@deserialize
+class EventFull:
+    Schema: SchemaType  # for pylance
+    id: int
+    eventServices: list[EventService]  # noqa: N815
+
+
+@deserialize
+class EventFullData:
+    Schema: SchemaType  # for pylance
+    data: EventFull
+
+
+@deserialize
+class EventAgenda:
+    Schema: SchemaType  # for pylance
+    id: int
+
+
+@deserialize
+class EventAgendaData:
+    Schema: SchemaType  # for pylance
+    data: EventAgenda
+
+
+@deserialize
+class AgendaExport:
+    Schema: SchemaType  # for pylance
+    url: str
+
+
+@deserialize
+class AgendaExportData:
+    Schema: SchemaType  # for pylance
+    data: AgendaExport
 
 
 class ChurchTools:
@@ -111,30 +192,34 @@ class ChurchTools:
     ) -> requests.Response:
         return self._request('POST', url, params)
 
-    def _get_servicegroups(self) -> JSON:
-        r = self._get('/api/servicegroups')
-        return r.json()['data']
-
-    def _get_services(self) -> JSON:
+    def _get_services(self) -> list[Service]:
         r = self._get('/api/services')
-        return r.json()['data']
+        result = ServicesData.Schema().load(r.json())
+        assert isinstance(result, ServicesData)
+        return result.data
 
-    def _get_events(self, from_date: str | None = None) -> JSON:
+    def _get_events(self, from_date: str | None = None) -> list[EventShort]:
         r = self._get('/api/events', params={'from': from_date} if from_date else None)
-        return r.json()['data']
+        result = EventsData.Schema().load(r.json())
+        assert isinstance(result, EventsData)
+        return result.data
 
-    def _get_next_event(self, from_date: str | None = None) -> JSON:
+    def _get_next_event(self, from_date: str | None = None) -> EventShort:
         return self._get_events(from_date)[0]
 
-    def _get_event(self, event_id: int) -> JSON:
+    def _get_event(self, event_id: int) -> EventFull:
         r = self._get(f'/api/events/{event_id}')
-        return r.json()['data']
+        result = EventFullData.Schema().load(r.json())
+        assert isinstance(result, EventFullData)
+        return result.data
 
-    def _get_event_agenda(self, event_id: int) -> JSON:
+    def _get_event_agenda(self, event_id: int) -> EventAgenda:
         r = self._get(f'/api/events/{event_id}/agenda')
-        return r.json()['data']
+        result = EventAgendaData.Schema().load(r.json())
+        assert isinstance(result, EventAgendaData)
+        return result.data
 
-    def _get_agenda_export(self, agenda_id: int) -> JSON:
+    def _get_agenda_export(self, agenda_id: int) -> AgendaExport:
         r = self._post(
             f'/api/agendas/{agenda_id}/export',
             params={
@@ -144,43 +229,45 @@ class ChurchTools:
                 'withCategory': 'false',
             },
         )
-        return r.json()['data']
+        result = AgendaExportData.Schema().load(r.json())
+        assert isinstance(result, AgendaExportData)
+        return result.data
 
     def get_service_leads(self, from_date: str | None = None) -> defaultdict[str, str]:
-        services = {service['id']: service['name'] for service in self._get_services()}
+        services = self._get_services()
         next_event = self._get_next_event(from_date)
-        event = self._get_event(next_event['id'])
+        event = self._get_event(next_event.id)
         # Initialize the "None" person for all services.
         service_leads = defaultdict(lambda: self._person_dict.get(str(None), str(None)))
         # Update with the actual persons of the eventservice.
         service_leads.update(
             {
-                service_name: self._person_dict.get(
-                    eventservice['name'],
-                    eventservice['name'],
+                service.name: self._person_dict.get(
+                    eventservice.name,
+                    eventservice.name,
                 )
-                for eventservice in event['eventServices']
-                for service_id, service_name in services.items()
-                if eventservice['serviceId'] == service_id
+                for eventservice in event.eventServices
+                for service in services
+                if eventservice.serviceId == service.id
             },
         )
         return service_leads
 
     def get_url_for_songbeamer_agenda(self, from_date: str | None = None) -> str:
         next_event = self._get_next_event(from_date)
-        date = next_event['startDate'][0:10]
+        date = next_event.startDate[0:10]
         try:
-            agenda = self._get_event_agenda(next_event['id'])
+            agenda = self._get_event_agenda(next_event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
                 sys.stderr.write(f'No event agenda present for {date} in ChurchTools\n')
                 sys.exit(1)
             raise
-        return self._get_agenda_export(agenda['id'])['url']
+        return self._get_agenda_export(agenda.id).url
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
         r = self._get(url)
-        assert isinstance(r.content, bytes)  # noqa: S101
+        assert isinstance(r.content, bytes)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
 
