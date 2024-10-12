@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import configparser
 import io
+import logging
+import logging.handlers
 import os
 import pathlib
 import subprocess
@@ -20,17 +22,49 @@ import pptx.shapes
 import pptx.shapes.placeholder
 import requests
 
+LOG = logging.getLogger(__name__)
+
 
 class Configuration:
     def __init__(self, ini_file: pathlib.Path) -> None:
+        LOG.setLevel(logging.INFO)
+        log_formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+        # Log to stderr before we have the log_file name from the .ini file.
+        log_to_stderr = logging.StreamHandler(sys.stderr)
+        log_to_stderr.setFormatter(log_formatter)
+        LOG.addHandler(log_to_stderr)
+
+        # Read the configuration .ini file.
         self._config = configparser.RawConfigParser(
             interpolation=configparser.ExtendedInterpolation(),
         )
         self._config.optionxform = lambda optionstr: optionstr
         self._config.read(ini_file, encoding='utf-8')
 
+        # Switch to configured logging.
+        LOG.setLevel(self.log_level)
+        log_to_file = logging.handlers.RotatingFileHandler(
+            self.log_file, maxBytes=5 * 1024 * 1024, backupCount=7
+        )
+        log_to_file.setFormatter(log_formatter)
+        LOG.addHandler(log_to_file)
+        LOG.removeHandler(log_to_stderr)
+
     def _expand_vars(self, section: str, option: str) -> str:
         return self._config.get(section, option, vars=dict(os.environ))
+
+    @property
+    def log_level(self) -> str:
+        return self._expand_vars('General', 'log_level')
+
+    @property
+    def log_file(self) -> pathlib.Path:
+        filename = pathlib.Path(self._expand_vars('General', 'log_file'))
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        return filename
 
     @property
     def base_url(self) -> str:
@@ -54,7 +88,9 @@ class Configuration:
 
     @property
     def temp_dir(self) -> pathlib.Path:
-        return pathlib.Path(self._expand_vars('SongBeamer.Settings', 'temp_dir'))
+        directory = pathlib.Path(self._expand_vars('SongBeamer.Settings', 'temp_dir'))
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
 
     @property
     def replacements(self) -> list[tuple[str, str]]:
@@ -168,6 +204,7 @@ class ChurchTools:
         url: str,
         params: dict[str, str] | None = None,
     ) -> requests.Response:
+        LOG.debug('Request %s %s%s with params=%s', method, self._base_url, url, params)
         r = requests.request(
             method,
             f'{self._base_url}{url}',
@@ -175,6 +212,7 @@ class ChurchTools:
             params=params,
             timeout=None,  # noqa: S113
         )
+        LOG.debug('Response is %s %s', r.status_code, r.reason)
         r.raise_for_status()
         return r
 
@@ -208,11 +246,11 @@ class ChurchTools:
         try:
             return self._get_events(from_date)[0]
         except IndexError:
-            sys.stderr.write(
-                'No events present{} in ChurchTools\n'.format(
-                    f' after {from_date}' if from_date else ''
-                )
+            err_msg = 'No events present{} in ChurchTools'.format(
+                f' after {from_date}' if from_date else ''
             )
+            LOG.error(err_msg)  # noqa: TRY400
+            sys.stderr.write(f'{err_msg}\n')
             sys.exit(1)
 
     def _get_event(self, event_id: int) -> EventFull:
@@ -242,6 +280,7 @@ class ChurchTools:
         return result.data
 
     def get_service_leads(self, from_date: str | None = None) -> defaultdict[str, str]:
+        LOG.info('Fetching service teams')
         services = self._get_services()
         next_event = self._get_next_event(from_date)
         event = self._get_event(next_event.id)
@@ -262,18 +301,22 @@ class ChurchTools:
         return service_leads
 
     def get_url_for_songbeamer_agenda(self, from_date: str | None = None) -> str:
+        LOG.info('Fetching SongBeamer export URL')
         next_event = self._get_next_event(from_date)
         date = next_event.startDate[0:10]
         try:
             agenda = self._get_event_agenda(next_event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
-                sys.stderr.write(f'No event agenda present for {date} in ChurchTools\n')
+                err_msg = f'No event agenda present for {date} in ChurchTools'
+                LOG.error(err_msg)  # noqa: TRY400
+                sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
             raise
         return self._get_agenda_export(agenda.id).url
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
+        LOG.info('Downloading and extracting SongBeamer export')
         r = self._get(url)
         assert isinstance(r.content, bytes)
         buf = io.BytesIO(r.content)
@@ -288,20 +331,29 @@ class PowerPoint:
         self._prs = pptx.Presentation(os.fspath(self._template_pptx))
 
     def create(self, service_leads: dict[str, str]) -> None:
+        LOG.info('Creating PowerPoint slide')
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            name = service_leads[ph._base_placeholder.name]  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
+            service_name = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
+            person_name = service_leads[service_name]
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
-                ph.insert_picture(os.fspath(self._portraits_dir / f'{name}.jpeg'))
+                LOG.debug(
+                    'Replacing image placeholder %s with %s', service_name, person_name
+                )
+                ph.insert_picture(
+                    os.fspath(self._portraits_dir / f'{person_name}.jpeg')
+                )
             elif (
                 isinstance(ph, pptx.shapes.placeholder.SlidePlaceholder)
                 and ph.has_text_frame
             ):
-                ph.text_frame.paragraphs[0].text = name.split(' ')[0]
+                LOG.debug(
+                    'Replacing text placeholder %s with %s', service_name, person_name
+                )
+                ph.text_frame.paragraphs[0].text = person_name.split(' ')[0]
 
     def save(self) -> None:
-        self._temp_dir.mkdir(parents=True, exist_ok=True)
         self._prs.save(os.fspath(self._temp_dir / self._template_pptx.name))
 
 
@@ -312,6 +364,7 @@ class SongBeamer:
         self._replacements = config.replacements
 
     def modify_and_save_agenda(self) -> None:
+        LOG.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
             content = fd.read()
         for search, replace in self._replacements:
@@ -320,6 +373,7 @@ class SongBeamer:
             fd.write(content)
 
     def launch(self) -> None:
+        LOG.info('Launching SongBeamer instance')
         subprocess.run(
             [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
             check=True,
@@ -329,15 +383,11 @@ class SongBeamer:
 
 def main() -> None:
     config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
+
+    LOG.debug('Parsing command line with args: %s', sys.argv)
     parser = argparse.ArgumentParser(
         prog='ChurchSong',
         description='Download ChurchTools event agenda and import into SongBeamer.',
-    )
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        action='store_true',
-        help='verbose output for exceptions',
     )
     parser.add_argument(
         'from_date',
@@ -347,6 +397,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    LOG.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
     try:
         ct = ChurchTools(config)
         service_leads = ct.get_service_leads(args.from_date)
@@ -363,10 +414,8 @@ def main() -> None:
         sb.modify_and_save_agenda()
         sb.launch()
     except Exception as e:
-        if args.verbose:
-            raise
-        sys.stderr.write(f'{e}\n')
-        sys.exit(1)
+        LOG.fatal(e, exc_info=True)
+        raise
 
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
-ChurchSong.ini
-Temp/**
-Data/**
+/ChurchSong.ini
+/Temp/**
+/Data/**
+/Logs/**

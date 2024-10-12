@@ -1,3 +1,7 @@
+[General]
+log_level = INFO
+log_file = ./Logs/ChurchSong.log
+
 [ChurchTools.Settings]
 base_url = https://YOUR-DOMAIN.church.tools
 login_token = YOUR_LOGIN_TOKEN
