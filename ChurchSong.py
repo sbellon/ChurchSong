@@ -23,12 +23,11 @@ import pptx.shapes
 import pptx.shapes.placeholder
 import requests
 
-LOG = logging.getLogger(__name__)
-
 
 class Configuration:
     def __init__(self, ini_file: pathlib.Path) -> None:
-        LOG.setLevel(logging.INFO)
+        self._log = logging.getLogger(__name__)
+        self._log.setLevel(logging.INFO)
         log_formatter = logging.Formatter(
             '%(asctime)s - %(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
         )
@@ -36,7 +35,7 @@ class Configuration:
         # Log to stderr before we have the log_file name from the .ini file.
         log_to_stderr = logging.StreamHandler(sys.stderr)
         log_to_stderr.setFormatter(log_formatter)
-        LOG.addHandler(log_to_stderr)
+        self._log.addHandler(log_to_stderr)
 
         # Read the configuration .ini file.
         self._config = configparser.RawConfigParser(
@@ -46,16 +45,20 @@ class Configuration:
         self._config.read(ini_file, encoding='utf-8')
 
         # Switch to configured logging.
-        LOG.setLevel(self.log_level)
+        self._log.setLevel(self.log_level)
         log_to_file = logging.handlers.RotatingFileHandler(
             self.log_file, maxBytes=5 * 1024 * 1024, backupCount=7
         )
         log_to_file.setFormatter(log_formatter)
-        LOG.addHandler(log_to_file)
-        LOG.removeHandler(log_to_stderr)
+        self._log.addHandler(log_to_file)
+        self._log.removeHandler(log_to_stderr)
 
     def _expand_vars(self, section: str, option: str) -> str:
         return self._config.get(section, option, vars=dict(os.environ))
+
+    @property
+    def log(self) -> logging.Logger:
+        return self._log
 
     @property
     def log_level(self) -> str:
@@ -188,6 +191,7 @@ class AgendaExportData:
 
 class ChurchTools:
     def __init__(self, config: Configuration) -> None:
+        self._log = config.log
         self._base_url = config.base_url
         self._login_token = config.login_token
         self._person_dict = config.person_dict
@@ -205,7 +209,9 @@ class ChurchTools:
         url: str,
         params: dict[str, str] | None = None,
     ) -> requests.Response:
-        LOG.debug('Request %s %s%s with params=%s', method, self._base_url, url, params)
+        self._log.debug(
+            'Request %s %s%s with params=%s', method, self._base_url, url, params
+        )
         r = requests.request(
             method,
             f'{self._base_url}{url}',
@@ -213,7 +219,7 @@ class ChurchTools:
             params=params,
             timeout=None,  # noqa: S113
         )
-        LOG.debug('Response is %s %s', r.status_code, r.reason)
+        self._log.debug('Response is %s %s', r.status_code, r.reason)
         r.raise_for_status()
         return r
 
@@ -252,7 +258,7 @@ class ChurchTools:
             err_msg = 'No events present{} in ChurchTools'.format(
                 f' after {from_date}' if from_date else ''
             )
-            LOG.error(err_msg)  # noqa: TRY400
+            self._log.error(err_msg)
             sys.stderr.write(f'{err_msg}\n')
             sys.exit(1)
 
@@ -285,7 +291,7 @@ class ChurchTools:
     def get_service_leads(
         self, from_date: datetime.date | None = None
     ) -> defaultdict[str, str]:
-        LOG.info('Fetching service teams')
+        self._log.info('Fetching service teams')
         services = self._get_services()
         next_event = self._get_next_event(from_date)
         event = self._get_event(next_event.id)
@@ -308,7 +314,7 @@ class ChurchTools:
     def get_url_for_songbeamer_agenda(
         self, from_date: datetime.date | None = None
     ) -> str:
-        LOG.info('Fetching SongBeamer export URL')
+        self._log.info('Fetching SongBeamer export URL')
         next_event = self._get_next_event(from_date)
         try:
             agenda = self._get_event_agenda(next_event.id)
@@ -316,14 +322,14 @@ class ChurchTools:
             if e.response.status_code == requests.codes['not_found']:
                 date = next_event.startDate.date()
                 err_msg = f'No event agenda present for {date} in ChurchTools'
-                LOG.error(err_msg)  # noqa: TRY400
+                self._log.error(err_msg)
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
             raise
         return self._get_agenda_export(agenda.id).url
 
     def download_and_extract_agenda_zip(self, url: str) -> None:
-        LOG.info('Downloading and extracting SongBeamer export')
+        self._log.info('Downloading and extracting SongBeamer export')
         r = self._get(url)
         assert isinstance(r.content, bytes)
         buf = io.BytesIO(r.content)
@@ -332,20 +338,21 @@ class ChurchTools:
 
 class PowerPoint:
     def __init__(self, config: Configuration) -> None:
+        self._log = config.log
         self._portraits_dir = config.portraits_dir
         self._temp_dir = config.temp_dir
         self._template_pptx = config.template_pptx
         self._prs = pptx.Presentation(os.fspath(self._template_pptx))
 
     def create(self, service_leads: dict[str, str]) -> None:
-        LOG.info('Creating PowerPoint slide')
+        self._log.info('Creating PowerPoint slide')
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
             service_name = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
             person_name = service_leads[service_name]
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
-                LOG.debug(
+                self._log.debug(
                     'Replacing image placeholder %s with %s', service_name, person_name
                 )
                 ph.insert_picture(
@@ -355,7 +362,7 @@ class PowerPoint:
                 isinstance(ph, pptx.shapes.placeholder.SlidePlaceholder)
                 and ph.has_text_frame
             ):
-                LOG.debug(
+                self._log.debug(
                     'Replacing text placeholder %s with %s', service_name, person_name
                 )
                 ph.text_frame.paragraphs[0].text = person_name.split(' ')[0]
@@ -366,12 +373,13 @@ class PowerPoint:
 
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
+        self._log = config.log
         self._temp_dir = config.temp_dir.resolve()
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
         self._replacements = config.replacements
 
     def modify_and_save_agenda(self) -> None:
-        LOG.info('Modifying SongBeamer schedule')
+        self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
             content = fd.read()
         for search, replace in self._replacements:
@@ -380,7 +388,7 @@ class SongBeamer:
             fd.write(content)
 
     def launch(self) -> None:
-        LOG.info('Launching SongBeamer instance')
+        self._log.info('Launching SongBeamer instance')
         subprocess.run(
             [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
             check=True,
@@ -391,7 +399,7 @@ class SongBeamer:
 def main() -> None:
     config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
 
-    LOG.debug('Parsing command line with args: %s', sys.argv)
+    config.log.debug('Parsing command line with args: %s', sys.argv)
     parser = argparse.ArgumentParser(
         prog='ChurchSong',
         description='Download ChurchTools event agenda and import into SongBeamer.',
@@ -405,7 +413,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    LOG.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
+    config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
     try:
         ct = ChurchTools(config)
         service_leads = ct.get_service_leads(args.from_date)
@@ -422,7 +430,7 @@ def main() -> None:
         sb.modify_and_save_agenda()
         sb.launch()
     except Exception as e:
-        LOG.fatal(e, exc_info=True)
+        config.log.fatal(e, exc_info=True)
         raise
 
 
