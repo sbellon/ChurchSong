@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import datetime
 import io
 import logging
 import logging.handlers
@@ -132,7 +133,7 @@ class ServicesData:
 class EventShort:
     Schema: SchemaType  # for pylance
     id: int
-    startDate: str  # noqa: N815
+    startDate: datetime.date  # noqa: N815
 
 
 @deserialize
@@ -236,13 +237,15 @@ class ChurchTools:
         assert isinstance(result, ServicesData)
         return result.data
 
-    def _get_events(self, from_date: str | None = None) -> list[EventShort]:
-        r = self._get('/api/events', params={'from': from_date} if from_date else None)
+    def _get_events(self, from_date: datetime.date | None = None) -> list[EventShort]:
+        r = self._get(
+            '/api/events', params={'from': f'{from_date}'} if from_date else None
+        )
         result = EventsData.Schema().load(r.json())
         assert isinstance(result, EventsData)
         return result.data
 
-    def _get_next_event(self, from_date: str | None = None) -> EventShort:
+    def _get_next_event(self, from_date: datetime.date | None = None) -> EventShort:
         try:
             return self._get_events(from_date)[0]
         except IndexError:
@@ -279,7 +282,9 @@ class ChurchTools:
         assert isinstance(result, AgendaExportData)
         return result.data
 
-    def get_service_leads(self, from_date: str | None = None) -> defaultdict[str, str]:
+    def get_service_leads(
+        self, from_date: datetime.date | None = None
+    ) -> defaultdict[str, str]:
         LOG.info('Fetching service teams')
         services = self._get_services()
         next_event = self._get_next_event(from_date)
@@ -300,15 +305,18 @@ class ChurchTools:
         )
         return service_leads
 
-    def get_url_for_songbeamer_agenda(self, from_date: str | None = None) -> str:
+    def get_url_for_songbeamer_agenda(
+        self, from_date: datetime.date | None = None
+    ) -> str:
         LOG.info('Fetching SongBeamer export URL')
         next_event = self._get_next_event(from_date)
-        date = next_event.startDate[0:10]
         try:
             agenda = self._get_event_agenda(next_event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
-                err_msg = f'No event agenda present for {date} in ChurchTools'
+                err_msg = (
+                    f'No event agenda present for {next_event.startDate} in ChurchTools'
+                )
                 LOG.error(err_msg)  # noqa: TRY400
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
@@ -392,6 +400,7 @@ def main() -> None:
     parser.add_argument(
         'from_date',
         metavar='FROM_DATE',
+        type=datetime.date.fromisoformat,
         nargs='?',
         help='search in ChurchTools for next event starting at FROM_DATE (YYYY-MM-DD)',
     )
