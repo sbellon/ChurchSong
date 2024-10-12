@@ -120,7 +120,7 @@ SchemaType = typing.ClassVar[type[marshmallow.Schema]]  # for pylance
 class Service:
     Schema: SchemaType  # for pylance
     id: int
-    name: str
+    name: str | None
 
 
 @deserialize
@@ -133,7 +133,7 @@ class ServicesData:
 class EventShort:
     Schema: SchemaType  # for pylance
     id: int
-    startDate: datetime.date  # noqa: N815
+    startDate: datetime.datetime  # noqa: N815
 
 
 @deserialize
@@ -146,7 +146,7 @@ class EventsData:
 class EventService:
     Schema: SchemaType  # for pylance
     serviceId: int  # noqa: N815
-    name: str
+    name: str | None
 
 
 @deserialize
@@ -295,8 +295,8 @@ class ChurchTools:
         service_leads.update(
             {
                 service.name: self._person_dict.get(
-                    eventservice.name,
-                    eventservice.name,
+                    str(eventservice.name),
+                    str(eventservice.name),
                 )
                 for eventservice in event.eventServices
                 for service in services
@@ -314,9 +314,8 @@ class ChurchTools:
             agenda = self._get_event_agenda(next_event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
-                err_msg = (
-                    f'No event agenda present for {next_event.startDate} in ChurchTools'
-                )
+                date = next_event.startDate.date()
+                err_msg = f'No event agenda present for {date} in ChurchTools'
                 LOG.error(err_msg)  # noqa: TRY400
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
