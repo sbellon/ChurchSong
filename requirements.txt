@@ -1,0 +1,4 @@
+marshmallow
+marshmallow_dataclass
+python-pptx
+requests
