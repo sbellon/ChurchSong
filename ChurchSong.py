@@ -96,7 +96,7 @@ class Configuration:
     @property
     def replacements(self) -> list[tuple[str, str]]:
         return [
-            (key, val.replace('\\n', '\n').replace('\\r', '\r'))
+            (key, val.replace('\\n', '\n').replace('\\r', '\r').replace('\\', '/'))
             for key, val in self._config.items(
                 'SongBeamer.Replacements',
                 vars=dict(os.environ),
