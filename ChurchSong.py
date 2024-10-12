@@ -14,24 +14,24 @@ from songbeamer import SongBeamer
 
 
 def main() -> None:
-    config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
-
-    config.log.debug('Parsing command line with args: %s', sys.argv)
-    parser = argparse.ArgumentParser(
-        prog='ChurchSong',
-        description='Download ChurchTools event agenda and import into SongBeamer.',
-    )
-    parser.add_argument(
-        'from_date',
-        metavar='FROM_DATE',
-        type=datetime.date.fromisoformat,
-        nargs='?',
-        help='search in ChurchTools for next event starting at FROM_DATE (YYYY-MM-DD)',
-    )
-    args = parser.parse_args()
-
-    config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
     try:
+        config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
+
+        config.log.debug('Parsing command line with args: %s', sys.argv)
+        parser = argparse.ArgumentParser(
+            prog='ChurchSong',
+            description='Download ChurchTools event agenda and import into SongBeamer.',
+        )
+        parser.add_argument(
+            'from_date',
+            metavar='FROM_DATE',
+            type=datetime.date.fromisoformat,
+            nargs='?',
+            help='search in ChurchTools for next event starting at FROM_DATE (YYYY-MM-DD)',
+        )
+        args = parser.parse_args()
+
+        config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
         ct = ChurchTools(config)
         service_leads = ct.get_service_leads(args.from_date)
 
