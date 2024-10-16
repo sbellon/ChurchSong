@@ -153,7 +153,8 @@ class ChurchTools:
 
     def _get_events(self, from_date: datetime.date | None = None) -> list[EventShort]:
         r = self._get(
-            '/api/events', params={'from': f'{from_date}'} if from_date else None
+            '/api/events',
+            params={'from': f'{from_date:%Y-%m-%d}'} if from_date else None,
         )
         result = EventsData.Schema().load(r.json())
         assert isinstance(result, EventsData)
@@ -164,7 +165,7 @@ class ChurchTools:
             return self._get_events(from_date)[0]
         except IndexError:
             err_msg = 'No events present{} in ChurchTools'.format(
-                f' after {from_date}' if from_date else ''
+                f' after {from_date:%Y-%m-%d}' if from_date else ''
             )
             self._log.error(err_msg)
             sys.stderr.write(f'{err_msg}\n')
@@ -229,7 +230,7 @@ class ChurchTools:
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
                 date = next_event.startDate.date()
-                err_msg = f'No event agenda present for {date} in ChurchTools'
+                err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
                 self._log.error(err_msg)
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
