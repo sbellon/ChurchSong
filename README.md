@@ -3,13 +3,13 @@
 ## Introduction
 
 Purpose of this tool is to download the event agenda from ChurchTool as well as the
-names of the children's church staff, preparing a PowerPoint slide with the names
+names of the service staff, preparing a PowerPoint slide with the names
 and portraits to be presented at the beginning of the event.
 
 ## Prerequisites
 
-A recent Python 3.x is required as well as some additional Python packages which
-can be installed via `py -3 -m pip install -r requirements.txt`.
+Python package manager [uv](https://docs.astral.sh/uv/) must be installed and
+accessible in PATH.
 
 ## Configuration
 
