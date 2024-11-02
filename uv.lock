@@ -46,7 +46,7 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-dev = [
+lint = [
     { name = "pyright" },
     { name = "ruff" },
 ]
@@ -60,7 +60,8 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [
+dev = []
+lint = [
     { name = "pyright", specifier = ">=1.1.387" },
     { name = "ruff", specifier = ">=0.7.2" },
 ]
