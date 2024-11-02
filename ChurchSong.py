@@ -27,7 +27,7 @@ def main() -> None:
             metavar='FROM_DATE',
             type=datetime.date.fromisoformat,
             nargs='?',
-            help='search in ChurchTools for next event starting at FROM_DATE (YYYY-MM-DD)',
+            help='search in ChurchTools for next event after FROM_DATE (YYYY-MM-DD)',
         )
         args = parser.parse_args()
 

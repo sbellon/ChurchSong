@@ -2,9 +2,7 @@
 name = "ChurchSong"
 version = "0.1.0"
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
-authors = [
-    { name = "Stefan Bellon" }
-]
+authors = [{ name = "Stefan Bellon" }]
 requires-python = ">=3.13"
 dependencies = [
     "marshmallow-dataclass>=8.7.1",
@@ -12,6 +10,13 @@ dependencies = [
     "python-pptx>=1.0.2",
     "requests>=2.32.3",
 ]
+[dependency-groups]
+dev = ["pyright>=1.1.387", "ruff>=0.7.2"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "basic"
 
 [tool.ruff]
 line-length = 88
