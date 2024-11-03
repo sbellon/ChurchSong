@@ -7,6 +7,8 @@ import datetime
 import pathlib
 import sys
 
+import toml
+
 from churchtools import ChurchTools
 from configuration import Configuration
 from powerpoint import PowerPoint
@@ -27,8 +29,15 @@ def main() -> None:
             metavar='FROM_DATE',
             type=datetime.date.fromisoformat,
             nargs='?',
-            help='search in ChurchTools for next event after FROM_DATE (YYYY-MM-DD)',
+            help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
+        parser.add_argument(
+            '-v',
+            '--version',
+            action='version',
+            version=toml.load('pyproject.toml')['project']['version'],
+        )
+
         args = parser.parse_args()
 
         config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
