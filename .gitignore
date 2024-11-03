@@ -5,9 +5,14 @@ build/
 dist/
 wheels/
 *.egg-info
+.ruff_cache/
 
 # Virtual environments
 .venv
+
+# Editors
+.vscode/
+.zed/
 
 # Project-specifc
 /ChurchSong.ini
