@@ -6,8 +6,7 @@ import argparse
 import datetime
 import pathlib
 import sys
-
-import toml
+import tomllib
 
 from churchtools import ChurchTools
 from configuration import Configuration
@@ -18,6 +17,9 @@ from songbeamer import SongBeamer
 def main() -> None:
     try:
         config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
+
+        with pathlib.Path('pyproject.toml').open('rb') as f:
+            __version__ = tomllib.load(f)['project']['version']
 
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
@@ -31,12 +33,7 @@ def main() -> None:
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
-        parser.add_argument(
-            '-v',
-            '--version',
-            action='version',
-            version=toml.load('pyproject.toml')['project']['version'],
-        )
+        parser.add_argument('-v', '--version', action='version', version=__version__)
 
         args = parser.parse_args()
 
