@@ -11,5 +11,7 @@ wheels/
 
 # Project-specifc
 /ChurchSong.ini
+/bin/uv.exe
+/bin/uvx.exe
 /Data/**
 /Logs/**

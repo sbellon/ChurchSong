@@ -8,8 +8,8 @@ and portraits to be presented at the beginning of the event.
 
 ## Prerequisites
 
-Python package manager [uv](https://docs.astral.sh/uv/) must be installed and
-accessible in PATH.
+Python package manager [uv](https://docs.astral.sh/uv/) must be placed in a
+subfolder `bin` or accessible via PATH.
 
 ## Configuration
 
