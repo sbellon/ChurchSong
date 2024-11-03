@@ -14,12 +14,18 @@ from powerpoint import PowerPoint
 from songbeamer import SongBeamer
 
 
+def get_app_version() -> str:
+    try:
+        with pathlib.Path('pyproject.toml').open('rb') as f:
+            return tomllib.load(f)['project']['version']
+    except FileNotFoundError:
+        pass
+    return 'unknown'
+
+
 def main() -> None:
     try:
         config = Configuration(pathlib.Path(__file__).with_suffix('.ini'))
-
-        with pathlib.Path('pyproject.toml').open('rb') as f:
-            __version__ = tomllib.load(f)['project']['version']
 
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
@@ -33,7 +39,9 @@ def main() -> None:
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
-        parser.add_argument('-v', '--version', action='version', version=__version__)
+        parser.add_argument(
+            '-v', '--version', action='version', version=get_app_version()
+        )
 
         args = parser.parse_args()
 
