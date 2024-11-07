@@ -33,8 +33,8 @@ def main() -> None:
             description='Download ChurchTools event agenda and import into SongBeamer.',
         )
         subparsers = parser.add_subparsers(
-            dest='subcommand',
-            help='possible subcommands, use --help to get detailed help',
+            dest='command',
+            help='possible commands, use --help to get detailed help',
         )
         parser_agenda = subparsers.add_parser('agenda', help='create SongBeamer agenda')
         parser_agenda.add_argument(
@@ -47,9 +47,13 @@ def main() -> None:
         parser_songs = subparsers.add_parser(
             'songs', help='operate on the ChurchTools songs'
         )
-        parser_songs.add_argument(
-            '--verify',
-            action='store_true',
+        parser_songs_verify = parser_songs.add_subparsers(
+            dest='subcommand',
+            help='commands to execute on the ChurchTools song database',
+            required=True,
+        )
+        parser_songs_verify.add_parser(
+            'verify',
             help='check all songs for inconsistent and incomplete data and then exit',
         )
         parser.add_argument(
@@ -58,16 +62,20 @@ def main() -> None:
         args = parser.parse_args()
 
         ct = ChurchTools(config)
-        match args.subcommand:
+        match args.command:
             case 'songs':
-                if args.verify:
-                    config.log.info('Starting song verification')
-                    ct.verify_songs()
-                else:
-                    parser_songs.print_help()
+                match args.subcommand:
+                    case 'verify':
+                        config.log.info('Starting song verification')
+                        try:
+                            ct.verify_songs()
+                        except KeyboardInterrupt:
+                            sys.stdout.write('Aborted.\n')
+                    case _:
+                        parser_songs.print_help()
 
             case 'agenda' | None:
-                if args.subcommand is None:
+                if args.command is None:
                     args.from_date = None
 
                 config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
@@ -84,6 +92,9 @@ def main() -> None:
                 sb = SongBeamer(config)
                 sb.modify_and_save_agenda()
                 sb.launch()
+
+            case _:
+                parser.print_help()
 
     except Exception as e:
         config.log.fatal(e, exc_info=True)
