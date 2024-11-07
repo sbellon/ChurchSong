@@ -32,34 +32,59 @@ def main() -> None:
             prog='ChurchSong',
             description='Download ChurchTools event agenda and import into SongBeamer.',
         )
-        parser.add_argument(
+        subparsers = parser.add_subparsers(
+            dest='subcommand',
+            help='possible subcommands, use --help to get detailed help',
+        )
+        parser_agenda = subparsers.add_parser('agenda', help='create SongBeamer agenda')
+        parser_agenda.add_argument(
             'from_date',
             metavar='FROM_DATE',
             type=datetime.date.fromisoformat,
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
+        parser_songs = subparsers.add_parser(
+            'songs', help='operate on the ChurchTools songs'
+        )
+        parser_songs.add_argument(
+            '--verify',
+            action='store_true',
+            help='check all songs for inconsistent and incomplete data and then exit',
+        )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version()
         )
-
         args = parser.parse_args()
 
-        config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
         ct = ChurchTools(config)
-        service_leads = ct.get_service_leads(args.from_date)
+        match args.subcommand:
+            case 'songs':
+                if args.verify:
+                    config.log.info('Starting song verification')
+                    ct.verify_songs()
+                else:
+                    parser_songs.print_help()
 
-        pp = PowerPoint(config)
-        pp.create(service_leads)
-        pp.save()
+            case 'agenda' | None:
+                if args.subcommand is None:
+                    args.from_date = None
 
-        ct.download_and_extract_agenda_zip(
-            ct.get_url_for_songbeamer_agenda(args.from_date),
-        )
+                config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
+                service_leads = ct.get_service_leads(args.from_date)
 
-        sb = SongBeamer(config)
-        sb.modify_and_save_agenda()
-        sb.launch()
+                pp = PowerPoint(config)
+                pp.create(service_leads)
+                pp.save()
+
+                ct.download_and_extract_agenda_zip(
+                    ct.get_url_for_songbeamer_agenda(args.from_date),
+                )
+
+                sb = SongBeamer(config)
+                sb.modify_and_save_agenda()
+                sb.launch()
+
     except Exception as e:
         config.log.fatal(e, exc_info=True)
         raise
