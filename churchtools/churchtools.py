@@ -319,6 +319,7 @@ class ChurchTools:
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
 
     def _check_sng_file(self, url: str) -> bool:
+        self._log.debug('Request GET %s', url)
         r = requests.get(
             url,
             headers=self._headers(),
@@ -329,6 +330,8 @@ class ChurchTools:
         )
 
     def verify_songs(self) -> None:
+        self._log.info('Verifying ChurchTools song database')
+
         def to_str(b: bool) -> str:  # noqa: FBT001
             return 'missing' if b else ''
 
