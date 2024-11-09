@@ -427,6 +427,7 @@ class ChurchTools:
         table.field_names = [
             'Song',
             'CCLI',
+            'Tags',
             'Arrangement',
             'Source',
             'Duration',
@@ -445,12 +446,14 @@ class ChurchTools:
                     continue
                 song_name = song.name if song.name else f'#{song.id}'
                 no_ccli = song.author is None or song.ccli is None
+                no_tags = not song.tags
                 no_arrangement = not song.arrangements
                 if no_arrangement:
                     table.add_row(
                         [
                             song_name,
                             to_str(no_ccli),
+                            to_str(no_tags),
                             to_str(no_arrangement),
                             '',
                             '',
@@ -480,6 +483,7 @@ class ChurchTools:
                             [
                                 song_name,
                                 to_str(no_ccli),
+                                to_str(no_tags),
                                 arrangement_name,
                                 to_str(no_source),
                                 to_str(no_duration),
