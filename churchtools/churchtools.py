@@ -137,6 +137,9 @@ class Song:
     author: str | None
     ccli: str | None
     arrangements: list[Arrangement]
+    tags: set[str] = dataclasses.field(
+        default_factory=set, metadata={'required': False}
+    )
 
 
 @deserialize
@@ -162,6 +165,38 @@ class SongsData:
     Schema: SchemaType  # for pylance
     data: list[Song]
     meta: SongsMeta
+
+
+@deserialize
+class Tag:
+    Schema: SchemaType  # for pylance
+    id: int
+    name: str
+
+
+@deserialize
+class TagsData:
+    Schema: SchemaType  # for pylance
+    data: list[Tag]
+
+
+@deserialize
+class AJAXSong:
+    Schema: SchemaType  # for pylance
+    id: str
+    tags: list[int]
+
+
+@deserialize
+class AJAXSongs:
+    Schema: SchemaType  # for pylance
+    songs: dict[str, AJAXSong]
+
+
+@deserialize
+class AJAXSongsData:
+    Schema: SchemaType  # for pylance
+    data: AJAXSongs
 
 
 class ChurchTools:
@@ -212,7 +247,28 @@ class ChurchTools:
     ) -> requests.Response:
         return self._request('POST', url, params)
 
+    def _get_tags(self, tag_type: str) -> typing.Generator[Tag]:
+        assert tag_type in {'persons', 'songs'}
+        r = self._get('/api/tags', params={'type': tag_type})
+        result = TagsData.Schema().load(r.json())
+        assert isinstance(result, TagsData)
+        yield from result.data
+
     def _get_songs(self) -> tuple[int, typing.Generator[Song]]:
+        # Fetch mapping from tag_id to tag_name for song tags.
+        tags = {tag.id: tag.name for tag in self._get_tags('songs')}
+
+        # NOTE: Using the old AJAX API here because the new one does not contain tags.
+        # If at some point the new API also contains the tags, this part is obsolete.
+        r = self._post('/?q=churchservice/ajax&func=getAllSongs')
+        result = AJAXSongsData.Schema().load(r.json())
+        assert isinstance(result, AJAXSongsData)
+        song_tags = {
+            int(song.id): {tags[tag_id] for tag_id in song.tags}
+            for song in result.data.songs.values()
+        }
+
+        # Use the new API to actually fetch the other information.
         r = self._get('/api/songs', params={'page': '1', 'limit': '1'})
         result = SongsData.Schema().load(r.json())
         assert isinstance(result, SongsData)
@@ -226,7 +282,9 @@ class ChurchTools:
                 assert isinstance(tmp, SongsData)
                 current_page = tmp.meta.pagination.current
                 last_page = tmp.meta.pagination.last_page
-                yield from tmp.data
+                for song in tmp.data:
+                    song.tags = song_tags[song.id]
+                    yield song
 
         return result.meta.pagination.total, inner_generator()
 
@@ -357,7 +415,7 @@ class ChurchTools:
             line.startswith(b'#BackgroundImage=') for line in r.content.splitlines()
         )
 
-    def verify_songs(self) -> None:
+    def verify_songs(self, skip_tags: list[str]) -> None:
         self._log.info('Verifying ChurchTools song database')
         self._assert_permission('churchservice', 'view songcategory')
 
@@ -380,6 +438,9 @@ class ChurchTools:
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:
             for song in sorted(songs, key=lambda e: e.name):
+                if any(tag in song.tags for tag in skip_tags):
+                    bar()
+                    continue
                 song_name = song.name if song.name else f'#{song.id}'
                 no_ccli = song.author is None or song.ccli is None
                 no_arrangement = not song.arrangements

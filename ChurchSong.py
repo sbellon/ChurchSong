@@ -47,14 +47,21 @@ def main() -> None:
         parser_songs = subparsers.add_parser(
             'songs', help='operate on the ChurchTools songs'
         )
-        parser_songs_verify = parser_songs.add_subparsers(
+        subparser_songs = parser_songs.add_subparsers(
             dest='subcommand',
             help='commands to execute on the ChurchTools song database',
             required=True,
         )
-        parser_songs_verify.add_parser(
+        parser_songs_verify = subparser_songs.add_parser(
             'verify',
             help='check all songs for inconsistent and incomplete data and then exit',
+        )
+        parser_songs_verify.add_argument(
+            '--skip_tags',
+            metavar='TAGS',
+            action='extend',
+            nargs='+',
+            help='list of song tags that should be skipped',
         )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version()
@@ -68,7 +75,7 @@ def main() -> None:
                     case 'verify':
                         config.log.info('Starting song verification')
                         try:
-                            ct.verify_songs()
+                            ct.verify_songs(args.skip_tags or [])
                         except KeyboardInterrupt:
                             sys.stdout.write('Aborted.\n')
                     case _:
