@@ -425,4 +425,4 @@ class ChurchTools:
                             ]
                         )
                 bar()
-        sys.stdout.write(table.get_string())
+        sys.stdout.write(f'{table.get_string()}\n')
