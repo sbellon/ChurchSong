@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 from configuration import Configuration
 
@@ -22,8 +23,14 @@ class SongBeamer:
 
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')
-        subprocess.run(
-            [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
-            check=True,
-            cwd=self._temp_dir,
-        )
+        if sys.platform == 'win32':
+            subprocess.run(
+                [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
+                check=True,
+                cwd=self._temp_dir,
+            )
+        else:
+            sys.stderr.write(
+                f'Error: Starting SongBeamer not supported on {sys.platform}\n'
+            )
+            sys.exit(1)
