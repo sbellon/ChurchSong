@@ -85,9 +85,7 @@ def main() -> None:
                 pp.create(service_leads)
                 pp.save()
 
-                ct.download_and_extract_agenda_zip(
-                    ct.get_url_for_songbeamer_agenda(args.from_date),
-                )
+                ct.download_and_extract_agenda_zip(args.from_date)
 
                 sb = SongBeamer(config)
                 sb.modify_and_save_agenda()

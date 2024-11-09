@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import datetime  # noqa: TCH003
 import io
 import sys
@@ -46,7 +47,9 @@ class ServicesData:
 class EventShort:
     Schema: SchemaType  # for pylance
     id: int
-    startDate: datetime.datetime  # noqa: N815
+    start_date: datetime.datetime = dataclasses.field(
+        metadata={'data_key': 'startDate'}
+    )
 
 
 @deserialize
@@ -58,15 +61,17 @@ class EventsData:
 @deserialize
 class EventService:
     Schema: SchemaType  # for pylance
-    serviceId: int  # noqa: N815
     name: str | None
+    service_id: int = dataclasses.field(metadata={'data_key': 'serviceId'})
 
 
 @deserialize
 class EventFull:
     Schema: SchemaType  # for pylance
     id: int
-    eventServices: list[EventService]  # noqa: N815
+    event_services: list[EventService] = dataclasses.field(
+        metadata={'data_key': 'eventServices'}
+    )
 
 
 @deserialize
@@ -103,7 +108,7 @@ class AgendaExportData:
 class File:
     Schema: SchemaType  # for pylance
     name: str
-    fileUrl: str  # noqa: N815
+    file_url: str = dataclasses.field(metadata={'data_key': 'fileUrl'})
 
 
 @deserialize
@@ -111,13 +116,17 @@ class Arrangement:
     Schema: SchemaType  # for pylance
     id: int
     name: str
-    sourceName: str | None  # noqa: N815
-    sourceReference: str | None  # noqa: N815
-    keyOfArrangement: str | None  # noqa: N815
     bpm: str | None
     beat: str | None
     duration: int
     files: list[File]
+    source_name: str | None = dataclasses.field(metadata={'data_key': 'sourceName'})
+    source_reference: str | None = dataclasses.field(
+        metadata={'data_key': 'sourceReference'}
+    )
+    key_of_arrangement: str | None = dataclasses.field(
+        metadata={'data_key': 'keyOfArrangement'}
+    )
 
 
 @deserialize
@@ -136,7 +145,9 @@ class Pagination:
     total: int
     limit: int
     current: int
-    lastPage: int  # noqa: N815
+    last_page: int = dataclasses.field(
+        default_factory=int, metadata={'data_key': 'lastPage'}
+    )
 
 
 @deserialize
@@ -214,7 +225,7 @@ class ChurchTools:
                 tmp = SongsData.Schema().load(r.json())
                 assert isinstance(tmp, SongsData)
                 current_page = tmp.meta.pagination.current
-                last_page = tmp.meta.pagination.lastPage
+                last_page = tmp.meta.pagination.last_page
                 yield from tmp.data
 
         return result.meta.pagination.total, inner_generator()
@@ -273,6 +284,19 @@ class ChurchTools:
         assert isinstance(result, AgendaExportData)
         return result.data
 
+    def _assert_permission(self, perm_group: str, perm_name: str) -> None:
+        r = self._get('/api/permissions/global')
+        data = r.json()['data']
+        if not (
+            (group := data.get(perm_group, False))
+            and (perm := group.get(perm_name, False))
+            and perm
+        ):
+            err_msg = f'Missing permission "{perm_group}:{perm_name}"'
+            self._log.error(f'{err_msg}')
+            sys.stderr.write(f'Error: {err_msg}\n')
+            sys.exit(1)
+
     def get_service_leads(
         self, from_date: datetime.date | None = None
     ) -> defaultdict[str, str]:
@@ -288,14 +312,14 @@ class ChurchTools:
                     str(eventservice.name),
                     str(eventservice.name),
                 )
-                for eventservice in event.eventServices
+                for eventservice in event.event_services
                 for service in self._get_services()
-                if eventservice.serviceId == service.id
+                if eventservice.service_id == service.id
             },
         )
         return service_leads
 
-    def get_url_for_songbeamer_agenda(
+    def _get_url_for_songbeamer_agenda(
         self, from_date: datetime.date | None = None
     ) -> str:
         self._log.info('Fetching SongBeamer export URL')
@@ -304,7 +328,7 @@ class ChurchTools:
             agenda = self._get_event_agenda(next_event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
-                date = next_event.startDate.date()
+                date = next_event.start_date.date()
                 err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
                 self._log.error(err_msg)
                 sys.stderr.write(f'{err_msg}\n')
@@ -312,8 +336,12 @@ class ChurchTools:
             raise
         return self._get_agenda_export(agenda.id).url
 
-    def download_and_extract_agenda_zip(self, url: str) -> None:
+    def download_and_extract_agenda_zip(
+        self, from_date: datetime.date | None = None
+    ) -> None:
         self._log.info('Downloading and extracting SongBeamer export')
+        self._assert_permission('churchservice', 'view agenda')
+        url = self._get_url_for_songbeamer_agenda(from_date)
         r = self._get(url)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
@@ -331,6 +359,7 @@ class ChurchTools:
 
     def verify_songs(self) -> None:
         self._log.info('Verifying ChurchTools song database')
+        self._assert_permission('churchservice', 'view songcategory')
 
         def to_str(b: bool) -> str:  # noqa: FBT001
             return 'missing' if b else ''
@@ -371,8 +400,8 @@ class ChurchTools:
                         arrangement.name if arrangement.name else f'#{arrangement.id}'
                     )
                     no_source = (
-                        arrangement.sourceName is None
-                        or arrangement.sourceReference is None
+                        arrangement.source_name is None
+                        or arrangement.source_reference is None
                     )
                     no_duration = arrangement.duration == 0
                     no_sng_file = True
@@ -381,7 +410,7 @@ class ChurchTools:
                         if file.name.endswith('.sng'):
                             no_sng_file = False
                             no_bgimage = no_bgimage and not self._check_sng_file(
-                                file.fileUrl
+                                file.file_url
                             )
                     if no_ccli or no_source or no_duration or no_sng_file or no_bgimage:
                         table.add_row(
