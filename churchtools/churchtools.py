@@ -415,7 +415,7 @@ class ChurchTools:
             line.startswith(b'#BackgroundImage=') for line in r.content.splitlines()
         )
 
-    def verify_songs(self, skip_tags: list[str]) -> None:
+    def verify_songs(self, include_tags: list[str], exclude_tags: list[str]) -> None:
         self._log.info('Verifying ChurchTools song database')
         self._assert_permission('churchservice', 'view songcategory')
 
@@ -438,7 +438,9 @@ class ChurchTools:
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:
             for song in sorted(songs, key=lambda e: e.name):
-                if any(tag in song.tags for tag in skip_tags):
+                if (
+                    include_tags and not any(tag in song.tags for tag in include_tags)
+                ) or (exclude_tags and any(tag in song.tags for tag in exclude_tags)):
                     bar()
                     continue
                 song_name = song.name if song.name else f'#{song.id}'

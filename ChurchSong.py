@@ -57,11 +57,18 @@ def main() -> None:
             help='check all songs for inconsistent and incomplete data and then exit',
         )
         parser_songs_verify.add_argument(
-            '--skip_tags',
+            '--exclude_tags',
             metavar='TAGS',
             action='extend',
             nargs='+',
-            help='list of song tags that should be skipped',
+            help='list of song tags that should be excluded from verification',
+        )
+        parser_songs_verify.add_argument(
+            '--include_tags',
+            metavar='TAGS',
+            action='extend',
+            nargs='+',
+            help='list of song tags that should be included in verification',
         )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version()
@@ -75,7 +82,7 @@ def main() -> None:
                     case 'verify':
                         config.log.info('Starting song verification')
                         try:
-                            ct.verify_songs(args.skip_tags or [])
+                            ct.verify_songs(args.include_tags, args.exclude_tags)
                         except KeyboardInterrupt:
                             sys.stdout.write('Aborted.\n')
                     case _:
