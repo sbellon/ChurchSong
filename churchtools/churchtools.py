@@ -423,8 +423,8 @@ class ChurchTools:
             return 'missing' if b else ''
 
         table = prettytable.PrettyTable()
-        table.align = 'l'
         table.field_names = [
+            'Id',
             'Song',
             'CCLI',
             'Tags',
@@ -434,6 +434,9 @@ class ChurchTools:
             '.sng',
             'BGImage',
         ]
+        table.align['Id'] = 'r'
+        for field_id in table.field_names[1:]:
+            table.align[field_id] = 'l'
         number_songs, songs = self._get_songs()
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
@@ -444,6 +447,7 @@ class ChurchTools:
                 ) or (exclude_tags and any(tag in song.tags for tag in exclude_tags)):
                     bar()
                     continue
+                song_id = f'#{song.id}'
                 song_name = song.name if song.name else f'#{song.id}'
                 no_ccli = song.author is None or song.ccli is None
                 no_tags = not song.tags
@@ -451,6 +455,7 @@ class ChurchTools:
                 if no_arrangement:
                     table.add_row(
                         [
+                            song_id,
                             song_name,
                             to_str(no_ccli),
                             to_str(no_tags),
@@ -481,6 +486,7 @@ class ChurchTools:
                     if no_ccli or no_source or no_duration or no_sng_file or no_bgimage:
                         table.add_row(
                             [
+                                song_id,
                                 song_name,
                                 to_str(no_ccli),
                                 to_str(no_tags),
