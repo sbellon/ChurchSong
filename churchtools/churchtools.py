@@ -470,9 +470,10 @@ class ChurchTools:
                     arrangement_name = (
                         arrangement.name if arrangement.name else f'#{arrangement.id}'
                     )
-                    no_source = (
-                        arrangement.source_name is None
-                        or arrangement.source_reference is None
+                    source = (
+                        f'{arrangement.source_name} {arrangement.source_reference}'
+                        if arrangement.source_name and arrangement.source_reference
+                        else None
                     )
                     no_duration = arrangement.duration == 0
                     no_sng_file = True
@@ -480,18 +481,22 @@ class ChurchTools:
                     for file in arrangement.files:
                         if file.name.endswith('.sng'):
                             no_sng_file = False
-                            no_bgimage = no_bgimage and not self._check_sng_file(
-                                file.file_url
-                            )
-                    if no_ccli or no_source or no_duration or no_sng_file or no_bgimage:
+                            no_bgimage &= not self._check_sng_file(file.file_url)
+                    if (
+                        no_ccli
+                        or (not source or source not in song.tags)
+                        or no_duration
+                        or no_sng_file
+                        or no_bgimage
+                    ):
                         table.add_row(
                             [
                                 song_id,
                                 song_name,
                                 to_str(no_ccli),
-                                to_str(no_tags),
+                                f'missing "{source}"' if source else to_str(no_tags),
                                 arrangement_name,
-                                to_str(no_source),
+                                to_str(source is None),
                                 to_str(no_duration),
                                 to_str(no_sng_file),
                                 to_str(no_bgimage),
