@@ -25,22 +25,28 @@ class PowerPoint:
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
             service_name = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
-            person_name = sorted(service_leads[service_name]).pop()
+            person_names = sorted(service_leads[service_name])
+            persons_full_name = ' + '.join(person_names)
+            persons_first_name = ' + '.join(name.split(' ')[0] for name in person_names)
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
                 self._log.debug(
-                    'Replacing image placeholder %s with %s', service_name, person_name
+                    'Replacing image placeholder %s with %s',
+                    service_name,
+                    persons_full_name,
                 )
                 ph.insert_picture(
-                    os.fspath(self._portraits_dir / f'{person_name}.jpeg')
+                    os.fspath(self._portraits_dir / f'{persons_full_name}.jpeg')
                 )
             elif (
                 isinstance(ph, pptx.shapes.placeholder.SlidePlaceholder)
                 and ph.has_text_frame
             ):
                 self._log.debug(
-                    'Replacing text placeholder %s with %s', service_name, person_name
+                    'Replacing text placeholder %s with %s',
+                    service_name,
+                    persons_first_name,
                 )
-                ph.text_frame.paragraphs[0].text = person_name.split(' ')[0]
+                ph.text_frame.paragraphs[0].text = persons_first_name
 
     def save(self) -> None:
         self._prs.save(os.fspath(self._temp_dir / self._template_pptx.name))
