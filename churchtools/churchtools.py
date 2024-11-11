@@ -362,11 +362,18 @@ class ChurchTools:
         next_event = self._get_next_event(from_date)
         event = self._get_event(next_event.id)
         service_id2name = {service.id: service.name for service in self._get_services()}
-        service_leads = defaultdict(set)
+        service_leads = defaultdict(
+            lambda: {self._person_dict.get(str(None), str(None))}
+        )
         for eventservice in event.event_services:
-            service_leads[service_id2name[eventservice.service_id]].add(
-                self._person_dict.get(str(eventservice.name), str(eventservice.name))
+            service_name = service_id2name[eventservice.service_id]
+            person_name = self._person_dict.get(
+                str(eventservice.name), str(eventservice.name)
             )
+            if service_name not in service_leads:
+                service_leads[service_name] = {person_name}
+            else:
+                service_leads[service_name].add(person_name)
         return service_leads
 
     def _get_url_for_songbeamer_agenda(
