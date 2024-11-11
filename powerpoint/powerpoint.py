@@ -19,13 +19,13 @@ class PowerPoint:
         self._template_pptx = config.template_pptx
         self._prs = pptx.Presentation(os.fspath(self._template_pptx))
 
-    def create(self, service_leads: dict[str, str]) -> None:
+    def create(self, service_leads: dict[str, set[str]]) -> None:
         self._log.info('Creating PowerPoint slide')
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
             service_name = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
-            person_name = service_leads[service_name]
+            person_name = sorted(service_leads[service_name]).pop()
             if isinstance(ph, pptx.shapes.placeholder.PicturePlaceholder):
                 self._log.debug(
                     'Replacing image placeholder %s with %s', service_name, person_name

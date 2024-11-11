@@ -102,7 +102,7 @@ def main() -> None:
                 ct.download_and_extract_agenda_zip(args.from_date)
 
                 sb = SongBeamer(config)
-                sb.modify_and_save_agenda()
+                sb.modify_and_save_agenda(service_leads)
                 sb.launch()
 
             case _:

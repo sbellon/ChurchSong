@@ -357,24 +357,16 @@ class ChurchTools:
 
     def get_service_leads(
         self, from_date: datetime.date | None = None
-    ) -> defaultdict[str, str]:
+    ) -> defaultdict[str, set[str]]:
         self._log.info('Fetching service teams')
         next_event = self._get_next_event(from_date)
         event = self._get_event(next_event.id)
-        # Initialize the "None" person for all services.
-        service_leads = defaultdict(lambda: self._person_dict.get(str(None), str(None)))
-        # Update with the actual persons of the eventservice.
-        service_leads.update(
-            {
-                service.name: self._person_dict.get(
-                    str(eventservice.name),
-                    str(eventservice.name),
-                )
-                for eventservice in event.event_services
-                for service in self._get_services()
-                if eventservice.service_id == service.id
-            },
-        )
+        service_id2name = {service.id: service.name for service in self._get_services()}
+        service_leads = defaultdict(set)
+        for eventservice in event.event_services:
+            service_leads[service_id2name[eventservice.service_id]].add(
+                self._person_dict.get(str(eventservice.name), str(eventservice.name))
+            )
         return service_leads
 
     def _get_url_for_songbeamer_agenda(
