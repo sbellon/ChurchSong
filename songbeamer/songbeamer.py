@@ -199,23 +199,18 @@ class SongBeamer:
             + AgendaItem.parse(self._closing_slides)
         ):
             agenda += item
-            for insert_slide in self._insert_slides:
-                keywords = insert_slide['keywords']
-                insert_content = insert_slide['content']
-                assert isinstance(insert_content, str)
-                if any(keyword in item.caption for keyword in keywords):
-                    agenda += AgendaItem.parse(insert_content)
+            for slide in self._insert_slides:
+                if any(keyword in item.caption for keyword in slide.keywords):
+                    agenda += AgendaItem.parse(slide.content)
         for service, persons in sorted(service_leads.items()):
             agenda += AgendaItem(
                 caption=f"'{service}: {", ".join(sorted(persons))}'",
-                color=self._color_service.get('color', 'clBlack'),
-                bgcolor=self._color_service.get('bgcolor', 'clAqua'),
+                color=self._color_service.color,
+                bgcolor=self._color_service.bgcolor,
             )
         for replacement in self._color_replacements:
             agenda.change_color(
-                replacement.get('match_color', 'NOCOLOR'),
-                replacement.get('color', 'clBlack'),
-                replacement.get('bgcolor', 'clYellow'),
+                replacement.match_color, replacement.color, replacement.bgcolor
             )
 
         with self._schedule_filepath.open(mode='w', encoding='utf-8') as fd:

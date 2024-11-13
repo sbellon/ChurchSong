@@ -24,10 +24,8 @@ def get_app_version() -> str:
 
 
 def main() -> None:
+    config = Configuration(pathlib.Path(__file__).with_suffix('.toml'))
     try:
-        config = Configuration(pathlib.Path(__file__).with_suffix('.toml'))
-        config.validate()
-
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
             prog='ChurchSong',

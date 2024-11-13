@@ -7,6 +7,93 @@ import pathlib
 import re
 import sys
 import tomllib
+import typing
+
+import pydantic
+
+
+def recursive_expand_vars(data: typing.Any) -> typing.Any:  # noqa: ANN401
+    if isinstance(data, str):
+        return re.sub(
+            r'\${([^${]+)}',
+            lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
+            data,
+        )
+    if isinstance(data, dict):
+        return {k: recursive_expand_vars(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [recursive_expand_vars(item) for item in data]
+    return data
+
+
+class TomlConfig(pydantic.BaseModel):
+    General: GeneralConfig
+    ChurchTools: ChurchToolsConfig
+    SongBeamer: SongBeamerConfig
+
+    @pydantic.root_validator(pre=True)
+    def apply_recursive_string_processing(
+        cls, values: dict[str, typing.Any]
+    ) -> dict[str, typing.Any]:
+        return recursive_expand_vars(values)
+
+
+class GeneralConfig(pydantic.BaseModel):
+    log_level: str
+    log_file: str
+
+
+class ChurchToolsConfig(pydantic.BaseModel):
+    Settings: ChurchToolsSettingsConfig
+    Replacements: dict[str, str]
+
+
+class ChurchToolsSettingsConfig(pydantic.BaseModel):
+    base_url: str
+    login_token: str
+
+
+class SongBeamerConfig(pydantic.BaseModel):
+    Settings: SongBeamerSettingsConfig
+    Slides: SongBeamerSlidesConfig
+    Color: SongBeamerColorConfig
+
+
+class SongBeamerSettingsConfig(pydantic.BaseModel):
+    template_pptx: str
+    portraits_dir: str
+    temp_dir: str
+
+
+class SongBeamerSlidesConfig(pydantic.BaseModel):
+    Opening: SongBeamerSlidesStaticConfig
+    Closing: SongBeamerSlidesStaticConfig
+    Insert: list[SongBeamerSlidesDynamicConfig]
+
+
+class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
+    content: str
+
+
+class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
+    keywords: list[str]
+    content: str
+
+
+class SongBeamerColorConfig(pydantic.BaseModel):
+    Service: SongBeamerColorServiceConfig
+    Replacements: list[SongBeamerColorReplacementsConfig]
+
+
+class SongBeamerColorServiceConfig(pydantic.BaseModel):
+    color: str
+    bgcolor: str
+
+
+class SongBeamerColorReplacementsConfig(pydantic.BaseModel):
+    match_color: str
+    color: str
+    bgcolor: str
 
 
 class Configuration:
@@ -23,8 +110,12 @@ class Configuration:
         self._log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
-        with config_file.open('rb') as fd:
-            self._config = tomllib.load(fd)
+        try:
+            with config_file.open('rb') as fd:
+                self._config = TomlConfig(**tomllib.load(fd))
+        except Exception as e:
+            self._log.fatal(e, exc_info=True)
+            raise
 
         # Switch to configured logging.
         self._log.setLevel(self.log_level)
@@ -35,156 +126,62 @@ class Configuration:
         self._log.addHandler(log_to_file)
         self._log.removeHandler(log_to_stderr)
 
-    def validate(self) -> None:
-        schema_error = False
-        match self._config:
-            case {
-                'General': {'log_level': str(), 'log_file': str()},
-                'ChurchTools': {
-                    'Settings': {'base_url': str(), 'login_token': str()},
-                    'Replacements': {**name_replace_map},
-                },
-                'SongBeamer': {
-                    'Settings': {
-                        'template_pptx': str(),
-                        'portraits_dir': str(),
-                        'temp_dir': str(),
-                    },
-                    'Slides': {
-                        'Opening': {'content': str()},
-                        'Closing': {'content': str()},
-                        'Insert': [*insert_slide_items],
-                    },
-                    'Color': {
-                        'Service': {'color': str(), 'bgcolor': str()},
-                        'Replacements': [*color_replace_items],
-                    },
-                },
-            }:
-                for key, val in name_replace_map.items():
-                    match key, val:
-                        case str(), str():
-                            pass
-                        case _:
-                            schema_error |= True
-                for item in insert_slide_items:
-                    match item:
-                        case {'keywords': [*_], 'content': str()}:
-                            pass
-                        case _:
-                            schema_error |= True
-                for item in color_replace_items:
-                    match item:
-                        case {'match_color': str(), 'color': str(), 'bgcolor': str()}:
-                            pass
-                        case _:
-                            schema_error |= True
-            case _:
-                schema_error |= True
-        if schema_error:
-            raise ValueError(f'invalid configuration: {self._config}')  # noqa: TRY003 EM102
-
-    def _expand_vars(self, text: str) -> str:
-        return re.sub(
-            r'\${([^${]+)}',
-            lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
-            text,
-        )
-
-    def _lookup_str(self, *key_path: str) -> str:
-        data = self._config
-        for key in key_path:
-            data = data[key]
-        assert isinstance(data, str)
-        return self._expand_vars(data)
-
-    def _lookup_dict(self, *key_path: str) -> dict[str, str]:
-        data = self._config
-        for key in key_path:
-            data = data[key]
-        assert isinstance(data, dict)
-        return {key: self._expand_vars(val) for key, val in data.items()}
-
-    def _lookup_list(self, *key_path: str) -> list[dict[str, str]]:
-        data = self._config
-        for key in key_path:
-            data = data[key]
-        assert isinstance(data, list)
-        return [
-            {key: self._expand_vars(val) for key, val in elem.items()} for elem in data
-        ]
-
-    def _lookup_list_list(self, *key_path: str) -> list[dict[str, str | list[str]]]:
-        data = self._config
-        for key in key_path:
-            data = data[key]
-        assert isinstance(data, list)
-        return [
-            {
-                key: [self._expand_vars(item) for item in val]
-                if isinstance(val, list)
-                else self._expand_vars(val)
-                for key, val in elem.items()
-            }
-            for elem in data
-        ]
-
     @property
     def log(self) -> logging.Logger:
         return self._log
 
     @property
     def log_level(self) -> str:
-        return self._lookup_str('General', 'log_level')
+        return self._config.General.log_level
 
     @property
     def log_file(self) -> pathlib.Path:
-        filename = pathlib.Path(self._lookup_str('General', 'log_file'))
+        filename = pathlib.Path(self._config.General.log_file)
         filename.parent.mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def base_url(self) -> str:
-        return self._lookup_str('ChurchTools', 'Settings', 'base_url')
+        return self._config.ChurchTools.Settings.base_url
 
     @property
     def login_token(self) -> str:
-        return self._lookup_str('ChurchTools', 'Settings', 'login_token')
+        return self._config.ChurchTools.Settings.login_token
 
     @property
     def person_dict(self) -> dict[str, str]:
-        return self._lookup_dict('ChurchTools', 'Replacements')
+        return self._config.ChurchTools.Replacements
 
     @property
     def template_pptx(self) -> pathlib.Path:
-        return pathlib.Path(self._lookup_str('SongBeamer', 'Settings', 'template_pptx'))
+        return pathlib.Path(self._config.SongBeamer.Settings.template_pptx)
 
     @property
     def portraits_dir(self) -> pathlib.Path:
-        return pathlib.Path(self._lookup_str('SongBeamer', 'Settings', 'portraits_dir'))
+        return pathlib.Path(self._config.SongBeamer.Settings.portraits_dir)
 
     @property
     def temp_dir(self) -> pathlib.Path:
-        directory = pathlib.Path(self._lookup_str('SongBeamer', 'Settings', 'temp_dir'))
+        directory = pathlib.Path(self._config.SongBeamer.Settings.temp_dir)
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
     @property
     def opening_slides(self) -> str:
-        return self._lookup_str('SongBeamer', 'Slides', 'Opening', 'content')
+        return self._config.SongBeamer.Slides.Opening.content
 
     @property
     def closing_slides(self) -> str:
-        return self._lookup_str('SongBeamer', 'Slides', 'Closing', 'content')
+        return self._config.SongBeamer.Slides.Closing.content
 
     @property
-    def insert_slides(self) -> list[dict[str, str | list[str]]]:
-        return self._lookup_list_list('SongBeamer', 'Slides', 'Insert')
+    def insert_slides(self) -> list[SongBeamerSlidesDynamicConfig]:
+        return self._config.SongBeamer.Slides.Insert
 
     @property
-    def color_service(self) -> dict[str, str]:
-        return self._lookup_dict('SongBeamer', 'Color', 'Service')
+    def color_service(self) -> SongBeamerColorServiceConfig:
+        return self._config.SongBeamer.Color.Service
 
     @property
-    def color_replacements(self) -> list[dict[str, str]]:
-        return self._lookup_list('SongBeamer', 'Color', 'Replacements')
+    def color_replacements(self) -> list[SongBeamerColorReplacementsConfig]:
+        return self._config.SongBeamer.Color.Replacements
