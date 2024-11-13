@@ -12,7 +12,13 @@ import typing
 import pydantic
 
 
-def recursive_expand_vars(data: typing.Any) -> typing.Any:  # noqa: ANN401
+@typing.overload
+def recursive_expand_vars(data: str) -> str: ...
+@typing.overload
+def recursive_expand_vars(data: dict) -> dict: ...
+@typing.overload
+def recursive_expand_vars(data: list) -> list: ...
+def recursive_expand_vars(data: typing.Any) -> typing.Any:
     if isinstance(data, str):
         return re.sub(
             r'\${([^${]+)}',
