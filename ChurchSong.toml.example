@@ -1,0 +1,62 @@
+[General]
+log_level = "INFO"
+log_file = "./Logs/ChurchSong.log"
+
+[ChurchTools.Settings]
+base_url = "https://YOUR-DOMAIN.church.tools"
+login_token = "YOUR_LOGIN_TOKEN"
+
+[ChurchTools.Replacements]
+"None" = "Nobody"
+"Jonathan Doe" = "Jon Doe"
+
+[SongBeamer.Settings]
+template_pptx = "./Data/PowerPoint/TEMPLATE_SLIDE.pptx"
+portraits_dir = "./Data/Portraits"
+temp_dir = "${USERPROFILE}/Desktop/Generated_for_SongBeamer"
+
+[SongBeamer.Slides.Opening]
+content = """
+    item
+      Caption = 'Projector Check'
+      Color = clBlack
+      FileName = '../Data/PowerPoint/ProjectorCheck.pptx'
+    end
+    item
+      Caption = 'Service Staff'
+      Color = clBlack
+      FileName = './TEMPLATE_SLIDE.pptx'
+    end
+    item
+      Caption = 'Welcome'
+      Color = clBlack
+      FileName = '../Data/PowerPoint/Welcome.pptx'
+    end
+"""
+
+[SongBeamer.Slides.Closing]
+content = """
+    item
+      Caption = 'Bye Bye'
+      Color = clBlack
+    end
+"""
+
+[[SongBeamer.Slides.Insert]]
+keywords = ['Appointments', 'Dates', 'News']
+content = """
+    item
+      Caption = 'Appointments'
+      Color = clBlack
+      FileName = '../Data/PowerPoint/Appointments.pptx'
+    end
+"""
+
+[SongBeamer.Color.Service]
+color = 'clBlack'
+bgcolor = 'clAqua'
+
+[[SongBeamer.Color.Replacements]]
+match_color = '16711920'
+color = 'clBlack'
+bgcolor = 'clYellow'

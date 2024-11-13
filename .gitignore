@@ -15,7 +15,7 @@ wheels/
 .zed/
 
 # Project-specifc
-/ChurchSong.ini
+/ChurchSong.toml
 /bin/uv.exe
 /bin/uvx.exe
 /Data/**

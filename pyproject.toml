@@ -1,6 +1,6 @@
 [project]
 name = "ChurchSong"
-version = "0.2.0"
+version = "0.3.0"
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
 authors = [{ name = "Stefan Bellon" }]
 requires-python = ">=3.13"

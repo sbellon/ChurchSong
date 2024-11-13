@@ -1,8 +1,8 @@
-import dataclasses
 import os
 import re
 import subprocess
 import sys
+import typing
 
 from configuration import Configuration
 
@@ -83,98 +83,143 @@ And the values are all single-line, which makes parsing actually simple.
 """
 
 
-@dataclasses.dataclass
 class AgendaItem:
-    caption: str
-    color: str
-    bgcolor: str | None
-    filename: str | None
-
-
-class SongBeamer:
     _re_agenda_item = re.compile(
         r"""\s*item\r?\n
               \s*Caption\s=\s(?P<caption>.*?)\r?\n
               \s*Color\s=\s(?P<color>.*?)\r?\n
+              (?:\s*BGColor\s=\s(?P<bgcolor>.*?)\r?\n)?
               (?:\s*FileName\s=\s(?P<filename>.*?)\r?\n)?
             \s*end\r?\n
         """,
         re.VERBOSE,
     )
-    _preamble = 'object AblaufPlanItems: TAblaufPlanItems\n  items = <'
-    _item_start = """
-    item"""
-    _item_caption = """
-      Caption = {}"""
-    _item_color = """
-      Color = {}"""
-    _item_bgcolor = """
-      BGColor = {}"""
-    _item_filename = """
-      FileName = {}"""
-    _item_end = """
-    end"""
-    _postamble = '>\nend'
 
+    def __init__(
+        self,
+        caption: str,
+        color: str,
+        bgcolor: str | None = None,
+        filename: str | None = None,
+    ) -> None:
+        self.caption = self._replace_non_ascii(caption)
+        self.color = color
+        self.bgcolor = bgcolor
+        self.filename = self._replace_non_ascii(filename) if filename else None
+
+    def _replace_non_ascii(self, text: str) -> str:
+        return re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
+
+    @classmethod
+    def parse(cls, content: str) -> list[typing.Self]:
+        return [
+            cls(
+                caption=match.group('caption'),
+                color=match.group('color'),
+                bgcolor=match.group('bgcolor'),
+                filename=match.group('filename'),
+            )
+            for match in re.finditer(cls._re_agenda_item, content)
+        ]
+
+    def __str__(self) -> str:
+        result = '\n    item'
+        result += f'\n      Caption = {self.caption}'
+        result += f'\n      Color = {self.color}'
+        if self.bgcolor:
+            result += f'\n      BGColor = {self.bgcolor}'
+        if self.filename:
+            result += f'\n      FileName = {self.filename}'
+        result += '\n    item'
+        return result
+
+
+class Agenda:
+    def __init__(self, agenda_items: list[AgendaItem] | None = None) -> None:
+        self._agenda_items = agenda_items if agenda_items else []
+
+    @classmethod
+    def parse(cls, content: str) -> typing.Self:
+        return cls(AgendaItem.parse(content))
+
+    def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
+        if isinstance(other, AgendaItem):
+            self._agenda_items.append(other)
+        elif isinstance(other, list):
+            self._agenda_items += other
+        else:
+            raise TypeError(  # noqa: TRY003
+                'Unsupported operand type(s) for +=: '  # noqa: EM102
+                f"'Agenda' and '{type(other).__name__}'"
+            )
+        return self
+
+    def __iter__(self) -> typing.Iterator[AgendaItem]:
+        return iter(self._agenda_items)
+
+    def __str__(self) -> str:
+        result = 'object AblaufPlanItems: TAblaufPlanItems\n  items = <'
+        for item in self._agenda_items:
+            result += str(item)
+        result += '>\nend'
+        return result
+
+    def change_color(
+        self,
+        from_color: str,
+        to_color: str | None = None,
+        to_bgcolor: str | None = None,
+    ) -> None:
+        for item in self._agenda_items:
+            if item.color == from_color:
+                item.color = to_color if to_color else item.color
+                item.bgcolor = to_bgcolor if to_bgcolor else item.bgcolor
+
+
+class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
         self._temp_dir = config.temp_dir.resolve()
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
-        self._replacements = config.replacements
-
-    def _parse_agenda_items(self, content: str) -> list[AgendaItem]:
-        return [
-            AgendaItem(
-                caption=match.group('caption'),
-                color=match.group('color'),
-                bgcolor=None,
-                filename=match.group('filename'),
-            )
-            for match in re.finditer(self._re_agenda_item, content)
-        ]
-
-    def _create_agenda_item(self, item: AgendaItem) -> str:
-        result = self._item_start
-        if item.caption:
-            result += self._item_caption.format(item.caption)
-        if item.color:
-            result += self._item_color.format(item.color)
-        if item.bgcolor:
-            result += self._item_bgcolor.format(item.bgcolor)
-        if item.filename:
-            result += self._item_filename.format(item.filename)
-        result += self._item_end
-        return result
-
-    def _replace_non_ascii(self, text: str) -> str:
-        return re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
+        self._opening_slides = config.opening_slides
+        self._closing_slides = config.closing_slides
+        self._insert_slides = config.insert_slides
+        self._color_service = config.color_service
+        self._color_replacements = config.color_replacements
 
     def modify_and_save_agenda(self, service_leads: dict[str, set[str]]) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
             content = fd.read()
-        for search, replace in self._replacements:
-            content = content.replace(search, replace)
+
+        agenda = Agenda()
+        for item in (
+            AgendaItem.parse(self._opening_slides)
+            + AgendaItem.parse(content)
+            + AgendaItem.parse(self._closing_slides)
+        ):
+            agenda += item
+            for insert_slide in self._insert_slides:
+                keywords = insert_slide['keywords']
+                insert_content = insert_slide['content']
+                assert isinstance(insert_content, str)
+                if any(keyword in item.caption for keyword in keywords):
+                    agenda += AgendaItem.parse(insert_content)
+        for service, persons in sorted(service_leads.items()):
+            agenda += AgendaItem(
+                caption=f"'{service}: {", ".join(sorted(persons))}'",
+                color=self._color_service.get('color', 'clBlack'),
+                bgcolor=self._color_service.get('bgcolor', 'clAqua'),
+            )
+        for replacement in self._color_replacements:
+            agenda.change_color(
+                replacement.get('match_color', 'NOCOLOR'),
+                replacement.get('color', 'clBlack'),
+                replacement.get('bgcolor', 'clYellow'),
+            )
+
         with self._schedule_filepath.open(mode='w', encoding='utf-8') as fd:
-            fd.write(self._preamble)
-            for item in self._parse_agenda_items(content):
-                if not item.filename and item.color == '16711920':
-                    item.color = 'clBlack'
-                    item.bgcolor = 'clYellow'
-                fd.write(self._create_agenda_item(item))
-            for service, persons in sorted(service_leads.items()):
-                caption = f"'{service}: {", ".join(sorted(persons))}'"
-                fd.write(
-                    self._create_agenda_item(
-                        AgendaItem(
-                            caption=self._replace_non_ascii(caption),
-                            color='clBlack',
-                            bgcolor='clAqua',
-                            filename=None,
-                        )
-                    )
-                )
-            fd.write(self._postamble)
+            fd.write(str(agenda))
 
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')
