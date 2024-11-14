@@ -130,7 +130,7 @@ class AgendaItem:
             result += f'\n      BGColor = {self.bgcolor}'
         if self.filename:
             result += f'\n      FileName = {self.filename}'
-        result += '\n    item'
+        result += '\n    end'
         return result
 
 
