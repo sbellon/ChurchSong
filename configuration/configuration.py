@@ -61,8 +61,8 @@ class ChurchToolsSettingsConfig(pydantic.BaseModel):
 
 class SongBeamerConfig(pydantic.BaseModel):
     Settings: SongBeamerSettingsConfig
-    Slides: SongBeamerSlidesConfig
-    Color: SongBeamerColorConfig
+    Slides: SongBeamerSlidesConfig | None = None
+    Color: SongBeamerColorConfig | None = None
 
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
@@ -72,9 +72,9 @@ class SongBeamerSettingsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSlidesConfig(pydantic.BaseModel):
-    Opening: SongBeamerSlidesStaticConfig
-    Closing: SongBeamerSlidesStaticConfig
-    Insert: list[SongBeamerSlidesDynamicConfig]
+    Opening: SongBeamerSlidesStaticConfig | None = None
+    Closing: SongBeamerSlidesStaticConfig | None = None
+    Insert: list[SongBeamerSlidesDynamicConfig] | None = None
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
@@ -87,19 +87,19 @@ class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
 
 
 class SongBeamerColorConfig(pydantic.BaseModel):
-    Service: SongBeamerColorServiceConfig
-    Replacements: list[SongBeamerColorReplacementsConfig]
+    Service: SongBeamerColorServiceConfig | None = None
+    Replacements: list[SongBeamerColorReplacementsConfig] | None = None
 
 
 class SongBeamerColorServiceConfig(pydantic.BaseModel):
     color: str
-    bgcolor: str
+    bgcolor: str | None = None
 
 
 class SongBeamerColorReplacementsConfig(pydantic.BaseModel):
     match_color: str
-    color: str
-    bgcolor: str
+    color: str | None = None
+    bgcolor: str | None = None
 
 
 class Configuration:
@@ -174,20 +174,41 @@ class Configuration:
 
     @property
     def opening_slides(self) -> str:
-        return self._config.SongBeamer.Slides.Opening.content
+        return (
+            self._config.SongBeamer.Slides.Opening.content
+            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Opening
+            else ''
+        )
 
     @property
     def closing_slides(self) -> str:
-        return self._config.SongBeamer.Slides.Closing.content
+        return (
+            self._config.SongBeamer.Slides.Closing.content
+            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Closing
+            else ''
+        )
 
     @property
     def insert_slides(self) -> list[SongBeamerSlidesDynamicConfig]:
-        return self._config.SongBeamer.Slides.Insert
+        return (
+            self._config.SongBeamer.Slides.Insert
+            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Insert
+            else []
+        )
 
     @property
     def color_service(self) -> SongBeamerColorServiceConfig:
-        return self._config.SongBeamer.Color.Service
+        return (
+            self._config.SongBeamer.Color.Service
+            if self._config.SongBeamer.Color and self._config.SongBeamer.Color.Service
+            else SongBeamerColorServiceConfig(color='clBlack')
+        )
 
     @property
     def color_replacements(self) -> list[SongBeamerColorReplacementsConfig]:
-        return self._config.SongBeamer.Color.Replacements
+        return (
+            self._config.SongBeamer.Color.Replacements
+            if self._config.SongBeamer.Color
+            and self._config.SongBeamer.Color.Replacements
+            else []
+        )
