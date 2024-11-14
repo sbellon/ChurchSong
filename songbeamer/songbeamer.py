@@ -1,4 +1,5 @@
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -101,35 +102,59 @@ class AgendaItem:
         color: str,
         bgcolor: str | None = None,
         filename: str | None = None,
+        *,
+        songs_dir: pathlib.Path | None = None,
     ) -> None:
-        self.caption = self._replace_non_ascii(caption)
+        self.caption = self._decode(caption)
         self.color = color
         self.bgcolor = bgcolor
-        self.filename = self._replace_non_ascii(filename) if filename else None
+        if filename:
+            filename = self._decode(filename)
+            if filename.endswith('.sng') and songs_dir:
+                self.filename = os.fspath(songs_dir / filename)
+            else:
+                self.filename = filename
+        else:
+            self.filename = None
 
-    def _replace_non_ascii(self, text: str) -> str:
-        return re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
+    @staticmethod
+    def _toggle_quotes(text: str) -> str:
+        text = text[1:] if text.startswith("'") else f"'{text}"
+        return text[:-1] if text.endswith("'") else f"{text}'"
+
+    @staticmethod
+    def _decode(text: str) -> str:
+        text = AgendaItem._toggle_quotes(text)
+        return re.sub(r"'#(\d+)'", lambda x: chr(int(x.group(1))), text)
+
+    @staticmethod
+    def _encode(text: str) -> str:
+        text = re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
+        return AgendaItem._toggle_quotes(text)
 
     @classmethod
-    def parse(cls, content: str) -> list[typing.Self]:
+    def parse(
+        cls, content: str, songs_dir: pathlib.Path | None = None
+    ) -> list[typing.Self]:
         return [
             cls(
                 caption=match.group('caption'),
                 color=match.group('color'),
                 bgcolor=match.group('bgcolor'),
                 filename=match.group('filename'),
+                songs_dir=songs_dir,
             )
             for match in re.finditer(cls._re_agenda_item, content)
         ]
 
     def __str__(self) -> str:
         result = '\n    item'
-        result += f'\n      Caption = {self.caption}'
+        result += f'\n      Caption = {self._encode(self.caption)}'
         result += f'\n      Color = {self.color}'
         if self.bgcolor:
             result += f'\n      BGColor = {self.bgcolor}'
         if self.filename:
-            result += f'\n      FileName = {self.filename}'
+            result += f'\n      FileName = {self._encode(self.filename)}'
         result += '\n    end'
         return result
 
@@ -139,8 +164,8 @@ class Agenda:
         self._agenda_items = agenda_items if agenda_items else []
 
     @classmethod
-    def parse(cls, content: str) -> typing.Self:
-        return cls(AgendaItem.parse(content))
+    def parse(cls, content: str, songs_dir: pathlib.Path | None = None) -> typing.Self:
+        return cls(AgendaItem.parse(content, songs_dir))
 
     def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
         if isinstance(other, AgendaItem):
@@ -180,6 +205,7 @@ class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
         self._temp_dir = config.temp_dir.resolve()
+        self._songs_dir = self._temp_dir / 'Songs'
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
@@ -194,14 +220,14 @@ class SongBeamer:
 
         agenda = Agenda()
         for item in (
-            AgendaItem.parse(self._opening_slides)
-            + AgendaItem.parse(content)
-            + AgendaItem.parse(self._closing_slides)
+            AgendaItem.parse(self._opening_slides, self._songs_dir)
+            + AgendaItem.parse(content, self._songs_dir)
+            + AgendaItem.parse(self._closing_slides, self._songs_dir)
         ):
             agenda += item
             for slide in self._insert_slides:
                 if any(keyword in item.caption for keyword in slide.keywords):
-                    agenda += AgendaItem.parse(slide.content)
+                    agenda += AgendaItem.parse(slide.content, self._songs_dir)
         for service, persons in sorted(service_leads.items()):
             agenda += AgendaItem(
                 caption=f"'{service}: {", ".join(sorted(persons))}'",
