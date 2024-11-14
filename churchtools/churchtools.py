@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import datetime  # noqa: TCH003
 import io
 import sys
@@ -9,193 +8,124 @@ import zipfile
 from collections import defaultdict
 
 import alive_progress
-import marshmallow
-import marshmallow_dataclass
 import prettytable
+import pydantic
 import requests
 
 if typing.TYPE_CHECKING:
     from configuration import Configuration
 
 
-@typing.dataclass_transform()
-def deserialize(cls: type) -> type:
-    class Meta:
-        unknown = marshmallow.EXCLUDE
-
-    cls.Meta = Meta
-    return marshmallow_dataclass.dataclass(cls)
-
-
-SchemaType = typing.ClassVar[type[marshmallow.Schema]]  # for pylance
-
-
-@deserialize
-class Service:
-    Schema: SchemaType  # for pylance
+class Service(pydantic.BaseModel):
     id: int
     name: str | None
 
 
-@deserialize
-class ServicesData:
-    Schema: SchemaType  # for pylance
+class ServicesData(pydantic.BaseModel):
     data: list[Service]
 
 
-@deserialize
-class EventShort:
-    Schema: SchemaType  # for pylance
+class EventShort(pydantic.BaseModel):
     id: int
-    start_date: datetime.datetime = dataclasses.field(
-        metadata={'data_key': 'startDate'}
-    )
+    start_date: datetime.datetime = pydantic.Field(alias='startDate')
 
 
-@deserialize
-class EventsData:
-    Schema: SchemaType  # for pylance
+class EventsData(pydantic.BaseModel):
     data: list[EventShort]
 
 
-@deserialize
-class EventService:
-    Schema: SchemaType  # for pylance
+class EventService(pydantic.BaseModel):
     name: str | None
-    service_id: int = dataclasses.field(metadata={'data_key': 'serviceId'})
+    service_id: int = pydantic.Field(alias='serviceId')
 
 
-@deserialize
-class EventFull:
-    Schema: SchemaType  # for pylance
+class EventFull(pydantic.BaseModel):
     id: int
-    event_services: list[EventService] = dataclasses.field(
-        metadata={'data_key': 'eventServices'}
-    )
+    event_services: list[EventService] = pydantic.Field(alias='eventServices')
 
 
-@deserialize
-class EventFullData:
-    Schema: SchemaType  # for pylance
+class EventFullData(pydantic.BaseModel):
     data: EventFull
 
 
-@deserialize
-class EventAgenda:
-    Schema: SchemaType  # for pylance
+class EventAgenda(pydantic.BaseModel):
     id: int
 
 
-@deserialize
-class EventAgendaData:
-    Schema: SchemaType  # for pylance
+class EventAgendaData(pydantic.BaseModel):
     data: EventAgenda
 
 
-@deserialize
-class AgendaExport:
-    Schema: SchemaType  # for pylance
+class AgendaExport(pydantic.BaseModel):
     url: str
 
 
-@deserialize
-class AgendaExportData:
-    Schema: SchemaType  # for pylance
+class AgendaExportData(pydantic.BaseModel):
     data: AgendaExport
 
 
-@deserialize
-class File:
-    Schema: SchemaType  # for pylance
+class File(pydantic.BaseModel):
     name: str
-    file_url: str = dataclasses.field(metadata={'data_key': 'fileUrl'})
+    file_url: str = pydantic.Field(alias='fileUrl')
 
 
-@deserialize
-class Arrangement:
-    Schema: SchemaType  # for pylance
+class Arrangement(pydantic.BaseModel):
     id: int
     name: str
+    source_name: str | None = pydantic.Field(alias='sourceName')
+    source_reference: str | None = pydantic.Field(alias='sourceReference')
+    key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
     bpm: str | None
     beat: str | None
     duration: int
     files: list[File]
-    source_name: str | None = dataclasses.field(metadata={'data_key': 'sourceName'})
-    source_reference: str | None = dataclasses.field(
-        metadata={'data_key': 'sourceReference'}
-    )
-    key_of_arrangement: str | None = dataclasses.field(
-        metadata={'data_key': 'keyOfArrangement'}
-    )
 
 
-@deserialize
-class Song:
-    Schema: SchemaType  # for pylance
+class Song(pydantic.BaseModel):
     id: int
     name: str
     author: str | None
     ccli: str | None
     arrangements: list[Arrangement]
-    tags: set[str] = dataclasses.field(
-        default_factory=set, metadata={'required': False}
-    )
+    tags: set[str] = set()
 
 
-@deserialize
-class Pagination:
-    Schema: SchemaType  # for pylance
+class Pagination(pydantic.BaseModel):
     total: int
     limit: int
     current: int
-    last_page: int = dataclasses.field(
-        default_factory=int, metadata={'data_key': 'lastPage'}
-    )
+    last_page: int = pydantic.Field(alias='lastPage')
 
 
-@deserialize
-class SongsMeta:
-    Schema: SchemaType  # for pylance
+class SongsMeta(pydantic.BaseModel):
     count: int
     pagination: Pagination
 
 
-@deserialize
-class SongsData:
-    Schema: SchemaType  # for pylance
+class SongsData(pydantic.BaseModel):
     data: list[Song]
     meta: SongsMeta
 
 
-@deserialize
-class Tag:
-    Schema: SchemaType  # for pylance
+class Tag(pydantic.BaseModel):
     id: int
     name: str
 
 
-@deserialize
-class TagsData:
-    Schema: SchemaType  # for pylance
+class TagsData(pydantic.BaseModel):
     data: list[Tag]
 
 
-@deserialize
-class AJAXSong:
-    Schema: SchemaType  # for pylance
+class AJAXSong(pydantic.BaseModel):
     id: str
     tags: list[int]
 
 
-@deserialize
-class AJAXSongs:
-    Schema: SchemaType  # for pylance
+class AJAXSongs(pydantic.BaseModel):
     songs: dict[str, AJAXSong]
 
 
-@deserialize
-class AJAXSongsData:
-    Schema: SchemaType  # for pylance
+class AJAXSongsData(pydantic.BaseModel):
     data: AJAXSongs
 
 
@@ -248,10 +178,9 @@ class ChurchTools:
         return self._request('POST', url, params)
 
     def _get_tags(self, tag_type: str) -> typing.Generator[Tag]:
-        assert tag_type in {'persons', 'songs'}
+        assert tag_type in {'persons', 'songs'}  # noqa: S101
         r = self._get('/api/tags', params={'type': tag_type})
-        result = TagsData.Schema().load(r.json())
-        assert isinstance(result, TagsData)
+        result = TagsData(**r.json())
         yield from result.data
 
     def _get_songs(self) -> tuple[int, typing.Generator[Song]]:
@@ -261,8 +190,7 @@ class ChurchTools:
         # NOTE: Using the old AJAX API here because the new one does not contain tags.
         # If at some point the new API also contains the tags, this part is obsolete.
         r = self._post('/?q=churchservice/ajax&func=getAllSongs')
-        result = AJAXSongsData.Schema().load(r.json())
-        assert isinstance(result, AJAXSongsData)
+        result = AJAXSongsData(**r.json())
         song_tags = {
             int(song.id): {tags[tag_id] for tag_id in song.tags}
             for song in result.data.songs.values()
@@ -270,16 +198,14 @@ class ChurchTools:
 
         # Use the new API to actually fetch the other information.
         r = self._get('/api/songs', params={'page': '1', 'limit': '1'})
-        result = SongsData.Schema().load(r.json())
-        assert isinstance(result, SongsData)
+        result = SongsData(**r.json())
 
         def inner_generator() -> typing.Generator[Song]:
             current_page = 0
             last_page = sys.maxsize
             while current_page < last_page:
                 r = self._get('/api/songs', params={'page': str(current_page + 1)})
-                tmp = SongsData.Schema().load(r.json())
-                assert isinstance(tmp, SongsData)
+                tmp = SongsData(**r.json())
                 current_page = tmp.meta.pagination.current
                 last_page = tmp.meta.pagination.last_page
                 for song in tmp.data:
@@ -290,8 +216,7 @@ class ChurchTools:
 
     def _get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')
-        result = ServicesData.Schema().load(r.json())
-        assert isinstance(result, ServicesData)
+        result = ServicesData(**r.json())
         yield from result.data
 
     def _get_events(
@@ -301,8 +226,7 @@ class ChurchTools:
             '/api/events',
             params={'from': f'{from_date:%Y-%m-%d}'} if from_date else None,
         )
-        result = EventsData.Schema().load(r.json())
-        assert isinstance(result, EventsData)
+        result = EventsData(**r.json())
         yield from result.data
 
     def _get_next_event(self, from_date: datetime.date | None = None) -> EventShort:
@@ -318,14 +242,12 @@ class ChurchTools:
 
     def _get_event(self, event_id: int) -> EventFull:
         r = self._get(f'/api/events/{event_id}')
-        result = EventFullData.Schema().load(r.json())
-        assert isinstance(result, EventFullData)
+        result = EventFullData(**r.json())
         return result.data
 
     def _get_event_agenda(self, event_id: int) -> EventAgenda:
         r = self._get(f'/api/events/{event_id}/agenda')
-        result = EventAgendaData.Schema().load(r.json())
-        assert isinstance(result, EventAgendaData)
+        result = EventAgendaData(**r.json())
         return result.data
 
     def _get_agenda_export(self, agenda_id: int) -> AgendaExport:
@@ -338,8 +260,7 @@ class ChurchTools:
                 'withCategory': 'false',
             },
         )
-        result = AgendaExportData.Schema().load(r.json())
-        assert isinstance(result, AgendaExportData)
+        result = AgendaExportData(**r.json())
         return result.data
 
     def _assert_permission(self, perm_group: str, perm_name: str) -> None:
