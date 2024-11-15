@@ -4,6 +4,7 @@ import os
 import typing
 
 import pptx
+import pptx.exc
 import pptx.shapes
 import pptx.shapes.placeholder
 
@@ -17,10 +18,17 @@ class PowerPoint:
         self._portraits_dir = config.portraits_dir
         self._temp_dir = config.temp_dir
         self._template_pptx = config.template_pptx
-        self._prs = pptx.Presentation(os.fspath(self._template_pptx))
+        try:
+            self._prs = pptx.Presentation(os.fspath(self._template_pptx))
+        except pptx.exc.PackageNotFoundError as e:
+            self._log.error(f'Cannot load PowerPoint template: {e}')
+            self._prs = pptx.Presentation()
 
     def create(self, service_leads: dict[str, set[str]]) -> None:
         self._log.info('Creating PowerPoint slide')
+        if self._prs.core_properties.revision == 1:
+            # Presentation is the fallback created one, just skip everything
+            return
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
@@ -34,9 +42,12 @@ class PowerPoint:
                     service_name,
                     persons_full_name,
                 )
-                ph.insert_picture(
-                    os.fspath(self._portraits_dir / f'{persons_full_name}.jpeg')
-                )
+                try:
+                    ph.insert_picture(
+                        os.fspath(self._portraits_dir / f'{persons_full_name}.jpeg')
+                    )
+                except FileNotFoundError as e:
+                    self._log.error(f'Cannot embed portrait picture: {e}')
             elif (
                 isinstance(ph, pptx.shapes.placeholder.SlidePlaceholder)
                 and ph.has_text_frame
