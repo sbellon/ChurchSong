@@ -245,7 +245,7 @@ class SongBeamer:
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')
         if sys.platform == 'win32':
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
                 check=True,
                 cwd=self._temp_dir,

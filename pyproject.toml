@@ -32,7 +32,6 @@ fixable = [
 
 ignore = [
     "D",      # docstring
-    "S603",   # subprocess-without-shell-equals-true
     "COM812", # missing-trailing-comma
 ]
 
@@ -42,7 +41,7 @@ inline-quotes = "single"
 [tool.ruff.format]
 quote-style = "single"
 
-[tool.ruff.pep8-naming]
+[tool.ruff.lint.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.
 classmethod-decorators = [
     "classmethod",
