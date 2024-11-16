@@ -162,12 +162,17 @@ class AgendaItem:
 
 
 class Agenda:
-    def __init__(self, agenda_items: list[AgendaItem] | None = None) -> None:
+    def __init__(
+        self,
+        agenda_items: list[AgendaItem] | None = None,
+        *,
+        songs_dir: pathlib.Path | None = None,
+    ) -> None:
         self._agenda_items = agenda_items if agenda_items else []
+        self._songs_dir = songs_dir
 
-    @classmethod
-    def parse(cls, content: str, songs_dir: pathlib.Path | None = None) -> typing.Self:
-        return cls(AgendaItem.parse(content, songs_dir))
+    def parse(self, content: str) -> list[AgendaItem]:
+        return AgendaItem.parse(content, self._songs_dir)
 
     def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
         if isinstance(other, AgendaItem):
@@ -228,16 +233,16 @@ class SongBeamer:
             f'{event_date.astimezone():{self._event_datetime_format}}'
         )
 
-        agenda = Agenda()
+        agenda = Agenda(songs_dir=self._songs_dir)
         for item in (
-            AgendaItem.parse(self._opening_slides, self._songs_dir)
-            + AgendaItem.parse(content, self._songs_dir)
-            + AgendaItem.parse(self._closing_slides, self._songs_dir)
+            agenda.parse(self._opening_slides)
+            + agenda.parse(content)
+            + agenda.parse(self._closing_slides)
         ):
             agenda += item
             for slide in self._insert_slides:
                 if any(keyword in item.caption for keyword in slide.keywords):
-                    agenda += AgendaItem.parse(slide.content, self._songs_dir)
+                    agenda += agenda.parse(slide.content)
         for service, persons in sorted(service_leads.items()):
             agenda += AgendaItem(
                 caption=f"'{service}: {", ".join(sorted(persons))}'",
