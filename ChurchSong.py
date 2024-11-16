@@ -6,6 +6,8 @@ import argparse
 import datetime
 import functools
 import pathlib
+import shutil
+import subprocess
 import sys
 import tomllib
 
@@ -50,6 +52,39 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
         ct.verify_songs(args.include_tags, args.exclude_tags)
     except KeyboardInterrupt:
         sys.stdout.write('Aborted.\n')
+
+
+def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
+    config.log.info('Starting ChurchSong update')
+    uv = shutil.which(pathlib.Path(__file__).parent / 'bin/uv')
+    if not uv:
+        uv = shutil.which('uv')
+    if not uv:
+        err_msg = 'Cannot find "uv", aborting self update'
+        config.log.fatal(err_msg)
+        sys.stderr.write(f'{err_msg}\n')
+        sys.exit(1)
+    git = shutil.which('git')
+    if not git:
+        err_msg = 'Cannot find "git", aborting self update'
+        config.log.fatal(err_msg)
+        sys.stderr.write(f'{err_msg}\n')
+        sys.exit(1)
+    try:
+        subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
+    except subprocess.CalledProcessError as e:
+        config.log.fatal(f'"uv self update" failed: {e}')
+        raise
+    try:
+        subprocess.run([git, 'restore', '*'], check=True)  # noqa: S603
+    except subprocess.CalledProcessError as e:
+        config.log.fatal(f'"git restore *" failed: {e}')
+        raise
+    try:
+        subprocess.run([git, 'pull'], check=True)  # noqa: S603
+    except subprocess.CalledProcessError as e:
+        config.log.fatal(f'"git pull" failed: {e}')
+        raise
 
 
 def main() -> None:
@@ -110,6 +145,24 @@ def main() -> None:
         )
         parser_songs_verify.set_defaults(
             func=functools.partial(cmd_songs_verify, config=config)
+        )
+        parser_self = subparsers.add_parser(
+            'self',
+            help='operate on the ChurchSong application itself',
+            allow_abbrev=False,
+        )
+        subparser_self = parser_self.add_subparsers(
+            dest='subcommand',
+            help='commands to execute on the ChurchSong application itself',
+            required=True,
+        )
+        parser_self_update = subparser_self.add_parser(
+            'update',
+            help='updates the ChurchSong application',
+            allow_abbrev=False,
+        )
+        parser_self_update.set_defaults(
+            func=functools.partial(cmd_self_update, config=config)
         )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version()
