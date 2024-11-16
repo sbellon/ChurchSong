@@ -72,6 +72,7 @@ class SongBeamerSettingsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSlidesConfig(pydantic.BaseModel):
+    datetime_format: str | None = None
     Opening: SongBeamerSlidesStaticConfig | None = None
     Closing: SongBeamerSlidesStaticConfig | None = None
     Insert: list[SongBeamerSlidesDynamicConfig] | None = None
@@ -171,6 +172,15 @@ class Configuration:
         directory = pathlib.Path(self._config.SongBeamer.Settings.temp_dir)
         directory.mkdir(parents=True, exist_ok=True)
         return directory
+
+    @property
+    def datetime_format(self) -> str:
+        return (
+            self._config.SongBeamer.Slides.datetime_format
+            if self._config.SongBeamer.Slides
+            and self._config.SongBeamer.Slides.datetime_format
+            else '%Y-%m-%d %H:%M'
+        )
 
     @property
     def opening_slides(self) -> str:

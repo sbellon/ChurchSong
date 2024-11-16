@@ -208,6 +208,7 @@ class SongBeamer:
         self._temp_dir = config.temp_dir.resolve()
         self._songs_dir = self._temp_dir / 'Songs'
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
+        self._datetime_format = config.datetime_format
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
@@ -215,9 +216,7 @@ class SongBeamer:
         self._color_replacements = config.color_replacements
 
     def modify_and_save_agenda(
-        self,
-        event_date: datetime.datetime,
-        service_leads: dict[str, set[str]]
+        self, event_date: datetime.datetime, service_leads: dict[str, set[str]]
     ) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
@@ -225,7 +224,7 @@ class SongBeamer:
 
         agenda = Agenda()
         agenda += AgendaItem(
-            caption=f"'{event_date:%Y-%m-%d}'",
+            caption=f"'{event_date.astimezone():{self._datetime_format}}'",
             color=self._color_service.color,
             bgcolor=self._color_service.bgcolor,
         )
