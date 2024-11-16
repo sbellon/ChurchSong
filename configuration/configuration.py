@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
-import os
 import pathlib
-import re
 import sys
 import tomllib
 import typing
 
 import pydantic
+
+from utils import string
 
 
 @typing.overload
@@ -20,11 +20,7 @@ def recursive_expand_vars(data: dict) -> dict: ...
 def recursive_expand_vars(data: list) -> list: ...
 def recursive_expand_vars(data: typing.Any) -> typing.Any:
     if isinstance(data, str):
-        return re.sub(
-            r'\${([^${]+)}',
-            lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
-            data,
-        )
+        return string.expand_envvars(data)
     if isinstance(data, dict):
         return {k: recursive_expand_vars(v) for k, v in data.items()}
     if isinstance(data, list):
@@ -72,7 +68,7 @@ class SongBeamerSettingsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSlidesConfig(pydantic.BaseModel):
-    datetime_format: str | None = None
+    event_datetime_format: str | None = None
     Opening: SongBeamerSlidesStaticConfig | None = None
     Closing: SongBeamerSlidesStaticConfig | None = None
     Insert: list[SongBeamerSlidesDynamicConfig] | None = None
@@ -174,11 +170,11 @@ class Configuration:
         return directory
 
     @property
-    def datetime_format(self) -> str:
+    def event_datetime_format(self) -> str:
         return (
-            self._config.SongBeamer.Slides.datetime_format
+            self._config.SongBeamer.Slides.event_datetime_format
             if self._config.SongBeamer.Slides
-            and self._config.SongBeamer.Slides.datetime_format
+            and self._config.SongBeamer.Slides.event_datetime_format
             else '%Y-%m-%d %H:%M'
         )
 

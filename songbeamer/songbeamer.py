@@ -7,6 +7,7 @@ import sys
 import typing
 
 from configuration import Configuration
+from utils import string
 
 r"""
 SongBeamer agenda items look something like this:
@@ -157,7 +158,7 @@ class AgendaItem:
         if self.filename:
             result += f'\n      FileName = {self._encode(self.filename)}'
         result += '\n    end'
-        return result
+        return string.expand_envvars(result)
 
 
 class Agenda:
@@ -208,7 +209,7 @@ class SongBeamer:
         self._temp_dir = config.temp_dir.resolve()
         self._songs_dir = self._temp_dir / 'Songs'
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
-        self._datetime_format = config.datetime_format
+        self._event_datetime_format = config.event_datetime_format
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
@@ -222,12 +223,12 @@ class SongBeamer:
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
             content = fd.read()
 
-        agenda = Agenda()
-        agenda += AgendaItem(
-            caption=f"'{event_date.astimezone():{self._datetime_format}}'",
-            color=self._color_service.color,
-            bgcolor=self._color_service.bgcolor,
+        # Set environment variable(s) for use in agenda items in configuration.
+        os.environ['CHURCHSONG_EVENT_DATETIME'] = (
+            f'{event_date.astimezone():{self._event_datetime_format}}'
         )
+
+        agenda = Agenda()
         for item in (
             AgendaItem.parse(self._opening_slides, self._songs_dir)
             + AgendaItem.parse(content, self._songs_dir)
