@@ -333,7 +333,7 @@ class ChurchTools:
 
     def _get_url_for_songbeamer_agenda(
         self, from_date: datetime.date | None = None
-    ) -> str:
+    ) -> tuple[datetime.datetime, str]:
         self._log.info('Fetching SongBeamer export URL')
         next_event = self._get_next_event(from_date)
         try:
@@ -346,11 +346,11 @@ class ChurchTools:
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
             raise
-        return self._get_agenda_export(agenda.id).url
+        return next_event.start_date, self._get_agenda_export(agenda.id).url
 
     def download_and_extract_agenda_zip(
         self, from_date: datetime.date | None = None
-    ) -> None:
+    ) -> datetime.datetime:
         self._log.info('Downloading and extracting SongBeamer export')
         self._assert_permissions(
             'churchservice:view',
@@ -359,10 +359,11 @@ class ChurchTools:
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
         )
-        url = self._get_url_for_songbeamer_agenda(from_date)
+        event_date, url = self._get_url_for_songbeamer_agenda(from_date)
         r = self._get(url)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
+        return event_date
 
     def _check_sng_file(self, url: str) -> bool:
         self._log.debug('Request GET %s', url)

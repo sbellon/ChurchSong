@@ -1,3 +1,4 @@
+import datetime
 import os
 import pathlib
 import re
@@ -213,12 +214,21 @@ class SongBeamer:
         self._color_service = config.color_service
         self._color_replacements = config.color_replacements
 
-    def modify_and_save_agenda(self, service_leads: dict[str, set[str]]) -> None:
+    def modify_and_save_agenda(
+        self,
+        event_date: datetime.datetime,
+        service_leads: dict[str, set[str]]
+    ) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
             content = fd.read()
 
         agenda = Agenda()
+        agenda += AgendaItem(
+            caption=f"'{event_date:%Y-%m-%d}'",
+            color=self._color_service.color,
+            bgcolor=self._color_service.bgcolor,
+        )
         for item in (
             AgendaItem.parse(self._opening_slides, self._songs_dir)
             + AgendaItem.parse(content, self._songs_dir)

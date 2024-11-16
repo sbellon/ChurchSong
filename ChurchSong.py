@@ -36,10 +36,10 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     pp.create(service_leads)
     pp.save()
 
-    ct.download_and_extract_agenda_zip(args.from_date)
+    event_date = ct.download_and_extract_agenda_zip(args.from_date)
 
     sb = SongBeamer(config)
-    sb.modify_and_save_agenda(service_leads)
+    sb.modify_and_save_agenda(event_date, service_leads)
     sb.launch()
 
 
