@@ -16,6 +16,40 @@ if typing.TYPE_CHECKING:
     from configuration import Configuration
 
 
+class PermissionsGlobalChurchCal(pydantic.BaseModel):
+    view: bool
+    view_category: list[int] = pydantic.Field(alias='view category')
+
+
+class PermissionsGlobalChurchService(pydantic.BaseModel):
+    view: bool
+    view_servicegroup: list[int] = pydantic.Field(alias='view servicegroup')
+    view_history: bool = pydantic.Field(alias='view history')
+    view_events: list[int] = pydantic.Field(alias='view events')
+    view_agenda: list[int] = pydantic.Field(alias='view agenda')
+    view_songcategory: list[int] = pydantic.Field(alias='view songcategory')
+
+
+class PermissionsGlobal(pydantic.BaseModel):
+    churchcal: PermissionsGlobalChurchCal
+    churchservice: PermissionsGlobalChurchService
+
+
+class PermissionsGlobalData(pydantic.BaseModel):
+    data: PermissionsGlobal
+
+    def get_permission(self, perm: str) -> bool | list[int]:
+        perm = perm.replace(' ', '_')
+        obj = self.data
+        for key in perm.split(':'):
+            if hasattr(obj, key):
+                obj = getattr(obj, key)
+            else:
+                return False
+        assert isinstance(obj, bool | list)  # noqa: S101
+        return obj
+
+
 class Service(pydantic.BaseModel):
     id: int
     name: str | None
@@ -263,17 +297,17 @@ class ChurchTools:
         result = AgendaExportData(**r.json())
         return result.data
 
-    def _assert_permission(self, perm_group: str, perm_name: str) -> None:
+    def _assert_permissions(self, *required_perms: str) -> None:
         r = self._get('/api/permissions/global')
-        data = r.json()['data']
-        if not (
-            (group := data.get(perm_group, False))
-            and (perm := group.get(perm_name, False))
-            and perm
-        ):
-            err_msg = f'Missing permission "{perm_group}:{perm_name}"'
-            self._log.error(f'{err_msg}')
-            sys.stderr.write(f'Error: {err_msg}\n')
+        permissions = PermissionsGlobalData(**r.json())
+        has_permission = True
+        for perm in required_perms:
+            if not permissions.get_permission(perm):
+                err_msg = f'Missing permission "{perm}"'
+                self._log.error(f'{err_msg}')
+                sys.stderr.write(f'Error: {err_msg}\n')
+                has_permission = False
+        if not has_permission:
             sys.exit(1)
 
     def get_service_leads(
@@ -318,7 +352,13 @@ class ChurchTools:
         self, from_date: datetime.date | None = None
     ) -> None:
         self._log.info('Downloading and extracting SongBeamer export')
-        self._assert_permission('churchservice', 'view agenda')
+        self._assert_permissions(
+            'churchservice:view',
+            'churchservice:view agenda',
+            'churchservice:view events',
+            'churchservice:view servicegroup',
+            'churchservice:view songcategory',
+        )
         url = self._get_url_for_songbeamer_agenda(from_date)
         r = self._get(url)
         buf = io.BytesIO(r.content)
@@ -337,7 +377,9 @@ class ChurchTools:
 
     def verify_songs(self, include_tags: list[str], exclude_tags: list[str]) -> None:
         self._log.info('Verifying ChurchTools song database')
-        self._assert_permission('churchservice', 'view songcategory')
+        self._assert_permissions(
+            'churchservice:view', 'churchservice:view songcategory'
+        )
 
         def to_str(b: bool) -> str:  # noqa: FBT001
             return 'missing' if b else ''
