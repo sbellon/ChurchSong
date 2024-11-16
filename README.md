@@ -2,9 +2,16 @@
 
 ## Introduction
 
-Purpose of this tool is to download the event agenda from ChurchTool as well as the
-names of the service staff, preparing a PowerPoint slide with the names
-and portraits to be presented at the beginning of the event.
+The main purpose of this tool is to download the event agenda from ChurchTool as well
+as the names of the service staff, preparing a PowerPoint slide with the names and
+portraits to be presented at the beginning of the event.
+
+Additionally, the SongBeamer agenda can be modified by placing slides at the opening
+or closing, or after specific keywords. Colors of the SongBeamer captions can also be
+changed.
+
+The ChurchTools song database can also be checked for consistency regarding metadata
+as well as present .sng files to contain a background image.
 
 ## Prerequisites
 
@@ -13,7 +20,7 @@ Python package manager [uv](https://docs.astral.sh/uv/) must be placed in subfol
 
 ## Configuration
 
-### Ini file
+### Config file
 
 You need to copy the `ChurchSong.toml.example` to `ChurchSong.toml` and adjust the
 content accordingly.
@@ -30,7 +37,7 @@ team name has to be put at the PowerPoint base placeholder via the Select Pane
 ### SongBeamer agenda download
 
 To download the upcoming agenda you can just execute `ChurchSong.bat` without any
-switches (or double-click it). To specify a starting date to look for the next event,
+switches (e.g. double-click it). To specify a starting date to look for the next event,
 you can specify additional command line arguments `agenda FROM_DATE` as positional
 parameter with `FROM_DATE` in the form `YYYY-MM-DD`.
 
