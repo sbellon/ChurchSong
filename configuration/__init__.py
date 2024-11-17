@@ -1,3 +1,3 @@
-from .configuration import Configuration
+from .configuration import Configuration, SongBeamerColorReplacementsConfig
 
-__all__ = ['Configuration']
+__all__ = ['Configuration', 'SongBeamerColorReplacementsConfig']
