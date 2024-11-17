@@ -152,18 +152,13 @@ class AgendaItem:
 class Agenda:
     def __init__(
         self,
-        agenda_items: list[AgendaItem] | None = None,
         *,
         songs_dir: pathlib.Path | None = None,
         color_replacements: list[SongBeamerColorReplacementsConfig] | None = None,
     ) -> None:
-        self._agenda_items = agenda_items if agenda_items else []
+        self._agenda_items = []
         self._songs_dir = songs_dir
         self._color_replacements = color_replacements or []
-
-    @classmethod
-    def parse(cls, content: str) -> typing.Self:
-        return cls(AgendaItem.parse(content))
 
     def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
         if isinstance(other, AgendaItem):
