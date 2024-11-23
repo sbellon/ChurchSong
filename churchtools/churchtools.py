@@ -329,6 +329,7 @@ class ChurchTools:
                 service_leads[service_name] = {person_name}
             else:
                 service_leads[service_name].add(person_name)
+        service_leads[str(None)] = {self._person_dict.get(str(None), str(None))}
         return service_leads
 
     def _get_url_for_songbeamer_agenda(
