@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import datetime  # noqa: TCH003
+import datetime  # noqa: TC003
 import io
 import sys
 import typing
@@ -438,6 +438,9 @@ class ChurchTools:
                         if arrangement.source_name and arrangement.source_reference
                         else None
                     )
+                    tag_msg = (
+                        f'missing "{source}"' if source and no_tags else to_str(no_tags)
+                    )
                     no_duration = arrangement.duration == 0
                     no_sng_file = True
                     no_bgimage = True
@@ -447,7 +450,8 @@ class ChurchTools:
                             no_bgimage &= not self._check_sng_file(file.file_url)
                     if (
                         no_ccli
-                        or (not source or source not in song.tags)
+                        or tag_msg
+                        or not source
                         or no_duration
                         or no_sng_file
                         or no_bgimage
@@ -457,11 +461,7 @@ class ChurchTools:
                                 song_id,
                                 song_name,
                                 to_str(no_ccli),
-                                (
-                                    f'missing "{source}"'
-                                    if source and no_tags
-                                    else to_str(no_tags)
-                                ),
+                                tag_msg,
                                 arrangement_name,
                                 to_str(source is None),
                                 to_str(no_duration),
