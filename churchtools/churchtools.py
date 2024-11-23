@@ -457,7 +457,11 @@ class ChurchTools:
                                 song_id,
                                 song_name,
                                 to_str(no_ccli),
-                                f'missing "{source}"' if source else to_str(no_tags),
+                                (
+                                    f'missing "{source}"'
+                                    if source and no_tags
+                                    else to_str(no_tags)
+                                ),
                                 arrangement_name,
                                 to_str(source is None),
                                 to_str(no_duration),
