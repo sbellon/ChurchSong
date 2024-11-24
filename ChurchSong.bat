@@ -1,5 +1,6 @@
 @echo off
 setlocal
+<nul set /p=Starting ChurchSong ... >&2
 if exist %~dp0bin\uv.exe (
     set UV=%~dp0bin\uv.exe
 ) else (

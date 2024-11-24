@@ -88,6 +88,7 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
 
 
 def main() -> None:
+    sys.stderr.write('\033[F\n')
     config = Configuration(pathlib.Path(__file__).with_suffix('.toml'))
     try:
         config.log.debug('Parsing command line with args: %s', sys.argv)
