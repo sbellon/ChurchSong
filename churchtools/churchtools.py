@@ -50,6 +50,31 @@ class PermissionsGlobalData(pydantic.BaseModel):
         return obj
 
 
+class CalendarAppointmentBase(pydantic.BaseModel):
+    title: str
+    subtitle: str | None
+    description: str | None
+    start_date: datetime.datetime = pydantic.Field(alias='startDate')
+    all_day: bool = pydantic.Field(alias='allDay')
+
+
+class CalendarAppointment(pydantic.BaseModel):
+    base: CalendarAppointmentBase
+
+
+class CalendarAppointmentsData(pydantic.BaseModel):
+    data: list[CalendarAppointment]
+
+
+class Calendar(pydantic.BaseModel):
+    id: int
+    name: str
+
+
+class CalendarsData(pydantic.BaseModel):
+    data: list[Calendar]
+
+
 class Service(pydantic.BaseModel):
     id: int
     name: str | None
@@ -265,6 +290,19 @@ class ChurchTools:
             else result.meta.count,
             inner_generator(),
         )
+
+    def _get_calendars(self) -> typing.Generator[Calendar]:
+        r = self._get('/api/calendars')
+        result = CalendarsData(**r.json())
+        yield from result.data
+
+    def _get_appointments(self) -> typing.Generator[CalendarAppointment]:
+        calendar_ids = ','.join(str(calendar.id) for calendar in self._get_calendars())
+        r = self._get(
+            '/api/calendars/appointments', params={'calendar_ids[]': calendar_ids}
+        )
+        result = CalendarAppointmentsData(**r.json())
+        yield from result.data
 
     def _get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')
