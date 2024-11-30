@@ -56,5 +56,8 @@ ChurchTools song database for specific properties like CCLI number, song name, t
 arrangement source, duration and a SongBeamer `.sng` file with the `#BackgroundImage`
 property set.
 
+With optional positional argument `FROM_DATE` in the form `YYYY-MM-DD` you can select
+to only check the songs of the next event agenda after `FROM_DATE`.
+
 Using command options `--exclude_tags` and/or `--include_tags` you can filter out
 songs with specific tags or only include songs with specific tags in the check.

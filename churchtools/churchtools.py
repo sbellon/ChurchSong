@@ -133,7 +133,7 @@ class Pagination(pydantic.BaseModel):
 
 class SongsMeta(pydantic.BaseModel):
     count: int
-    pagination: Pagination
+    pagination: Pagination | None = None
 
 
 class SongsData(pydantic.BaseModel):
@@ -170,6 +170,13 @@ class ChurchTools:
         self._login_token = config.login_token
         self._person_dict = config.person_dict
         self._temp_dir = config.temp_dir
+        self._assert_permissions(
+            'churchservice:view',
+            'churchservice:view agenda',
+            'churchservice:view events',
+            'churchservice:view servicegroup',
+            'churchservice:view songcategory',
+        )
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -217,7 +224,9 @@ class ChurchTools:
         result = TagsData(**r.json())
         yield from result.data
 
-    def _get_songs(self) -> tuple[int, typing.Generator[Song]]:
+    def _get_songs(
+        self, event: EventShort | None = None
+    ) -> tuple[int, typing.Generator[Song]]:
         # Fetch mapping from tag_id to tag_name for song tags.
         tags = {tag.id: tag.name for tag in self._get_tags('songs')}
 
@@ -231,22 +240,31 @@ class ChurchTools:
         }
 
         # Use the new API to actually fetch the other information.
-        r = self._get('/api/songs', params={'page': '1', 'limit': '1'})
+        api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
+        r = self._get(api_url, params={'page': '1', 'limit': '1'})
         result = SongsData(**r.json())
 
         def inner_generator() -> typing.Generator[Song]:
             current_page = 0
             last_page = sys.maxsize
             while current_page < last_page:
-                r = self._get('/api/songs', params={'page': str(current_page + 1)})
+                r = self._get(api_url, params={'page': str(current_page + 1)})
                 tmp = SongsData(**r.json())
-                current_page = tmp.meta.pagination.current
-                last_page = tmp.meta.pagination.last_page
+                if tmp.meta.pagination:
+                    current_page = tmp.meta.pagination.current
+                    last_page = tmp.meta.pagination.last_page
+                else:
+                    current_page = last_page
                 for song in tmp.data:
                     song.tags = song_tags[song.id]
                     yield song
 
-        return result.meta.pagination.total, inner_generator()
+        return (
+            result.meta.pagination.total
+            if result.meta.pagination
+            else result.meta.count,
+            inner_generator(),
+        )
 
     def _get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')
@@ -263,7 +281,7 @@ class ChurchTools:
         result = EventsData(**r.json())
         yield from result.data
 
-    def _get_next_event(self, from_date: datetime.date | None = None) -> EventShort:
+    def get_next_event(self, from_date: datetime.date | None = None) -> EventShort:
         try:
             return next(self._get_events(from_date))
         except StopIteration:
@@ -274,7 +292,7 @@ class ChurchTools:
             sys.stderr.write(f'{err_msg}\n')
             sys.exit(1)
 
-    def _get_event(self, event_id: int) -> EventFull:
+    def _get_full_event(self, event_id: int) -> EventFull:
         r = self._get(f'/api/events/{event_id}')
         result = EventFullData(**r.json())
         return result.data
@@ -310,17 +328,13 @@ class ChurchTools:
         if not has_permission:
             sys.exit(1)
 
-    def get_service_leads(
-        self, from_date: datetime.date | None = None
-    ) -> defaultdict[str, set[str]]:
+    def get_service_leads(self, event: EventShort) -> defaultdict[str, set[str]]:
         self._log.info('Fetching service teams')
-        next_event = self._get_next_event(from_date)
-        event = self._get_event(next_event.id)
         service_id2name = {service.id: service.name for service in self._get_services()}
         service_leads = defaultdict(
             lambda: {self._person_dict.get(str(None), str(None))}
         )
-        for eventservice in event.event_services:
+        for eventservice in self._get_full_event(event.id).event_services:
             service_name = service_id2name[eventservice.service_id]
             person_name = self._person_dict.get(
                 str(eventservice.name), str(eventservice.name)
@@ -331,39 +345,26 @@ class ChurchTools:
                 service_leads[service_name].add(person_name)
         return service_leads
 
-    def _get_url_for_songbeamer_agenda(
-        self, from_date: datetime.date | None = None
-    ) -> tuple[datetime.datetime, str]:
+    def _get_url_for_songbeamer_agenda(self, event: EventShort) -> str:
         self._log.info('Fetching SongBeamer export URL')
-        next_event = self._get_next_event(from_date)
         try:
-            agenda = self._get_event_agenda(next_event.id)
+            agenda = self._get_event_agenda(event.id)
         except requests.HTTPError as e:
             if e.response.status_code == requests.codes['not_found']:
-                date = next_event.start_date.date()
+                date = event.start_date.date()
                 err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
                 self._log.error(err_msg)
                 sys.stderr.write(f'{err_msg}\n')
                 sys.exit(1)
             raise
-        return next_event.start_date, self._get_agenda_export(agenda.id).url
+        return self._get_agenda_export(agenda.id).url
 
-    def download_and_extract_agenda_zip(
-        self, from_date: datetime.date | None = None
-    ) -> datetime.datetime:
+    def download_and_extract_agenda_zip(self, event: EventShort) -> None:
         self._log.info('Downloading and extracting SongBeamer export')
-        self._assert_permissions(
-            'churchservice:view',
-            'churchservice:view agenda',
-            'churchservice:view events',
-            'churchservice:view servicegroup',
-            'churchservice:view songcategory',
-        )
-        event_date, url = self._get_url_for_songbeamer_agenda(from_date)
+        url = self._get_url_for_songbeamer_agenda(event)
         r = self._get(url)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
-        return event_date
 
     def _check_sng_file(self, url: str) -> bool:
         self._log.debug('Request GET %s', url)
@@ -376,11 +377,14 @@ class ChurchTools:
             line.startswith(b'#BackgroundImage=') for line in r.content.splitlines()
         )
 
-    def verify_songs(self, include_tags: list[str], exclude_tags: list[str]) -> None:
+    def verify_songs(
+        self,
+        *,
+        from_date: datetime.datetime | None = None,
+        include_tags: list[str] | None = None,
+        exclude_tags: list[str] | None = None,
+    ) -> None:
         self._log.info('Verifying ChurchTools song database')
-        self._assert_permissions(
-            'churchservice:view', 'churchservice:view songcategory'
-        )
 
         def to_str(b: bool) -> str:  # noqa: FBT001
             return 'missing' if b else ''
@@ -400,7 +404,8 @@ class ChurchTools:
         table.align['Id'] = 'r'
         for field_id in table.field_names[1:]:
             table.align[field_id] = 'l'
-        number_songs, songs = self._get_songs()
+        event = self.get_next_event(from_date) if from_date else None
+        number_songs, songs = self._get_songs(event)
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:

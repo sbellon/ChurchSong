@@ -32,16 +32,16 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
 
     config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
     ct = ChurchTools(config)
-    service_leads = ct.get_service_leads(args.from_date)
+    event = ct.get_next_event(args.from_date)
+    service_leads = ct.get_service_leads(event)
+    ct.download_and_extract_agenda_zip(event)
 
     pp = PowerPoint(config)
     pp.create(service_leads)
     pp.save()
 
-    event_date = ct.download_and_extract_agenda_zip(args.from_date)
-
     sb = SongBeamer(config)
-    sb.modify_and_save_agenda(event_date, service_leads)
+    sb.modify_and_save_agenda(event.start_date, service_leads)
     sb.launch()
 
 
@@ -49,7 +49,11 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     config.log.info('Starting song verification')
     ct = ChurchTools(config)
     try:
-        ct.verify_songs(args.include_tags, args.exclude_tags)
+        ct.verify_songs(
+            from_date=args.from_date,
+            include_tags=args.include_tags,
+            exclude_tags=args.exclude_tags,
+        )
     except KeyboardInterrupt:
         sys.stdout.write('Aborted.\n')
 
@@ -143,6 +147,13 @@ def main() -> None:
             action='extend',
             nargs='+',
             help='list of song tags that should be included in verification',
+        )
+        parser_songs_verify.add_argument(
+            'from_date',
+            metavar='FROM_DATE',
+            type=datetime.date.fromisoformat,
+            nargs='?',
+            help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD)',
         )
         parser_songs_verify.set_defaults(
             func=functools.partial(cmd_songs_verify, config=config)
