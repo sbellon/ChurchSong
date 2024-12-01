@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
 import datetime  # noqa: TC003
 import io
-import pathlib
+import os
 import re
 import sys
 import typing
@@ -197,6 +198,12 @@ class AJAXSongsData(pydantic.BaseModel):
     data: AJAXSongs
 
 
+@dataclasses.dataclass
+class AgendaFileItem:
+    title: str
+    filename: str
+
+
 class ChurchTools:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
@@ -204,6 +211,7 @@ class ChurchTools:
         self._login_token = config.login_token
         self._person_dict = config.person_dict
         self._temp_dir = config.temp_dir
+        self._files_dir = config.temp_dir / 'Files'
         self._assert_permissions(
             'churchservice:view',
             'churchservice:view agenda',
@@ -211,6 +219,19 @@ class ChurchTools:
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
         )
+
+    def _assert_permissions(self, *required_perms: str) -> None:
+        r = self._get('/api/permissions/global')
+        permissions = PermissionsGlobalData(**r.json())
+        has_permission = True
+        for perm in required_perms:
+            if not permissions.get_permission(perm):
+                err_msg = f'Missing permission "{perm}"'
+                self._log.error(f'{err_msg}')
+                sys.stderr.write(f'Error: {err_msg}\n')
+                has_permission = False
+        if not has_permission:
+            sys.exit(1)
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -318,70 +339,13 @@ class ChurchTools:
         result = ServicesData(**r.json())
         yield from result.data
 
-    def _get_events(
-        self, from_date: datetime.date | None = None
-    ) -> typing.Generator[EventShort]:
-        r = self._get(
-            '/api/events',
-            params={'from': f'{from_date:%Y-%m-%d}'} if from_date else None,
-        )
-        result = EventsData(**r.json())
-        yield from result.data
-
-    def get_next_event(self, from_date: datetime.date | None = None) -> EventShort:
-        try:
-            return next(self._get_events(from_date))
-        except StopIteration:
-            err_msg = 'No events present{} in ChurchTools'.format(
-                f' after {from_date:%Y-%m-%d}' if from_date else ''
-            )
-            self._log.error(err_msg)
-            sys.stderr.write(f'{err_msg}\n')
-            sys.exit(1)
-
-    def _get_full_event(self, event_id: int) -> EventFull:
-        r = self._get(f'/api/events/{event_id}')
-        result = EventFullData(**r.json())
-        return result.data
-
-    def _get_event_agenda(self, event_id: int) -> EventAgenda:
-        r = self._get(f'/api/events/{event_id}/agenda')
-        result = EventAgendaData(**r.json())
-        return result.data
-
-    def _get_agenda_export(self, agenda_id: int) -> AgendaExport:
-        r = self._post(
-            f'/api/agendas/{agenda_id}/export',
-            params={
-                'target': 'SONG_BEAMER',
-                'exportSongs': 'true',
-                'appendArrangement': 'false',
-                'withCategory': 'false',
-            },
-        )
-        result = AgendaExportData(**r.json())
-        return result.data
-
-    def _assert_permissions(self, *required_perms: str) -> None:
-        r = self._get('/api/permissions/global')
-        permissions = PermissionsGlobalData(**r.json())
-        has_permission = True
-        for perm in required_perms:
-            if not permissions.get_permission(perm):
-                err_msg = f'Missing permission "{perm}"'
-                self._log.error(f'{err_msg}')
-                sys.stderr.write(f'Error: {err_msg}\n')
-                has_permission = False
-        if not has_permission:
-            sys.exit(1)
-
     def get_service_leads(self, event: EventShort) -> defaultdict[str, set[str]]:
         self._log.info('Fetching service teams')
         service_id2name = {service.id: service.name for service in self._get_services()}
         service_leads = defaultdict(
             lambda: {self._person_dict.get(str(None), str(None))}
         )
-        for event_service in self._get_full_event(event.id).event_services:
+        for event_service in self._get_full_event(event).event_services:
             service_name = service_id2name[event_service.service_id]
             person_name = self._person_dict.get(
                 str(event_service.name), str(event_service.name)
@@ -392,7 +356,67 @@ class ChurchTools:
                 service_leads[service_name].add(person_name)
         return service_leads
 
-    def _download_file(self, title: str, url: str) -> pathlib.Path:
+    def _get_events(
+        self, from_date: datetime.date | None = None
+    ) -> typing.Generator[EventShort]:
+        r = self._get(
+            '/api/events',
+            params={'from': f'{from_date:%Y-%m-%d}'} if from_date else None,
+        )
+        result = EventsData(**r.json())
+        yield from result.data
+
+    def get_next_event(
+        self, from_date: datetime.date | None = None, *, agenda_required: bool = False
+    ) -> EventShort:
+        try:
+            event = next(self._get_events(from_date))
+        except StopIteration:
+            err_msg = 'No events present{} in ChurchTools'.format(
+                f' after {from_date:%Y-%m-%d}' if from_date else ''
+            )
+            self._log.error(err_msg)
+            sys.stderr.write(f'{err_msg}\n')
+            sys.exit(1)
+        if agenda_required:
+            try:
+                _agenda = self._get_event_agenda(event)
+            except requests.HTTPError as e:
+                if e.response.status_code == requests.codes.not_found:
+                    date = event.start_date.date()
+                    err_msg = (
+                        f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
+                    )
+                    self._log.error(err_msg)
+                    sys.stderr.write(f'{err_msg}\n')
+                    sys.exit(1)
+                raise
+        return event
+
+    def _get_full_event(self, event: EventShort) -> EventFull:
+        r = self._get(f'/api/events/{event.id}')
+        result = EventFullData(**r.json())
+        return result.data
+
+    def _get_event_agenda(self, event: EventShort) -> EventAgenda:
+        r = self._get(f'/api/events/{event.id}/agenda')
+        result = EventAgendaData(**r.json())
+        return result.data
+
+    def _get_agenda_export(self, agenda: EventAgenda) -> AgendaExport:
+        r = self._post(
+            f'/api/agendas/{agenda.id}/export',
+            params={
+                'target': 'SONG_BEAMER',
+                'exportSongs': 'true',
+                'appendArrangement': 'false',
+                'withCategory': 'false',
+            },
+        )
+        result = AgendaExportData(**r.json())
+        return result.data
+
+    def _download_file(self, title: str, url: str) -> str:
         self._log.info(f'Downloading "{url}"')
         r = requests.get(
             url,
@@ -404,50 +428,38 @@ class ChurchTools:
             match = re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
             if match:
                 filename = match.group(1)
-        files_dir = pathlib.Path(self._temp_dir / 'Files')
-        files_dir.mkdir(parents=True, exist_ok=True)
-        filename = files_dir / filename
+        self._files_dir.mkdir(parents=True, exist_ok=True)
+        filename = self._files_dir / filename
         with filename.open(mode='wb+') as fd:
             fd.write(r.content)
-        return filename
+        return os.fspath(filename)
 
-    def _fetch_service_attachments(self, event: EventShort) -> list[tuple[str, str]]:
+    def _fetch_service_attachments(self, event: EventShort) -> list[AgendaFileItem]:
         self._log.info('Fetching event attachments')
         result = []
-        for event_file in self._get_full_event(event.id).event_files:
+        for event_file in self._get_full_event(event).event_files:
             match event_file.domain_type:
                 case 'file':
                     filename = self._download_file(
                         event_file.title, event_file.frontend_url
                     )
-                    result.append((event_file.title, filename))
+                    result.append(AgendaFileItem(event_file.title, filename))
                 case 'link':
-                    result.append((event_file.title, event_file.frontend_url))
+                    result.append(
+                        AgendaFileItem(event_file.title, event_file.frontend_url)
+                    )
                 case _:
                     self._log.warning(
                         f'Unexpected event file type: {event_file.domain_type}'
                     )
         return result
 
-    def _get_url_for_songbeamer_agenda(self, event: EventShort) -> str:
-        self._log.info('Fetching SongBeamer export URL')
-        try:
-            agenda = self._get_event_agenda(event.id)
-        except requests.HTTPError as e:
-            if e.response.status_code == requests.codes['not_found']:
-                date = event.start_date.date()
-                err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
-                self._log.error(err_msg)
-                sys.stderr.write(f'{err_msg}\n')
-                sys.exit(1)
-            raise
-        return self._get_agenda_export(agenda.id).url
-
     def download_and_extract_agenda_zip(
         self, event: EventShort
-    ) -> list[tuple[str, str]]:
+    ) -> list[AgendaFileItem]:
         self._log.info('Downloading and extracting SongBeamer export')
-        url = self._get_url_for_songbeamer_agenda(event)
+        agenda = self._get_event_agenda(event)
+        url = self._get_agenda_export(agenda).url
         r = self._get(url)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
@@ -491,17 +503,10 @@ class ChurchTools:
         table.align['Id'] = 'r'
         for field_id in table.field_names[1:]:
             table.align[field_id] = 'l'
-        event = self.get_next_event(from_date) if from_date else None
-        try:
-            number_songs, songs = self._get_songs(event)
-        except requests.HTTPError as e:
-            if event and e.response.status_code == requests.codes['not_found']:
-                date = event.start_date.date()
-                err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
-                self._log.error(err_msg)
-                sys.stderr.write(f'{err_msg}\n')
-                sys.exit(1)
-                raise
+        event = (
+            self.get_next_event(from_date, agenda_required=True) if from_date else None
+        )
+        number_songs, songs = self._get_songs(event)
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:

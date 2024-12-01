@@ -32,7 +32,7 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
 
     config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
     ct = ChurchTools(config)
-    event = ct.get_next_event(args.from_date)
+    event = ct.get_next_event(args.from_date, agenda_required=True)
     service_leads = ct.get_service_leads(event)
     event_files = ct.download_and_extract_agenda_zip(event)
 

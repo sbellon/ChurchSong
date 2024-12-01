@@ -6,6 +6,7 @@ import subprocess
 import sys
 import typing
 
+from churchtools import AgendaFileItem
 from configuration import Configuration, SongBeamerColorReplacementsConfig
 from utils import string
 
@@ -207,7 +208,7 @@ class SongBeamer:
         self,
         event_date: datetime.datetime,
         service_leads: dict[str, set[str]],
-        event_files: list[tuple[str, str]],
+        event_files: list[AgendaFileItem],
     ) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
@@ -224,8 +225,10 @@ class SongBeamer:
         for agenda_item in (
             AgendaItem.parse(self._opening_slides)
             + [
-                AgendaItem(caption=f"'{caption}'", filename=f"'{filename}'")
-                for caption, filename in event_files
+                AgendaItem(
+                    caption=f"'{event_file.title}'", filename=f"'{event_file.filename}'"
+                )
+                for event_file in event_files
             ]
             + AgendaItem.parse(schedule_content)
             + AgendaItem.parse(self._closing_slides)
