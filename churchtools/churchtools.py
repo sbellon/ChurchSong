@@ -492,7 +492,16 @@ class ChurchTools:
         for field_id in table.field_names[1:]:
             table.align[field_id] = 'l'
         event = self.get_next_event(from_date) if from_date else None
-        number_songs, songs = self._get_songs(event)
+        try:
+            number_songs, songs = self._get_songs(event)
+        except requests.HTTPError as e:
+            if event and e.response.status_code == requests.codes['not_found']:
+                date = event.start_date.date()
+                err_msg = f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
+                self._log.error(err_msg)
+                sys.stderr.write(f'{err_msg}\n')
+                sys.exit(1)
+                raise
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:
