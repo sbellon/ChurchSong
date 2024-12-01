@@ -62,6 +62,7 @@ class PowerPoint:
                     persons_first_name,
                 )
                 ph.text_frame.paragraphs[0].text = persons_first_name
+        _ = service_leads.pop(str(None), None)
 
     def save(self) -> None:
         self._prs.save(os.fspath(self._temp_dir / self._template_pptx.name))
