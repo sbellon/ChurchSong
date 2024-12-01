@@ -101,7 +101,7 @@ class AgendaItem:
     def __init__(
         self,
         caption: str,
-        color: str,
+        color: str = 'clBlack',
         bgcolor: str | None = None,
         filename: str | None = None,
     ) -> None:
@@ -204,11 +204,14 @@ class SongBeamer:
         self._color_replacements = config.color_replacements
 
     def modify_and_save_agenda(
-        self, event_date: datetime.datetime, service_leads: dict[str, set[str]]
+        self,
+        event_date: datetime.datetime,
+        service_leads: dict[str, set[str]],
+        event_files: list[tuple[str, str]],
     ) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
-            content = fd.read()
+            schedule_content = fd.read()
 
         # Set environment variable(s) for use in agenda items in configuration.
         os.environ['CHURCHSONG_EVENT_DATETIME'] = (
@@ -218,21 +221,27 @@ class SongBeamer:
         agenda = Agenda(
             songs_dir=self._songs_dir, color_replacements=self._color_replacements
         )
-        for item in (
+        for agenda_item in (
             AgendaItem.parse(self._opening_slides)
-            + AgendaItem.parse(content)
+            + [
+                AgendaItem(caption=f"'{caption}'", filename=f"'{filename}'")
+                for caption, filename in event_files
+            ]
+            + AgendaItem.parse(schedule_content)
             + AgendaItem.parse(self._closing_slides)
+            + [
+                AgendaItem(
+                    caption=f"'{service}: {", ".join(sorted(persons))}'",
+                    color=self._color_service.color,
+                    bgcolor=self._color_service.bgcolor,
+                )
+                for service, persons in sorted(service_leads.items())
+            ]
         ):
-            agenda += item
+            agenda += agenda_item
             for slide in self._insert_slides:
-                if any(keyword in item.caption for keyword in slide.keywords):
+                if any(keyword in agenda_item.caption for keyword in slide.keywords):
                     agenda += AgendaItem.parse(slide.content)
-        for service, persons in sorted(service_leads.items()):
-            agenda += AgendaItem(
-                caption=f"'{service}: {", ".join(sorted(persons))}'",
-                color=self._color_service.color,
-                bgcolor=self._color_service.bgcolor,
-            )
 
         with self._schedule_filepath.open(mode='w', encoding='utf-8') as fd:
             fd.write(str(agenda))

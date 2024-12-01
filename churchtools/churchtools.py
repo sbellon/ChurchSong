@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import datetime  # noqa: TC003
 import io
+import pathlib
+import re
 import sys
 import typing
 import zipfile
@@ -98,8 +100,15 @@ class EventService(pydantic.BaseModel):
     service_id: int = pydantic.Field(alias='serviceId')
 
 
+class EventFile(pydantic.BaseModel):
+    title: str
+    domain_type: str = pydantic.Field(alias='domainType')
+    frontend_url: str = pydantic.Field(alias='frontendUrl')
+
+
 class EventFull(pydantic.BaseModel):
     id: int
+    event_files: list[EventFile] = pydantic.Field(alias='eventFiles')
     event_services: list[EventService] = pydantic.Field(alias='eventServices')
 
 
@@ -372,16 +381,53 @@ class ChurchTools:
         service_leads = defaultdict(
             lambda: {self._person_dict.get(str(None), str(None))}
         )
-        for eventservice in self._get_full_event(event.id).event_services:
-            service_name = service_id2name[eventservice.service_id]
+        for event_service in self._get_full_event(event.id).event_services:
+            service_name = service_id2name[event_service.service_id]
             person_name = self._person_dict.get(
-                str(eventservice.name), str(eventservice.name)
+                str(event_service.name), str(event_service.name)
             )
             if service_name not in service_leads:
                 service_leads[service_name] = {person_name}
             else:
                 service_leads[service_name].add(person_name)
         return service_leads
+
+    def _download_file(self, title: str, url: str) -> pathlib.Path:
+        self._log.info(f'Downloading "{url}"')
+        r = requests.get(
+            url,
+            headers=self._headers(),
+            timeout=None,  # noqa: S113
+        )
+        filename = title
+        if 'Content-Disposition' in r.headers:
+            match = re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
+            if match:
+                filename = match.group(1)
+        files_dir = pathlib.Path(self._temp_dir / 'Files')
+        files_dir.mkdir(parents=True, exist_ok=True)
+        filename = files_dir / filename
+        with filename.open(mode='wb+') as fd:
+            fd.write(r.content)
+        return filename
+
+    def _fetch_service_attachments(self, event: EventShort) -> list[tuple[str, str]]:
+        self._log.info('Fetching event attachments')
+        result = []
+        for event_file in self._get_full_event(event.id).event_files:
+            match event_file.domain_type:
+                case 'file':
+                    filename = self._download_file(
+                        event_file.title, event_file.frontend_url
+                    )
+                    result.append((event_file.title, filename))
+                case 'link':
+                    result.append((event_file.title, event_file.frontend_url))
+                case _:
+                    self._log.warning(
+                        f'Unexpected event file type: {event_file.domain_type}'
+                    )
+        return result
 
     def _get_url_for_songbeamer_agenda(self, event: EventShort) -> str:
         self._log.info('Fetching SongBeamer export URL')
@@ -397,12 +443,15 @@ class ChurchTools:
             raise
         return self._get_agenda_export(agenda.id).url
 
-    def download_and_extract_agenda_zip(self, event: EventShort) -> None:
+    def download_and_extract_agenda_zip(
+        self, event: EventShort
+    ) -> list[tuple[str, str]]:
         self._log.info('Downloading and extracting SongBeamer export')
         url = self._get_url_for_songbeamer_agenda(event)
         r = self._get(url)
         buf = io.BytesIO(r.content)
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
+        return self._fetch_service_attachments(event)
 
     def _check_sng_file(self, url: str) -> bool:
         self._log.debug('Request GET %s', url)

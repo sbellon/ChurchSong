@@ -34,14 +34,14 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     ct = ChurchTools(config)
     event = ct.get_next_event(args.from_date)
     service_leads = ct.get_service_leads(event)
-    ct.download_and_extract_agenda_zip(event)
+    event_files = ct.download_and_extract_agenda_zip(event)
 
     pp = PowerPoint(config)
     pp.create(service_leads)
     pp.save()
 
     sb = SongBeamer(config)
-    sb.modify_and_save_agenda(event.start_date, service_leads)
+    sb.modify_and_save_agenda(event.start_date, service_leads, event_files)
     sb.launch()
 
 
