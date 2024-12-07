@@ -518,7 +518,7 @@ class ChurchTools:
                     continue
                 song_id = f'#{song.id}'
                 song_name = song.name if song.name else f'#{song.id}'
-                no_ccli = song.author is None or song.ccli is None
+                no_ccli = not song.author or not song.ccli
                 no_tags = not song.tags
                 no_arrangement = not song.arrangements
                 if no_arrangement:
