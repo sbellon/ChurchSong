@@ -11,15 +11,15 @@ import subprocess
 import sys
 import tomllib
 
-from churchtools import ChurchTools
-from configuration import Configuration
-from powerpoint import PowerPoint
-from songbeamer import SongBeamer
+from .churchtools import ChurchTools
+from .configuration import Configuration
+from .powerpoint import PowerPoint
+from .songbeamer import SongBeamer
 
 
-def get_app_version() -> str:
+def get_app_version(app_root: pathlib.Path) -> str:
     try:
-        with pathlib.Path('pyproject.toml').open('rb') as f:
+        with (app_root / 'pyproject.toml').open('rb') as f:
             return tomllib.load(f)['project']['version']
     except FileNotFoundError:
         pass
@@ -60,7 +60,7 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
 
 def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
     config.log.info('Starting ChurchSong update')
-    uv = shutil.which(pathlib.Path(__file__).parent / 'bin/uv')
+    uv = shutil.which(config.app_root / 'bin/uv')
     if not uv:
         uv = shutil.which('uv')
     if not uv:
@@ -93,7 +93,8 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
 
 def main() -> None:
     sys.stderr.write('\r\033[2K\r')
-    config = Configuration(pathlib.Path(__file__).with_suffix('.toml'))
+    app_root = pathlib.Path(__file__).parent.parent.parent
+    config = Configuration(app_root)
     try:
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
@@ -177,7 +178,7 @@ def main() -> None:
             func=functools.partial(cmd_self_update, config=config)
         )
         parser.add_argument(
-            '-v', '--version', action='version', version=get_app_version()
+            '-v', '--version', action='version', version=get_app_version(app_root)
         )
         args = parser.parse_args()
         args.func(args)

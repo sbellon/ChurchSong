@@ -6,9 +6,11 @@ import subprocess
 import sys
 import typing
 
-from churchtools import AgendaFileItem
-from configuration import Configuration, SongBeamerColorReplacementsConfig
-from utils import string
+from . import utils
+
+if typing.TYPE_CHECKING:
+    from .churchtools import AgendaFileItem
+    from .configuration import Configuration, SongBeamerColorReplacementsConfig
 
 r"""
 SongBeamer agenda items look something like this:
@@ -147,7 +149,7 @@ class AgendaItem:
         if self.filename:
             result += f'\n      FileName = {self._encode(self.filename)}'
         result += '\n    end'
-        return string.expand_envvars(result)
+        return utils.expand_envvars(result)
 
 
 class Agenda:
@@ -155,7 +157,7 @@ class Agenda:
         self,
         *,
         songs_dir: pathlib.Path | None = None,
-        color_replacements: list[SongBeamerColorReplacementsConfig] | None = None,
+        color_replacements: list['SongBeamerColorReplacementsConfig'] | None = None,
     ) -> None:
         self._agenda_items = []
         self._songs_dir = songs_dir
@@ -192,7 +194,7 @@ class Agenda:
 
 
 class SongBeamer:
-    def __init__(self, config: Configuration) -> None:
+    def __init__(self, config: 'Configuration') -> None:
         self._log = config.log
         self._temp_dir = config.temp_dir.resolve()
         self._songs_dir = self._temp_dir / 'Songs'
@@ -208,7 +210,7 @@ class SongBeamer:
         self,
         event_date: datetime.datetime,
         service_leads: dict[str, set[str]],
-        event_files: list[AgendaFileItem],
+        event_files: list['AgendaFileItem'],
     ) -> None:
         self._log.info('Modifying SongBeamer schedule')
         with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:

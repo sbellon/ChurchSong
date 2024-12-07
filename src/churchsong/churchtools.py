@@ -16,7 +16,7 @@ import pydantic
 import requests
 
 if typing.TYPE_CHECKING:
-    from configuration import Configuration
+    from .configuration import Configuration
 
 
 class PermissionsGlobalChurchCal(pydantic.BaseModel):

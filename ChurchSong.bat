@@ -10,5 +10,5 @@ if not defined UV (
     echo error: uv.exe can be found neither in subfolder 'bin' nor in PATH
     exit /b 1
 )
-%UV% run %~dpn0.py %*
+%UV% run --directory src -m churchsong %*
 if errorlevel 1 pause
