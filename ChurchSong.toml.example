@@ -11,26 +11,26 @@ login_token = "YOUR_LOGIN_TOKEN"
 "Jonathan Doe" = "Jon Doe"
 
 [SongBeamer.Settings]
-template_pptx = "./Data/PowerPoint/TEMPLATE_SLIDE.pptx"
-portraits_dir = "./Data/Portraits"
-temp_dir = "${USERPROFILE}/Desktop/Generated_for_SongBeamer"
+template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/TEMPLATE_SLIDE.pptx"
+portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
+temp_dir = "${USERPROFILE}/Desktop/Temp"
 
 [SongBeamer.Slides.Opening]
 content = """
     item
       Caption = 'Projector Check'
       Color = clBlack
-      FileName = '../Data/PowerPoint/ProjectorCheck.pptx'
+      FileName = '${USERPROFLE}/Desktop/Data/PowerPoint/ProjectorCheck.pptx'
     end
     item
       Caption = 'Service Staff'
       Color = clBlack
-      FileName = './TEMPLATE_SLIDE.pptx'
+      FileName = '${USERPROFILE}/Desktop/Temp/TEMPLATE_SLIDE.pptx'
     end
     item
       Caption = 'Welcome'
       Color = clBlack
-      FileName = '../Data/PowerPoint/Welcome.pptx'
+      FileName = '${USERPROFLE}/Desktop/Data/PowerPoint/Welcome.pptx'
     end
 """
 
@@ -48,7 +48,7 @@ content = """
     item
       Caption = 'Appointments'
       Color = clBlack
-      FileName = '../Data/PowerPoint/Appointments.pptx'
+      FileName = '${USERPROFILE}/Desktop/Data/PowerPoint/Appointments.pptx'
     end
 """
 

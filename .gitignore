@@ -18,5 +18,4 @@ wheels/
 /ChurchSong.toml
 /bin/uv.exe
 /bin/uvx.exe
-/Data/**
 /Logs/**
