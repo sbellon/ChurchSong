@@ -574,12 +574,29 @@ class ChurchTools:
         from_date: datetime.datetime | None = None,
         include_tags: list[str] | None = None,
         exclude_tags: list[str] | None = None,
+        execute_checks: list[str] | None = None,
     ) -> None:
         self._log.info('Verifying ChurchTools song database')
 
-        table = prettytable.PrettyTable()
-        table.field_names = ['Id', 'Song', 'Arrangement', *self.SONG_CHECKS.keys()]
+        # Use activated checks from command line or all as default.
+        active_song_checks = OrderedDict(
+            (name, self.SONG_CHECKS[name])
+            for name in (execute_checks if execute_checks else self.SONG_CHECKS.keys())
+            if name in self.SONG_CHECKS
+        )
+        if not active_song_checks:
+            sys.stderr.write('Error: no valid check to execute selected\n')
+            sys.exit(1)
 
+        # Prepare the check result table.
+        table = prettytable.PrettyTable()
+        table.field_names = ['Id', 'Song', 'Arrangement', *active_song_checks.keys()]
+        table.align['Id'] = 'r'
+        for field_id in table.field_names[1:]:
+            table.align[field_id] = 'l'
+
+        # Iterate over songs (either from agenda of specified date, or all songs) and
+        # execute selected checks.
         event = (
             self.get_next_event(from_date, agenda_required=True) if from_date else None
         )
@@ -606,7 +623,7 @@ class ChurchTools:
 
                 # Execute the actual checks.
                 check_results = zip(
-                    *(check(song) for check in self.SONG_CHECKS.values()), strict=True
+                    *(check(song) for check in active_song_checks.values()), strict=True
                 )
 
                 # Create the result table row(s) for later output.
@@ -625,10 +642,9 @@ class ChurchTools:
                 bar()
 
         # Output nicely formatted result table.
-        table.align['Id'] = 'r'
-        for field_id in table.field_names[1:]:
-            table.align[field_id] = 'l'
-        sys.stdout.write(f'{table.get_string()}\n')
+        sys.stdout.write(
+            '{}\n'.format(table.get_string(print_empty=False) or 'No problems found.')
+        )
 
 
 def miss_if(b: bool) -> str:  # noqa: FBT001

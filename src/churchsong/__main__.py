@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from __future__ import annotations
 
 import argparse
@@ -53,6 +51,7 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
             from_date=args.from_date,
             include_tags=args.include_tags,
             exclude_tags=args.exclude_tags,
+            execute_checks=args.execute_checks,
         )
     except KeyboardInterrupt:
         sys.stdout.write('Aborted.\n')
@@ -137,17 +136,26 @@ def main() -> None:
         )
         parser_songs_verify.add_argument(
             '--exclude_tags',
-            metavar='TAGS',
+            metavar='TAG',
             action='extend',
             nargs='+',
             help='list of song tags that should be excluded from verification',
         )
         parser_songs_verify.add_argument(
             '--include_tags',
-            metavar='TAGS',
+            metavar='TAG',
             action='extend',
             nargs='+',
             help='list of song tags that should be included in verification',
+        )
+        parser_songs_verify.add_argument(
+            '--execute_checks',
+            metavar='CHECK_NAME',
+            action='extend',
+            nargs='+',
+            help=(
+                'list of checks that should be performed (header names of result table)'
+            ),
         )
         parser_songs_verify.add_argument(
             'from_date',
