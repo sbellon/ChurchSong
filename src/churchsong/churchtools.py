@@ -8,7 +8,7 @@ import re
 import sys
 import typing
 import zipfile
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 
 import alive_progress
 import prettytable
@@ -148,6 +148,7 @@ class Arrangement(pydantic.BaseModel):
     beat: str | None
     duration: int
     files: list[File]
+    sng_file_content: list[str] = []  # NOT filled by ChurchTools, but internally
 
 
 class Song(pydantic.BaseModel):
@@ -465,16 +466,107 @@ class ChurchTools:
         zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
         return self._fetch_service_attachments(event)
 
-    def _check_sng_file(self, url: str) -> bool:
+    def _load_sng_file(self, url: str) -> list[str]:
         self._log.debug('Request GET %s', url)
         r = requests.get(
             url,
             headers=self._headers(),
             timeout=None,  # noqa: S113
         )
-        return any(
-            line.startswith(b'#BackgroundImage=') for line in r.content.splitlines()
-        )
+        return r.text.lstrip('\ufeff').splitlines()
+
+    SONG_CHECKS: typing.Final[
+        typing.OrderedDict[str, typing.Callable[[Song], list[str]]]
+    ] = OrderedDict(
+        [  # now the list of checks for each song ...
+            (
+                'CCLI',
+                lambda song: [
+                    miss_if(not song.author or not song.ccli) for _ in song.arrangements
+                ],
+            ),
+            (
+                'Tags',
+                lambda song: [
+                    ', '.join(
+                        filter(
+                            None,  # remove all falsy elements to not join them
+                            [  # now the list of individual tag checks ...
+                                (
+                                    f'miss "{a.source_name} {a.source_reference}"'
+                                    if a.source_name
+                                    and a.source_reference
+                                    and not song.tags
+                                    else miss_if(not song.tags)
+                                ),
+                                (
+                                    'miss "EN/DE"'
+                                    if any(
+                                        line.startswith('#LangCount=2')
+                                        for line in a.sng_file_content
+                                    )
+                                    and 'EN/DE' not in song.tags
+                                    else ''
+                                ),
+                                # ... add further checks here ...
+                            ],
+                        )
+                    )
+                    for a in song.arrangements
+                ]
+                or [miss_if(not song.tags)],
+            ),
+            (
+                'Source',
+                lambda song: [
+                    miss_if(not a.source_name or not a.source_reference)
+                    for a in song.arrangements
+                ],
+            ),
+            (
+                'Duration',
+                lambda song: [miss_if(a.duration == 0) for a in song.arrangements],
+            ),
+            (
+                '.sng',
+                lambda song: [
+                    miss_if(not any(file.name.endswith('.sng') for file in a.files))
+                    for a in song.arrangements
+                ],
+            ),
+            (
+                'BGImage',
+                lambda song: [
+                    miss_if(
+                        not any(
+                            line.startswith('#BackgroundImage=')
+                            for line in a.sng_file_content
+                        )
+                        if a.sng_file_content
+                        else False
+                    )
+                    for a in song.arrangements
+                ],
+            ),
+            (
+                '#Lang',
+                lambda song: [
+                    miss_if(
+                        'EN/DE' in song.tags
+                        and not any(
+                            line.startswith(
+                                ('#LangCount=2', '#LangCount=3', '#LangCount=4')
+                            )
+                            for line in a.sng_file_content
+                        )
+                        if a.sng_file_content
+                        else False
+                    )
+                    for a in song.arrangements
+                ],
+            ),
+        ]
+    )
 
     def verify_songs(
         self,
@@ -485,24 +577,9 @@ class ChurchTools:
     ) -> None:
         self._log.info('Verifying ChurchTools song database')
 
-        def to_str(b: bool) -> str:  # noqa: FBT001
-            return 'missing' if b else ''
-
         table = prettytable.PrettyTable()
-        table.field_names = [
-            'Id',
-            'Song',
-            'CCLI',
-            'Tags',
-            'Arrangement',
-            'Source',
-            'Duration',
-            '.sng',
-            'BGImage',
-        ]
-        table.align['Id'] = 'r'
-        for field_id in table.field_names[1:]:
-            table.align[field_id] = 'l'
+        table.field_names = ['Id', 'Song', 'Arrangement', *self.SONG_CHECKS.keys()]
+
         event = (
             self.get_next_event(from_date, agenda_required=True) if from_date else None
         )
@@ -511,69 +588,48 @@ class ChurchTools:
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:
             for song in sorted(songs, key=lambda e: e.name):
+                # Apply include and exclude tag switches.
                 if (
                     include_tags and not any(tag in song.tags for tag in include_tags)
                 ) or (exclude_tags and any(tag in song.tags for tag in exclude_tags)):
                     bar()
                     continue
-                song_id = f'#{song.id}'
-                song_name = song.name if song.name else f'#{song.id}'
-                no_ccli = not song.author or not song.ccli
-                no_tags = not song.tags
-                no_arrangement = not song.arrangements
-                if no_arrangement:
-                    table.add_row(
-                        [
-                            song_id,
-                            song_name,
-                            to_str(no_ccli),
-                            to_str(no_tags),
-                            to_str(no_arrangement),
-                            '',
-                            '',
-                            '',
-                            '',
-                        ]
-                    )
-                for arrangement in song.arrangements:
-                    arrangement_name = (
-                        arrangement.name if arrangement.name else f'#{arrangement.id}'
-                    )
-                    source = (
-                        f'{arrangement.source_name} {arrangement.source_reference}'
-                        if arrangement.source_name and arrangement.source_reference
-                        else None
-                    )
-                    tag_msg = (
-                        f'missing "{source}"' if source and no_tags else to_str(no_tags)
-                    )
-                    no_duration = arrangement.duration == 0
-                    no_sng_file = True
-                    no_bgimage = True
-                    for file in arrangement.files:
+
+                # Load .sng files - if existing - to have them available for checking.
+                for arr in song.arrangements:
+                    for file in arr.files:
                         if file.name.endswith('.sng'):
-                            no_sng_file = False
-                            no_bgimage &= not self._check_sng_file(file.file_url)
-                    if (
-                        no_ccli
-                        or tag_msg
-                        or not source
-                        or no_duration
-                        or no_sng_file
-                        or no_bgimage
-                    ):
+                            arr.sng_file_content = self._load_sng_file(file.file_url)
+                            # If multiple .sng files are present, ChurchTools seems to
+                            # export the one added first?
+                            break
+
+                # Execute the actual checks.
+                check_results = zip(
+                    *(check(song) for check in self.SONG_CHECKS.values()), strict=True
+                )
+
+                # Create the result table row(s) for later output.
+                for arr, check_result in zip(
+                    song.arrangements, check_results, strict=True
+                ):
+                    if any(res for res in check_result):
                         table.add_row(
                             [
-                                song_id,
-                                song_name,
-                                to_str(no_ccli),
-                                tag_msg,
-                                arrangement_name,
-                                to_str(source is None),
-                                to_str(no_duration),
-                                to_str(no_sng_file),
-                                to_str(no_bgimage),
+                                f'#{song.id}',
+                                song.name if song.name else f'#{song.id}',
+                                arr.name if arr.name else f'#{arr.id}',
+                                *check_result,
                             ]
                         )
                 bar()
+
+        # Output nicely formatted result table.
+        table.align['Id'] = 'r'
+        for field_id in table.field_names[1:]:
+            table.align[field_id] = 'l'
         sys.stdout.write(f'{table.get_string()}\n')
+
+
+def miss_if(b: bool) -> str:  # noqa: FBT001
+    return 'miss' if b else ''
