@@ -517,14 +517,14 @@ class ChurchTools:
                 or [miss_if(not song.tags)],
             ),
             (
-                'Source',
+                'Src.',
                 lambda song: [
                     miss_if(not a.source_name or not a.source_reference)
                     for a in song.arrangements
                 ],
             ),
             (
-                'Duration',
+                'Dur.',
                 lambda song: [miss_if(a.duration == 0) for a in song.arrangements],
             ),
             (
@@ -535,7 +535,7 @@ class ChurchTools:
                 ],
             ),
             (
-                'BGImage',
+                'BGImg',
                 lambda song: [
                     miss_if(
                         not any(
