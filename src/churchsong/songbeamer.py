@@ -44,10 +44,8 @@ With the following known KEYs:
 - Props: array with properties, e.g.
     Props = []
 
-- AdvProps: multi-line string with properties, e.g.
-    AdvProps = (
-      'Video.EndAction=stop'
-      'Video.Loop=false')
+- VerseOrder: description of verse order like #VerseOrder in .sng, e.g.
+    VerseOrder = 'Verse 1,Chorus 1,Verse 2,Chorus 1,Misc 1,Chorus 1'
 
 - Lang: selected song language, e.g.
     Lang = (
@@ -56,13 +54,18 @@ With the following known KEYs:
     Lang = (
       2)
 
+- AdvProps: multi-line string with properties, e.g.
+    AdvProps = (
+      'Video.EndAction=stop'
+      'Video.Loop=false')
+
 - StreamClass: information for embedded binary streaming data, e.g.
     StreamClass = 'TPresentationSlideShow'
 
 - GUID: e.g.
     GUID = '{EE688E14-9FF7-11EF-8000-08BFB8140608}'
-- Data: some binary encoded data, e.g.
 
+- Data: some binary encoded data, e.g.
     Data = {
       01234567890ABCDEF
       01234567890}
