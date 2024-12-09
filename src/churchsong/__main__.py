@@ -122,7 +122,7 @@ def main() -> None:
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
-        parser.set_defaults(func=functools.partial(cmd_agenda, config=config))
+        parser_agenda.set_defaults(func=functools.partial(cmd_agenda, config=config))
         parser_songs = subparsers.add_parser(
             'songs',
             help='operate on the ChurchTools songs',
@@ -188,6 +188,14 @@ def main() -> None:
         )
         parser_self_update.set_defaults(
             func=functools.partial(cmd_self_update, config=config)
+        )
+        parser_self_version = subparser_self.add_parser(
+            'version',
+            help="show program's version number and exit",
+            allow_abbrev=False,
+        )
+        parser_self_version.set_defaults(
+            func=lambda _: sys.stdout.write(f'{get_app_version(app_root)}\n')
         )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version(app_root)
