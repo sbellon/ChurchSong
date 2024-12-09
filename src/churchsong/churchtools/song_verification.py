@@ -34,45 +34,46 @@ SONG_CHECKS: typing.Final[
                         None,  # remove all falsy elements to not join them
                         [  # now the list of individual tag checks ...
                             (
-                                f'miss "{a.source_name} {a.source_reference}"'
-                                if a.source_name
-                                and a.source_reference
-                                and not song.tags
-                                else miss_if(not song.tags)
+                                f'miss "{tag}"'
+                                if arr.source_name
+                                and arr.source_reference
+                                and (tag := f'{arr.source_name} {arr.source_reference}')
+                                not in song.tags
+                                else ''
                             ),
                             (
                                 'miss "EN/DE"'
                                 if any(
                                     line.startswith('#LangCount=2')
-                                    for line in a.sng_file_content
+                                    for line in arr.sng_file_content
                                 )
                                 and 'EN/DE' not in song.tags
                                 else ''
                             ),
-                            # ... add further checks here ...
+                            # ... add further tag checks here ...
                         ],
                     )
                 )
-                for a in song.arrangements
+                for arr in song.arrangements
             ]
             or [miss_if(not song.tags)],
         ),
         (
             'Src.',
             lambda song: [
-                miss_if(not a.source_name or not a.source_reference)
-                for a in song.arrangements
+                miss_if(not arr.source_name or not arr.source_reference)
+                for arr in song.arrangements
             ],
         ),
         (
             'Dur.',
-            lambda song: [miss_if(a.duration == 0) for a in song.arrangements],
+            lambda song: [miss_if(arr.duration == 0) for arr in song.arrangements],
         ),
         (
             '.sng',
             lambda song: [
-                miss_if(not any(file.name.endswith('.sng') for file in a.files))
-                for a in song.arrangements
+                miss_if(not any(file.name.endswith('.sng') for file in arr.files))
+                for arr in song.arrangements
             ],
         ),
         (
@@ -81,12 +82,12 @@ SONG_CHECKS: typing.Final[
                 miss_if(
                     not any(
                         line.startswith('#BackgroundImage=')
-                        for line in a.sng_file_content
+                        for line in arr.sng_file_content
                     )
-                    if a.sng_file_content
+                    if arr.sng_file_content
                     else False
                 )
-                for a in song.arrangements
+                for arr in song.arrangements
             ],
         ),
         (
@@ -98,12 +99,12 @@ SONG_CHECKS: typing.Final[
                         line.startswith(
                             ('#LangCount=2', '#LangCount=3', '#LangCount=4')
                         )
-                        for line in a.sng_file_content
+                        for line in arr.sng_file_content
                     )
-                    if a.sng_file_content
+                    if arr.sng_file_content
                     else False
                 )
-                for a in song.arrangements
+                for arr in song.arrangements
             ],
         ),
     ]
