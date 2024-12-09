@@ -1,4 +1,6 @@
+import ast
 import datetime
+import inspect
 import sys
 import typing
 from collections import OrderedDict
@@ -14,124 +16,95 @@ def miss_if(b: bool) -> str:  # noqa: FBT001
     return 'miss' if b else ''
 
 
-class SongChecker:
-    def __init__(self, func: typing.Callable[[Song], list[str]]) -> None:
-        if not callable(func):
-            msg = 'The argument must be callable.'
-            raise TypeError(msg)
-        self.func = func
-
-    def __call__(self, song: Song) -> list[str]:
-        return self.func(song)
-
-
-class SongBeamerSongChecker(SongChecker):
-    pass
-
-
 SONG_CHECKS: typing.Final[
     typing.OrderedDict[str, typing.Callable[[Song], list[str]]]
 ] = OrderedDict(
     [  # now the list of checks for each song ...
         (
             'CCLI',
-            SongChecker(
-                lambda song: [
-                    miss_if(not song.author or not song.ccli) for _ in song.arrangements
-                ]
-            ),
+            lambda song: [
+                miss_if(not song.author or not song.ccli) for _ in song.arrangements
+            ],
         ),
         (
             'Tags',
-            SongBeamerSongChecker(
-                lambda song: [
-                    ', '.join(
-                        filter(
-                            None,  # remove all falsy elements to not join them
-                            [  # now the list of individual tag checks ...
-                                (
-                                    f'miss "{a.source_name} {a.source_reference}"'
-                                    if a.source_name
-                                    and a.source_reference
-                                    and not song.tags
-                                    else miss_if(not song.tags)
-                                ),
-                                (
-                                    'miss "EN/DE"'
-                                    if any(
-                                        line.startswith('#LangCount=2')
-                                        for line in a.sng_file_content
-                                    )
-                                    and 'EN/DE' not in song.tags
-                                    else ''
-                                ),
-                                # ... add further checks here ...
-                            ],
-                        )
+            lambda song: [
+                ', '.join(
+                    filter(
+                        None,  # remove all falsy elements to not join them
+                        [  # now the list of individual tag checks ...
+                            (
+                                f'miss "{a.source_name} {a.source_reference}"'
+                                if a.source_name
+                                and a.source_reference
+                                and not song.tags
+                                else miss_if(not song.tags)
+                            ),
+                            (
+                                'miss "EN/DE"'
+                                if any(
+                                    line.startswith('#LangCount=2')
+                                    for line in a.sng_file_content
+                                )
+                                and 'EN/DE' not in song.tags
+                                else ''
+                            ),
+                            # ... add further checks here ...
+                        ],
                     )
-                    for a in song.arrangements
-                ]
-                or [miss_if(not song.tags)]
-            ),
+                )
+                for a in song.arrangements
+            ]
+            or [miss_if(not song.tags)],
         ),
         (
             'Src.',
-            SongChecker(
-                lambda song: [
-                    miss_if(not a.source_name or not a.source_reference)
-                    for a in song.arrangements
-                ]
-            ),
+            lambda song: [
+                miss_if(not a.source_name or not a.source_reference)
+                for a in song.arrangements
+            ],
         ),
         (
             'Dur.',
-            SongChecker(
-                lambda song: [miss_if(a.duration == 0) for a in song.arrangements]
-            ),
+            lambda song: [miss_if(a.duration == 0) for a in song.arrangements],
         ),
         (
             '.sng',
-            SongChecker(
-                lambda song: [
-                    miss_if(not any(file.name.endswith('.sng') for file in a.files))
-                    for a in song.arrangements
-                ]
-            ),
+            lambda song: [
+                miss_if(not any(file.name.endswith('.sng') for file in a.files))
+                for a in song.arrangements
+            ],
         ),
         (
             'BGImg',
-            SongBeamerSongChecker(
-                lambda song: [
-                    miss_if(
-                        not any(
-                            line.startswith('#BackgroundImage=')
-                            for line in a.sng_file_content
-                        )
-                        if a.sng_file_content
-                        else False
+            lambda song: [
+                miss_if(
+                    not any(
+                        line.startswith('#BackgroundImage=')
+                        for line in a.sng_file_content
                     )
-                    for a in song.arrangements
-                ]
-            ),
+                    if a.sng_file_content
+                    else False
+                )
+                for a in song.arrangements
+            ],
         ),
         (
             '#Lang',
-            SongBeamerSongChecker(
-                lambda song: [
-                    miss_if(
-                        'EN/DE' in song.tags
-                        and not any(
-                            line.startswith(
-                                ('#LangCount=2', '#LangCount=3', '#LangCount=4')
-                            )
-                            for line in a.sng_file_content
+            lambda song: [
+                miss_if(
+                    'EN/DE' in song.tags
+                    and not any(
+                        line.startswith(
+                            ('#LangCount=2', '#LangCount=3', '#LangCount=4')
                         )
-                        if a.sng_file_content
-                        else False
+                        for line in a.sng_file_content
                     )
-                    for a in song.arrangements
-                ]
-            ),
+                    if a.sng_file_content
+                    else False
+                )
+                for a in song.arrangements
+            ],
         ),
     ]
 )
@@ -141,6 +114,25 @@ class ChurchToolsSongVerification:
     def __init__(self, cta: ChurchToolsAPI, config: Configuration) -> None:
         self.cta = cta
         self._log = config.log
+
+    class MemberAccessChecker(ast.NodeVisitor):
+        def __init__(self, member_name: str) -> None:
+            self._member_name = member_name
+            self._accessed = False
+
+        def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
+            if node.attr == self._member_name:
+                self._accessed = True
+                self.generic_visit(node)
+
+        def accessed(self) -> bool:
+            return self._accessed
+
+    @staticmethod
+    def _is_sng_file_content_required(func: typing.Callable[[Song], list[str]]) -> bool:
+        checker = ChurchToolsSongVerification.MemberAccessChecker('sng_file_content')
+        checker.visit(ast.parse(inspect.getsource(func).strip(), mode='exec'))
+        return checker.accessed()
 
     def verify_songs(
         self,
@@ -161,8 +153,8 @@ class ChurchToolsSongVerification:
         if not active_song_checks:
             sys.stderr.write('Error: no valid check to execute selected\n')
             sys.exit(1)
-        needs_sng_files = any(
-            isinstance(check, SongBeamerSongChecker)
+        needs_sng_file_contents = any(
+            self._is_sng_file_content_required(check)
             for check in active_song_checks.values()
         )
 
@@ -193,7 +185,7 @@ class ChurchToolsSongVerification:
                     continue
 
                 # Load .sng files - if existing - to have them available for checking.
-                if needs_sng_files:
+                if needs_sng_file_contents:
                     for arr in song.arrangements:
                         # If multiple .sng files are present, ChurchTools seems to
                         # export the .sng file of the arrangement with the lowest #id?
