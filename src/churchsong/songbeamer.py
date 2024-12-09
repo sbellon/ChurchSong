@@ -6,11 +6,14 @@ import subprocess
 import sys
 import typing
 
-from . import utils
+from churchsong import utils
 
 if typing.TYPE_CHECKING:
-    from .churchtools import AgendaFileItem
-    from .configuration import Configuration, SongBeamerColorReplacementsConfig
+    from churchsong.churchtools.events import AgendaFileItem
+    from churchsong.configuration import (
+        Configuration,
+        SongBeamerColorReplacementsConfig,
+    )
 
 r"""
 SongBeamer agenda items look something like this:

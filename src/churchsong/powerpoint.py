@@ -9,7 +9,7 @@ import pptx.shapes
 import pptx.shapes.placeholder
 
 if typing.TYPE_CHECKING:
-    from .configuration import Configuration
+    from churchsong.configuration import Configuration
 
 
 class PowerPoint:

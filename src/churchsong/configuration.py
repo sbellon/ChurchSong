@@ -8,7 +8,7 @@ import typing
 
 import pydantic
 
-from . import utils
+from churchsong import utils
 
 if typing.TYPE_CHECKING:
     import pathlib

@@ -9,10 +9,12 @@ import subprocess
 import sys
 import tomllib
 
-from .churchtools import ChurchTools
-from .configuration import Configuration
-from .powerpoint import PowerPoint
-from .songbeamer import SongBeamer
+from churchsong.churchtools import ChurchToolsAPI
+from churchsong.churchtools.events import ChurchToolsEvent
+from churchsong.churchtools.song_verification import ChurchToolsSongVerification
+from churchsong.configuration import Configuration
+from churchsong.powerpoint import PowerPoint
+from churchsong.songbeamer import SongBeamer
 
 
 def get_app_version(app_root: pathlib.Path) -> str:
@@ -29,10 +31,11 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
         args.from_date = None
 
     config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
-    ct = ChurchTools(config)
-    event = ct.get_next_event(args.from_date, agenda_required=True)
-    service_leads = ct.get_service_leads(event)
-    event_files = ct.download_and_extract_agenda_zip(event)
+    cta = ChurchToolsAPI(config)
+    event = cta.get_next_event(args.from_date, agenda_required=True)
+    cte = ChurchToolsEvent(cta, event, config)
+    service_leads = cte.get_service_leads()
+    event_files = cte.download_and_extract_agenda_zip()
 
     pp = PowerPoint(config)
     pp.create(service_leads)
@@ -45,9 +48,10 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
 
 def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     config.log.info('Starting song verification')
-    ct = ChurchTools(config)
+    cta = ChurchToolsAPI(config)
+    ctsv = ChurchToolsSongVerification(cta, config)
     try:
-        ct.verify_songs(
+        ctsv.verify_songs(
             from_date=args.from_date,
             include_tags=args.include_tags,
             exclude_tags=args.exclude_tags,
