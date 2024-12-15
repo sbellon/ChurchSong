@@ -195,9 +195,11 @@ class ChurchToolsSongVerification:
                             None,
                         )
                         if sngfile:
-                            arr.sng_file_content = self.cta.load_sng_file(
-                                sngfile.file_url
-                            ).splitlines()
+                            arr.sng_file_content = (
+                                self.cta.download_url(sngfile.file_url)
+                                .text.lstrip('\ufeff')
+                                .splitlines()
+                            )
 
                 # Execute the actual checks.
                 check_results = zip(

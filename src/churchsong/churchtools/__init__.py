@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime  # noqa: TC003
-import re
 import sys
 import typing
 
@@ -229,6 +228,8 @@ class ChurchToolsAPI:
         method: str,
         url: str,
         params: dict[str, str] | None = None,
+        *,
+        stream: bool = False,
     ) -> requests.Response:
         self._log.debug(
             'Request %s %s%s with params=%s', method, self._base_url, url, params
@@ -239,6 +240,7 @@ class ChurchToolsAPI:
             headers=self._headers(),
             params=params,
             timeout=None,  # noqa: S113
+            stream=stream,
         )
         self._log.debug('Response is %s %s', r.status_code, r.reason)
         r.raise_for_status()
@@ -248,15 +250,19 @@ class ChurchToolsAPI:
         self,
         url: str,
         params: dict[str, str] | None = None,
+        *,
+        stream: bool = False,
     ) -> requests.Response:
-        return self._request('GET', url, params)
+        return self._request('GET', url, params, stream=stream)
 
     def _post(
         self,
         url: str,
         params: dict[str, str] | None = None,
+        *,
+        stream: bool = False,
     ) -> requests.Response:
-        return self._request('POST', url, params)
+        return self._request('POST', url, params, stream=stream)
 
     def _get_tags(self, tag_type: str) -> typing.Generator[Tag]:
         assert tag_type in {'persons', 'songs'}  # noqa: S101
@@ -390,31 +396,16 @@ class ChurchToolsAPI:
         result = AgendaExportData(**r.json())
         return result.data
 
-    def download_agenda_zip(self, event: EventShort) -> bytes:
+    def download_agenda_zip(self, event: EventShort) -> requests.Response:
         agenda = self._get_event_agenda(event)
         url = self._get_agenda_export(agenda).url
-        r = self._get(url)
-        return r.content
+        return self._get(url, stream=True)
 
-    def download_file(self, url: str) -> tuple[str | None, bytes]:
-        self._log.debug('Request GET %s', url)
-        r = requests.get(
-            url,
+    def download_url(self, full_url: str) -> requests.Response:
+        self._log.debug('Request GET %s', full_url)
+        return requests.get(
+            full_url,
             headers=self._headers(),
             timeout=None,  # noqa: S113
+            stream=True,
         )
-        filename = None
-        if 'Content-Disposition' in r.headers and (
-            match := re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
-        ):
-            filename = match.group(1)
-        return (filename, r.content)
-
-    def load_sng_file(self, url: str) -> str:
-        self._log.debug('Request GET %s', url)
-        r = requests.get(
-            url,
-            headers=self._headers(),
-            timeout=None,  # noqa: S113
-        )
-        return r.text.lstrip('\ufeff')

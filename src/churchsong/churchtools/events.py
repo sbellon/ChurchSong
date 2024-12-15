@@ -1,8 +1,14 @@
 import dataclasses
 import io
 import os
+import pathlib
+import re
+import typing
 import zipfile
 from collections import defaultdict
+
+import alive_progress
+import requests
 
 from churchsong.churchtools import ChurchToolsAPI, EventShort
 from churchsong.configuration import Configuration
@@ -45,20 +51,45 @@ class ChurchToolsEvent:
                 service_leads[service_name].add(person_name)
         return service_leads
 
+    def _download_with_progress(
+        self,
+        response: requests.Response,
+        title: str,
+        output: typing.BinaryIO,
+    ) -> None:
+        filesize = int(response.headers.get('Content-Length', 0))
+        with alive_progress.alive_bar(
+            filesize if filesize > 0 else None,
+            title=title,
+            spinner=None,
+            receipt=False,
+        ) as bar:
+            for chunk in response.iter_content(chunk_size=None):
+                output.write(chunk)
+                bar(len(chunk))
+
+    def _download_file(self, title: str, url: str) -> pathlib.Path:
+        r = self.cta.download_url(url)
+        filename = title
+        if 'Content-Disposition' in r.headers and (
+            match := re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
+        ):
+            filename = match.group(1)
+        self._files_dir.mkdir(parents=True, exist_ok=True)
+        filename = self._files_dir / filename
+        with filename.open(mode='wb+') as fd:
+            self._download_with_progress(r, f'Downloading "{filename}"', output=fd)
+        return filename
+
     def _fetch_service_attachments(self) -> list[AgendaFileItem]:
         self._log.info('Fetching event attachments')
         result = []
         for event_file in self._full_event.event_files:
             match event_file.domain_type:
                 case 'file':
-                    filename, file_content = self.cta.download_file(
-                        event_file.frontend_url
+                    filename = self._download_file(
+                        event_file.title, event_file.frontend_url
                     )
-                    filename = filename if filename else event_file.title
-                    self._files_dir.mkdir(parents=True, exist_ok=True)
-                    filename = self._files_dir / filename
-                    with filename.open(mode='wb+') as fd:
-                        fd.write(file_content)
                     result.append(AgendaFileItem(event_file.title, os.fspath(filename)))
                 case 'link':
                     result.append(
@@ -72,7 +103,9 @@ class ChurchToolsEvent:
 
     def download_and_extract_agenda_zip(self) -> list[AgendaFileItem]:
         self._log.info('Downloading and extracting SongBeamer export')
-        content = self.cta.download_agenda_zip(self._event)
-        buf = io.BytesIO(content)
-        zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
+        r = self.cta.download_agenda_zip(self._event)
+        with io.BytesIO() as buf:
+            self._download_with_progress(r, 'Downloading agenda', output=buf)
+            buf.seek(0)
+            zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
         return self._fetch_service_attachments()
