@@ -2,7 +2,6 @@ import datetime
 import os
 import pathlib
 import re
-import subprocess
 import sys
 import typing
 
@@ -211,6 +210,7 @@ class SongBeamer:
         self._insert_slides = config.insert_slides
         self._color_service = config.color_service
         self._color_replacements = config.color_replacements
+        self._already_running_notice = config.already_running_notice
 
     def modify_and_save_agenda(
         self,
@@ -260,11 +260,13 @@ class SongBeamer:
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')
         if sys.platform == 'win32':
-            subprocess.run(  # noqa: S603
-                [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
-                check=True,
-                cwd=self._temp_dir,
-            )
+            from churchsong.songbeamer import windows
+
+            if self._already_running_notice and windows.is_songbeamer_running():
+                windows.open_message_box(self._already_running_notice)
+                windows.bring_songbeamer_window_to_front()
+
+            windows.start_songbeamer(self._temp_dir)
         else:
             sys.stderr.write(
                 f'Error: Starting SongBeamer not supported on {sys.platform}\n'

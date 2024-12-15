@@ -50,15 +50,12 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     config.log.info('Starting song verification')
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongVerification(cta, config)
-    try:
-        ctsv.verify_songs(
-            from_date=args.from_date,
-            include_tags=args.include_tags,
-            exclude_tags=args.exclude_tags,
-            execute_checks=args.execute_checks,
-        )
-    except KeyboardInterrupt:
-        sys.stdout.write('Aborted.\n')
+    ctsv.verify_songs(
+        from_date=args.from_date,
+        include_tags=args.include_tags,
+        exclude_tags=args.exclude_tags,
+        execute_checks=args.execute_checks,
+    )
 
 
 def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
@@ -201,7 +198,11 @@ def main() -> None:
             '-v', '--version', action='version', version=get_app_version(app_root)
         )
         args = parser.parse_args()
-        args.func(args)
+        try:
+            args.func(args)
+        except KeyboardInterrupt:
+            sys.stdout.write('Aborted.\n')
+            sys.exit(1)
 
     except Exception as e:
         config.log.fatal(e, exc_info=True)

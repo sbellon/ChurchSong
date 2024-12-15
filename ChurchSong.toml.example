@@ -14,6 +14,19 @@ login_token = "YOUR_LOGIN_TOKEN"
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/TEMPLATE_SLIDE.pptx"
 portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 temp_dir = "${USERPROFILE}/Desktop/Temp"
+already_running_notice = """
+SongBeamer is already running.
+
+If you have modified your agenda but not saved it, SongBeamer will ask now whether you want to save the agenda. Answer:
+
+- Yes: save and keep your modified agenda.
+- No: discard your changes and reload agenda from ChurchTools.
+- Cancel: keep your modified agenda but do not save it.
+
+The PowerPoint slides will get updated in any case!
+
+Click OK to continue.
+"""
 
 [SongBeamer.Slides.Opening]
 content = """
