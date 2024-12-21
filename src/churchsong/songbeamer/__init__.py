@@ -101,7 +101,7 @@ class AgendaItem:
               \s*Color\s=\s(?P<color>.*?)\r?\n
               (?:\s*BGColor\s=\s(?P<bgcolor>.*?)\r?\n)?
               (?:\s*FileName\s=\s(?P<filename>.*?)\r?\n)?
-            \s*end\r?\n
+            \s*end>?\r?\n
         """,
         re.VERBOSE,
     )
