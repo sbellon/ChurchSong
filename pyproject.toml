@@ -4,6 +4,7 @@ version = "0.5.0"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -34,6 +35,9 @@ lint = ["pyright>=1.1.387", "ruff>=0.7.2"]
 
 [tool.uv]
 package = true
+
+[tool.setuptools]
+license-files = []
 
 [tool.pyright]
 venvPath = "."
