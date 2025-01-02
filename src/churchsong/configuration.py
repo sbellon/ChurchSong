@@ -118,16 +118,20 @@ class Configuration:
         self._data_dir = pathlib.Path(
             platformdirs.user_data_dir(self.package_name, appauthor=False)
         )
-        self._config_toml = (
-            pathlib.Path(
-                platformdirs.user_config_dir(self.package_name, appauthor=False)
-            )
-            / 'config.toml'
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = pathlib.Path(
+            platformdirs.user_config_dir(self.package_name, appauthor=False)
         )
+        config_dir.mkdir(parents=True, exist_ok=True)
+        self._config_toml = config_dir / 'config.toml'
         try:
             with self._config_toml.open('rb') as fd:
                 self._config = TomlConfig(**tomllib.load(fd))
-
+        except FileNotFoundError:
+            sys.stderr.write(
+                f'Error: Configuration file "{self._config_toml}" not found\n'
+            )
+            sys.exit(1)
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise

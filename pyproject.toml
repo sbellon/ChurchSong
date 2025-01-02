@@ -1,6 +1,6 @@
 [project]
 name = "ChurchSong"
-version = "0.5.1"
+version = "0.5.2"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
 readme = "README.md"
