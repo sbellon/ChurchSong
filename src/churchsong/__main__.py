@@ -3,11 +3,10 @@ from __future__ import annotations
 import argparse
 import datetime
 import functools
-import pathlib
+import importlib.metadata
 import shutil
 import subprocess
 import sys
-import tomllib
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
@@ -17,13 +16,32 @@ from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
 
 
-def get_app_version(app_root: pathlib.Path) -> str:
+def get_app_version() -> str:
     try:
-        with (app_root / 'pyproject.toml').open('rb') as f:
-            return tomllib.load(f)['project']['version']
-    except FileNotFoundError:
-        pass
-    return 'unknown'
+        return importlib.metadata.version('ChurchSong')
+    except (importlib.metadata.PackageNotFoundError, AssertionError):
+        return 'unknown'
+
+
+def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
+    sys.stderr.write(f'Config file: {config.config_toml}\n')
+    sys.stderr.write(f'Data directory: {config.data_dir}\n')
+
+
+def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
+    config.log.info('Starting ChurchSong update')
+    uv = shutil.which('uv')
+    if not uv:
+        err_msg = 'Cannot find "uv", aborting self update'
+        config.log.fatal(err_msg)
+        sys.stderr.write(f'{err_msg}\n')
+        sys.exit(1)
+    try:
+        subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
+        subprocess.run([uv, 'tool', 'upgrade', 'ChurchSong'], check=True)  # noqa: S603
+    except subprocess.CalledProcessError as e:
+        config.log.fatal(f'"uv self update" failed: {e}')
+        raise
 
 
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
@@ -58,43 +76,9 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     )
 
 
-def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
-    config.log.info('Starting ChurchSong update')
-    uv = shutil.which(config.app_root / 'bin/uv')
-    if not uv:
-        uv = shutil.which('uv')
-    if not uv:
-        err_msg = 'Cannot find "uv", aborting self update'
-        config.log.fatal(err_msg)
-        sys.stderr.write(f'{err_msg}\n')
-        sys.exit(1)
-    git = shutil.which('git')
-    if not git:
-        err_msg = 'Cannot find "git", aborting self update'
-        config.log.fatal(err_msg)
-        sys.stderr.write(f'{err_msg}\n')
-        sys.exit(1)
-    try:
-        subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
-    except subprocess.CalledProcessError as e:
-        config.log.fatal(f'"uv self update" failed: {e}')
-        raise
-    try:
-        subprocess.run([git, 'restore', '*'], check=True)  # noqa: S603
-    except subprocess.CalledProcessError as e:
-        config.log.fatal(f'"git restore *" failed: {e}')
-        raise
-    try:
-        subprocess.run([git, 'pull'], check=True)  # noqa: S603
-    except subprocess.CalledProcessError as e:
-        config.log.fatal(f'"git pull" failed: {e}')
-        raise
-
-
 def main() -> None:
     sys.stderr.write('\r\033[2K\r')
-    app_root = pathlib.Path(__file__).parent.parent.parent
-    config = Configuration(app_root)
+    config = Configuration()
     try:
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
@@ -179,6 +163,14 @@ def main() -> None:
             required=True,
         )
         parser_self_update = subparser_self.add_parser(
+            'info',
+            help='info about the ChurchSong application',
+            allow_abbrev=False,
+        )
+        parser_self_update.set_defaults(
+            func=functools.partial(cmd_self_info, config=config)
+        )
+        parser_self_update = subparser_self.add_parser(
             'update',
             help='updates the ChurchSong application',
             allow_abbrev=False,
@@ -192,10 +184,10 @@ def main() -> None:
             allow_abbrev=False,
         )
         parser_self_version.set_defaults(
-            func=lambda _: sys.stdout.write(f'{get_app_version(app_root)}\n')
+            func=lambda _: sys.stdout.write(f'{get_app_version()}\n')
         )
         parser.add_argument(
-            '-v', '--version', action='version', version=get_app_version(app_root)
+            '-v', '--version', action='version', version=get_app_version()
         )
         args = parser.parse_args()
         try:

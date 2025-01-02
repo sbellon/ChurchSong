@@ -9,13 +9,11 @@ wheels/
 
 # Virtual environments
 .venv
+.envrc
 
 # Editors
 .vscode/
 .zed/
 
 # Project-specifc
-/ChurchSong.toml
-/bin/uv.exe
-/bin/uvx.exe
-/Logs/**
+/config.toml

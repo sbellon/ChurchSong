@@ -1,20 +1,39 @@
 [project]
 name = "ChurchSong"
-version = "0.4.6"
-description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
+version = "0.5.0"
 authors = [{ name = "Stefan Bellon" }]
+description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
+readme = "README.md"
 requires-python = ">=3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
 dependencies = [
     "alive-progress>=3.2.0",
+    "platformdirs>=4.3.6",
     "prettytable>=3.12.0",
     "psutil>=6.1.0; sys_platform == 'win32'",
     "pydantic>=2.9.2",
     "python-pptx>=1.0.2",
     "requests>=2.32.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sbellon/ChurchSong"
+Repository = "https://github.com/sbellon/ChurchSong.git"
+
+[project.scripts]
+ChurchSong = "churchsong.__main__:main"
+
 [dependency-groups]
 dev = []
 lint = ["pyright>=1.1.387", "ruff>=0.7.2"]
+
+[tool.uv]
+package = true
 
 [tool.pyright]
 venvPath = "."

@@ -15,15 +15,25 @@ as well as present .sng files to contain a background image.
 
 ## Prerequisites
 
-Python package manager [uv](https://docs.astral.sh/uv/) must be placed in subfolder
-`bin` or be accessible via PATH.
+Python package manager [uv](https://docs.astral.sh/uv/) must be installed and
+accessible via PATH. Easiest way is to follow the steps listed as
+[Standalone Installer](https://docs.astral.sh/uv/getting-started/installation/).
+
+## Installation
+
+Simply install ChurchSong by executing `uv install ChurchSong`. Tool `ChurchSong` is
+then available from the command line.
+
+You may place `ChurchSong.bat` together with `ChurchSong.ico` somewhere for
+convenience as you can just double-click it to load the upcoming agenda and start
+SongBeamer.
 
 ## Configuration
 
 ### Config file
 
-You need to copy the `ChurchSong.toml.example` to `ChurchSong.toml` and adjust the
-content accordingly.
+You need to copy the `config.toml.example` to `%LOCALAPPDATA%\ChurchSong\config.toml`
+and adjust the content accordingly.
 
 ### PowerPoint template
 
@@ -36,7 +46,7 @@ team name has to be put at the PowerPoint base placeholder via the Select Pane
 
 ### SongBeamer agenda download
 
-To download the upcoming agenda you can just execute `ChurchSong.bat` without any
+To download the upcoming agenda you can just execute `ChurchSong` without any
 switches (e.g. double-click it). To specify a starting date to look for the next event,
 you can specify additional command line arguments `agenda FROM_DATE` as positional
 parameter with `FROM_DATE` in the form `YYYY-MM-DD`.

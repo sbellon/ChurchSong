@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import pathlib
 import sys
 import tomllib
 import typing
 
+import platformdirs
 import pydantic
 
 from churchsong import utils
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 
 @typing.overload
@@ -103,10 +102,7 @@ class SongBeamerColorReplacementsConfig(pydantic.BaseModel):
 
 
 class Configuration:
-    def __init__(self, app_root: pathlib.Path) -> None:
-        # Keep application root, so that other parts can rely on it.
-        self._app_root = app_root
-
+    def __init__(self) -> None:
         self._log = logging.getLogger(__name__)
         self._log.setLevel(logging.INFO)
         log_formatter = logging.Formatter(
@@ -119,9 +115,18 @@ class Configuration:
         self._log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
+        package = 'ChurchSong'
+        self._data_dir = pathlib.Path(
+            platformdirs.user_data_dir(package, appauthor=False)
+        )
+        self._config_toml = (
+            pathlib.Path(platformdirs.user_config_dir(package, appauthor=False))
+            / 'config.toml'
+        )
         try:
-            with (self._app_root / 'ChurchSong.toml').open('rb') as fd:
+            with self._config_toml.open('rb') as fd:
                 self._config = TomlConfig(**tomllib.load(fd))
+
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise
@@ -136,8 +141,12 @@ class Configuration:
         self._log.removeHandler(log_to_stderr)
 
     @property
-    def app_root(self) -> pathlib.Path:
-        return self._app_root
+    def config_toml(self) -> pathlib.Path:
+        return self._config_toml
+
+    @property
+    def data_dir(self) -> pathlib.Path:
+        return self._data_dir
 
     @property
     def log(self) -> logging.Logger:
@@ -149,7 +158,7 @@ class Configuration:
 
     @property
     def log_file(self) -> pathlib.Path:
-        filename = self._app_root / self._config.General.log_file
+        filename = self.data_dir / self._config.General.log_file
         filename.parent.mkdir(parents=True, exist_ok=True)
         return filename
 
@@ -167,15 +176,15 @@ class Configuration:
 
     @property
     def template_pptx(self) -> pathlib.Path:
-        return self._app_root / self._config.SongBeamer.Settings.template_pptx
+        return self.data_dir / self._config.SongBeamer.Settings.template_pptx
 
     @property
     def portraits_dir(self) -> pathlib.Path:
-        return self._app_root / self._config.SongBeamer.Settings.portraits_dir
+        return self.data_dir / self._config.SongBeamer.Settings.portraits_dir
 
     @property
     def temp_dir(self) -> pathlib.Path:
-        directory = self._app_root / self._config.SongBeamer.Settings.temp_dir
+        directory = self.data_dir / self._config.SongBeamer.Settings.temp_dir
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
