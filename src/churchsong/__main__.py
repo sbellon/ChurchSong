@@ -4,6 +4,7 @@ import argparse
 import datetime
 import functools
 import importlib.metadata
+import os
 import shutil
 import subprocess
 import sys
@@ -38,8 +39,11 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         sys.stderr.write(f'{err_msg}\n')
         sys.exit(1)
     try:
+        # "uv self update" does not touch ChurchSong, so we can use subprocess.run()
         subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
-        subprocess.run([uv, 'tool', 'upgrade', config.package_name], check=True)  # noqa: S603
+        # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
+        # "exec" instead of start a subprocess.
+        os.execl(uv, uv, 'tool', 'upgrade', config.package_name, '--no-progress')  # noqa: S606
     except subprocess.CalledProcessError as e:
         config.log.fatal(f'"uv self update" failed: {e}')
         raise
