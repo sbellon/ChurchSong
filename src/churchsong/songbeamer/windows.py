@@ -13,8 +13,8 @@ if sys.platform == 'win32':
             proc.name() == 'SongBeamer.exe' for proc in psutil.process_iter(['name'])
         )
 
-    def open_message_box(message: str) -> None:
-        ctypes.windll.user32.MessageBoxW(0, message, 'ChurchSong', 0)
+    def open_message_box(title: str, message: str) -> None:
+        ctypes.windll.user32.MessageBoxW(0, message, title, 0)
 
     def bring_songbeamer_window_to_front() -> None:
         user32 = ctypes.windll.user32

@@ -115,12 +115,13 @@ class Configuration:
         self._log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
-        package = 'ChurchSong'
         self._data_dir = pathlib.Path(
-            platformdirs.user_data_dir(package, appauthor=False)
+            platformdirs.user_data_dir(self.package_name, appauthor=False)
         )
         self._config_toml = (
-            pathlib.Path(platformdirs.user_config_dir(package, appauthor=False))
+            pathlib.Path(
+                platformdirs.user_config_dir(self.package_name, appauthor=False)
+            )
             / 'config.toml'
         )
         try:
@@ -139,6 +140,10 @@ class Configuration:
         log_to_file.setFormatter(log_formatter)
         self._log.addHandler(log_to_file)
         self._log.removeHandler(log_to_stderr)
+
+    @property
+    def package_name(self) -> str:
+        return 'ChurchSong'
 
     @property
     def config_toml(self) -> pathlib.Path:

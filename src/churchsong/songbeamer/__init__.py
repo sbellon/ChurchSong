@@ -201,6 +201,7 @@ class Agenda:
 class SongBeamer:
     def __init__(self, config: 'Configuration') -> None:
         self._log = config.log
+        self._app_name = config.package_name
         self._temp_dir = config.temp_dir.resolve()
         self._songs_dir = self._temp_dir / 'Songs'
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
@@ -263,7 +264,7 @@ class SongBeamer:
             from churchsong.songbeamer import windows
 
             if self._already_running_notice and windows.is_songbeamer_running():
-                windows.open_message_box(self._already_running_notice)
+                windows.open_message_box(self._app_name, self._already_running_notice)
                 windows.bring_songbeamer_window_to_front()
 
             windows.start_songbeamer(self._temp_dir)

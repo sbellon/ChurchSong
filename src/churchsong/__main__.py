@@ -16,20 +16,21 @@ from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
 
 
-def get_app_version() -> str:
+def get_app_version(config: Configuration) -> str:
     try:
-        return importlib.metadata.version('ChurchSong')
+        return importlib.metadata.version(config.package_name)
     except (importlib.metadata.PackageNotFoundError, AssertionError):
         return 'unknown'
 
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
-    sys.stderr.write(f'Config file: {config.config_toml}\n')
-    sys.stderr.write(f'Data directory: {config.data_dir}\n')
+    sys.stderr.write(f'Application version: {get_app_version(config)}\n')
+    sys.stderr.write(f'Configuration file:  {config.config_toml}\n')
+    sys.stderr.write(f'User data directory: {config.data_dir}\n')
 
 
 def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
-    config.log.info('Starting ChurchSong update')
+    config.log.info('Starting %s update', config.package_name)
     uv = shutil.which('uv')
     if not uv:
         err_msg = 'Cannot find "uv", aborting self update'
@@ -38,7 +39,7 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         sys.exit(1)
     try:
         subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
-        subprocess.run([uv, 'tool', 'upgrade', 'ChurchSong'], check=True)  # noqa: S603
+        subprocess.run([uv, 'tool', 'upgrade', config.package_name], check=True)  # noqa: S603
     except subprocess.CalledProcessError as e:
         config.log.fatal(f'"uv self update" failed: {e}')
         raise
@@ -48,7 +49,9 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     if args.command is None:
         args.from_date = None
 
-    config.log.info('Starting ChurchSong with FROM_DATE=%s', args.from_date)
+    config.log.info(
+        'Starting %s with FROM_DATE=%s', config.package_name, args.from_date
+    )
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(args.from_date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
@@ -82,7 +85,7 @@ def main() -> None:
     try:
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
-            prog='ChurchSong',
+            prog=config.package_name,
             description='Download ChurchTools event agenda and import into SongBeamer.',
             allow_abbrev=False,
         )
@@ -154,17 +157,17 @@ def main() -> None:
         )
         parser_self = subparsers.add_parser(
             'self',
-            help='operate on the ChurchSong application itself',
+            help=f'operate on the {config.package_name} application itself',
             allow_abbrev=False,
         )
         subparser_self = parser_self.add_subparsers(
             dest='subcommand',
-            help='commands to execute on the ChurchSong application itself',
+            help=f'commands to execute on the {config.package_name} application itself',
             required=True,
         )
         parser_self_update = subparser_self.add_parser(
             'info',
-            help='info about the ChurchSong application',
+            help=f'info about the {config.package_name} application',
             allow_abbrev=False,
         )
         parser_self_update.set_defaults(
@@ -172,7 +175,7 @@ def main() -> None:
         )
         parser_self_update = subparser_self.add_parser(
             'update',
-            help='updates the ChurchSong application',
+            help=f'updates the {config.package_name} application',
             allow_abbrev=False,
         )
         parser_self_update.set_defaults(
@@ -184,10 +187,10 @@ def main() -> None:
             allow_abbrev=False,
         )
         parser_self_version.set_defaults(
-            func=lambda _: sys.stdout.write(f'{get_app_version()}\n')
+            func=lambda _: sys.stdout.write(f'{get_app_version(config)}\n')
         )
         parser.add_argument(
-            '-v', '--version', action='version', version=get_app_version()
+            '-v', '--version', action='version', version=get_app_version(config)
         )
         args = parser.parse_args()
         try:
