@@ -24,16 +24,16 @@ accessible via PATH. Easiest way is to follow the steps listed as
 Simply install ChurchSong by executing `uv install ChurchSong`. Tool `ChurchSong` is
 then available from the command line.
 
-You may place `ChurchSong.bat` together with `ChurchSong.ico` somewhere for
-convenience as you can just double-click it to load the upcoming agenda and start
-SongBeamer.
+You may place the files `ChurchSong.bat` and `ChurchSong.ico` from the `resources`
+folder somewhere for convenience as you can just double-click it to load the upcoming
+agenda and start SongBeamer.
 
 ## Configuration
 
 ### Config file
 
-You need to copy the `config.toml.example` to `%LOCALAPPDATA%\ChurchSong\config.toml`
-and adjust the content accordingly.
+You need to copy the `resources/config.toml.example` to
+`%LOCALAPPDATA%\ChurchSong\config.toml` and adjust the content accordingly.
 
 ### PowerPoint template
 
