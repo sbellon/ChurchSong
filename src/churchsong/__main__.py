@@ -25,9 +25,10 @@ def get_app_version(config: Configuration) -> str:
         return 'unknown'
 
 
-def as_local_timezone(date: datetime.datetime) -> datetime.datetime:
+def parse_datetime(date_str: str) -> datetime.datetime:
+    date = datetime.datetime.fromisoformat(date_str)
     if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
-        # datetime object without timezone.
+        # convert offset-naive datetime object to offset-aware
         local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
         date = date.replace(tzinfo=local_tz)
     return date
@@ -61,7 +62,6 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     if args.command is None:
         args.from_date = datetime.datetime.now(tz=datetime.UTC)
-    args.from_date = as_local_timezone(args.from_date)
 
     config.log.info(
         'Starting %s agenda with FROM_DATE=%s',
@@ -84,7 +84,6 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
 
 
 def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
-    args.from_date = as_local_timezone(args.from_date)
     config.log.info(
         'Starting %s song verification with FROM_DATE=%s',
         config.package_name,
@@ -123,7 +122,7 @@ def main() -> None:
         parser_agenda.add_argument(
             'from_date',
             metavar='FROM_DATE',
-            type=datetime.datetime.fromisoformat,
+            type=parse_datetime,
             default=datetime.datetime.now(datetime.UTC),
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
@@ -170,7 +169,7 @@ def main() -> None:
         parser_songs_verify.add_argument(
             'from_date',
             metavar='FROM_DATE',
-            type=datetime.datetime.fromisoformat,
+            type=parse_datetime,
             nargs='?',
             help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD)',
         )

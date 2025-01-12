@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [0.5.6] - 2025-01-12
+
+### Changed
+- Refactored handling of datetime in argparse to always return timezone-aware objects
+
 ## [0.5.5] - 2025-01-12
 
 ### Added
