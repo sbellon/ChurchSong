@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
@@ -22,6 +23,14 @@ def get_app_version(config: Configuration) -> str:
         return importlib.metadata.version(config.package_name)
     except (importlib.metadata.PackageNotFoundError, AssertionError):
         return 'unknown'
+
+
+def as_local_timezone(date: datetime.datetime) -> datetime.datetime:
+    if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
+        # datetime object without timezone.
+        local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
+        date = date.replace(tzinfo=local_tz)
+    return date
 
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
@@ -51,10 +60,13 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
 
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     if args.command is None:
-        args.from_date = None
+        args.from_date = datetime.datetime.now(tz=datetime.UTC)
+    args.from_date = as_local_timezone(args.from_date)
 
     config.log.info(
-        'Starting %s with FROM_DATE=%s', config.package_name, args.from_date
+        'Starting %s agenda with FROM_DATE=%s',
+        config.package_name,
+        args.from_date,
     )
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(args.from_date, agenda_required=True)
@@ -72,7 +84,12 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
 
 
 def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
-    config.log.info('Starting song verification')
+    args.from_date = as_local_timezone(args.from_date)
+    config.log.info(
+        'Starting %s song verification with FROM_DATE=%s',
+        config.package_name,
+        args.from_date,
+    )
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongVerification(cta, config)
     ctsv.verify_songs(
@@ -106,7 +123,8 @@ def main() -> None:
         parser_agenda.add_argument(
             'from_date',
             metavar='FROM_DATE',
-            type=datetime.date.fromisoformat,
+            type=datetime.datetime.fromisoformat,
+            default=datetime.datetime.now(datetime.UTC),
             nargs='?',
             help='search in ChurchTools for next event >= FROM_DATE (YYYY-MM-DD)',
         )
@@ -152,7 +170,7 @@ def main() -> None:
         parser_songs_verify.add_argument(
             'from_date',
             metavar='FROM_DATE',
-            type=datetime.date.fromisoformat,
+            type=datetime.datetime.fromisoformat,
             nargs='?',
             help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD)',
         )

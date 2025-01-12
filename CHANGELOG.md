@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [0.5.5] - 2025-01-12
+
+### Added
+- Respect time in addition to date to support multiple events on the same day
+
 ## [0.5.4] - 2025-01-12
 
 ### Added

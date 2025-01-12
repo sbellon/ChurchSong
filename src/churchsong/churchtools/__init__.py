@@ -82,6 +82,7 @@ class ServicesData(pydantic.BaseModel):
 class EventShort(pydantic.BaseModel):
     id: int
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
+    end_date: datetime.datetime = pydantic.Field(alias='endDate')
 
 
 class EventsData(pydantic.BaseModel):
@@ -336,25 +337,21 @@ class ChurchToolsAPI:
         result = ServicesData(**r.json())
         yield from result.data
 
-    def _get_events(
-        self, from_date: datetime.date | None = None
-    ) -> typing.Generator[EventShort]:
-        r = self._get(
-            '/api/events',
-            params={'from': f'{from_date:%Y-%m-%d}'} if from_date else None,
-        )
+    def _get_events(self, from_date: datetime.date) -> typing.Generator[EventShort]:
+        r = self._get('/api/events', params={'from': f'{from_date:%Y-%m-%d}'})
         result = EventsData(**r.json())
         yield from result.data
 
     def get_next_event(
-        self, from_date: datetime.date | None = None, *, agenda_required: bool = False
+        self, from_date: datetime.datetime, *, agenda_required: bool = False
     ) -> EventShort:
         try:
-            event = next(self._get_events(from_date))
+            event_iter = self._get_events(from_date)
+            event = next(event_iter)
+            while event.end_date <= from_date:
+                event = next(event_iter)
         except StopIteration:
-            err_msg = 'No events present{} in ChurchTools'.format(
-                f' after {from_date:%Y-%m-%d}' if from_date else ''
-            )
+            err_msg = f'No events present after {from_date} in ChurchTools'
             self._log.error(err_msg)
             sys.stderr.write(f'{err_msg}\n')
             sys.exit(1)
