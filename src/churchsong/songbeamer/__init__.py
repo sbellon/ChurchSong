@@ -105,6 +105,28 @@ class AgendaItem:
         """,
         re.VERBOSE,
     )
+    _replacements: typing.ClassVar = {
+        # key: regexp to match with appropriate match group names
+        # val: replacement with match group names using str.format()
+        re.compile(
+            # Regex inspired from https://stackoverflow.com/a/51870158
+            r"""(https?://)?                               # Optional protocol.
+                (                                          # Group up to Video ID.
+                  ((m|www)\.)?                             # Optional subdomain.
+                  (youtube(-nocookie)?|youtube.googleapis) # Possible domains.
+                  \.com                                    # The .com at the end.
+                  .*                                       # Match anything.
+                                                           # ^ restricts to youtube URL.
+                                                           # v finds the Video ID.
+                  (v/|v=|vi=|vi/|e/|embed/|user/.*/u/\d+/) # Poss. before Video ID.
+                  |                                        # Alternatively:
+                  youtu\.be/                               # The link-shortening domain.
+                )                                          # End of group.
+                (?P<match>[0-9A-Za-z_-]{11})               # Video ID as match group.
+            """,
+            re.VERBOSE,
+        ): 'https://www.youtube.com/embed/{match}'
+    }
 
     def __init__(
         self,
@@ -116,7 +138,7 @@ class AgendaItem:
         self.caption = self._decode(caption)
         self.color = color
         self.bgcolor = bgcolor
-        self.filename = self._decode(filename) if filename else None
+        self.filename = self._fixup_links(self._decode(filename)) if filename else None
 
     @staticmethod
     def _toggle_quotes(text: str) -> str:
@@ -132,6 +154,13 @@ class AgendaItem:
     def _encode(text: str) -> str:
         text = re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
         return AgendaItem._toggle_quotes(text)
+
+    @classmethod
+    def _fixup_links(cls, url: str) -> str:
+        for regexp, replacement in cls._replacements.items():
+            if m := regexp.match(url):
+                url = replacement.format(**m.groupdict())
+        return url
 
     @classmethod
     def parse(cls, content: str) -> list[typing.Self]:
@@ -243,7 +272,7 @@ class SongBeamer:
             + AgendaItem.parse(self._closing_slides)
             + [
                 AgendaItem(
-                    caption=f"'{service}: {", ".join(sorted(persons))}'",
+                    caption=f"'{service}: {', '.join(sorted(persons))}'",
                     color=self._color_service.color,
                     bgcolor=self._color_service.bgcolor,
                 )
