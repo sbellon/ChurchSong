@@ -16,4 +16,6 @@ wheels/
 .zed/
 
 # Project-specifc
-/config.toml
+/ChurchSong.sh
+/resources/install.ps1
+

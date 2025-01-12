@@ -1,6 +1,6 @@
 [project]
 name = "ChurchSong"
-version = "0.5.3"
+version = "0.5.4"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
 readme = "README.md"
@@ -25,6 +25,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/sbellon/ChurchSong"
 Repository = "https://github.com/sbellon/ChurchSong.git"
+Changelog = "https://github.com/sbellon/ChurchSong/blob/master/CHANGELOG.md"
 
 [project.scripts]
 ChurchSong = "churchsong.__main__:main"
