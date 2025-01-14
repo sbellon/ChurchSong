@@ -1,14 +1,21 @@
 # ChangeLog
 
+## [0.5.7] - 2025-01-14
+
+### Changed
+- make 'songs verify' only check next event agenda
+- make 'songs verify YYYY-MM-DD' check a specific event agenda
+- introduce 'songs verify --all' for whole song database
+
 ## [0.5.6] - 2025-01-12
 
 ### Changed
-- Refactored handling of datetime in argparse to always return timezone-aware objects
+- refactored handling of datetime in argparse to always return timezone-aware objects
 
 ## [0.5.5] - 2025-01-12
 
 ### Added
-- Respect time in addition to date to support multiple events on the same day
+- respect time in addition to date to support multiple events on the same day
 
 ## [0.5.4] - 2025-01-12
 

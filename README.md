@@ -46,10 +46,11 @@ team name has to be put at the PowerPoint base placeholder via the Select Pane
 
 ### SongBeamer agenda download
 
-To download the upcoming agenda you can just execute `ChurchSong` without any
-switches (e.g. double-click it). To specify a starting date to look for the next event,
-you can specify additional command line arguments `agenda FROM_DATE` as positional
-parameter with `FROM_DATE` in the form `YYYY-MM-DD`.
+To download the upcoming agenda you can just execute `ChurchSong` without any switches
+(e.g., double-click it) or use the command `agenda`. To specify a starting date to
+look for the next event, you can specify additional command line arguments
+`agenda FROM_DATE` as positional parameter with `FROM_DATE` in an ISO date format
+(e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
 If everything goes well, the agenda is downloaded into the `temp_dir`, the slide is
 created from the template, SongBeamer's `Schedule.col` is adjusted and finally
@@ -61,13 +62,18 @@ automatically re-created.
 
 ### ChurchTools song verification
 
-With the additional command `songs verify` you can check the songs in the
-ChurchTools song database for specific properties like CCLI number, song name, tags,
-arrangement source, duration and a SongBeamer `.sng` file with the `#BackgroundImage`
-property set.
+With the additional command family `songs verify` you can check the songs for specific
+properties like CCLI number, song name, tags, arrangement source, duration and a
+SongBeamer `.sng` file with the `#BackgroundImage` property set.
 
-With optional positional argument `FROM_DATE` in the form `YYYY-MM-DD` you can select
-to only check the songs of the next event agenda after `FROM_DATE`.
+Without any further argument, `songs verify` checks the songs for the next agenda that
+would appear when just using `agenda` command.
 
-Using command options `--exclude_tags` and/or `--include_tags` you can filter out
+With `songs verify FROM_DATE` you can select to only check the songs of the next event
+agenda after `FROM_DATE` (like `agenda FROM_DATE`, `FROM_DATE` can be an ISO date
+format, e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
+
+You can check the whole ChurchTools songs database by using `songs verify --all`.
+
+By using command options `--exclude_tags` and/or `--include_tags` you can filter out
 songs with specific tags or only include songs with specific tags in the check.

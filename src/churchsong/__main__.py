@@ -92,7 +92,7 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongVerification(cta, config)
     ctsv.verify_songs(
-        from_date=args.from_date,
+        from_date=None if args.all else args.from_date,
         include_tags=args.include_tags,
         exclude_tags=args.exclude_tags,
         execute_checks=args.execute_checks,
@@ -167,9 +167,15 @@ def main() -> None:
             ),
         )
         parser_songs_verify.add_argument(
+            '--all',
+            action='store_true',
+            help='check all songs in ChurchTools database and not just for next event',
+        )
+        parser_songs_verify.add_argument(
             'from_date',
             metavar='FROM_DATE',
             type=parse_datetime,
+            default=datetime.datetime.now(datetime.UTC),
             nargs='?',
             help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD)',
         )
