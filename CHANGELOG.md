@@ -1,5 +1,15 @@
 # ChangeLog
 
+## [0.5.9] - 2025-01-19
+
+### Fixed
+- display error message if configuration file is invalid UTF-8
+
+## [0.5.8] - 2025-01-19
+
+### Changed
+- for a person's name, prefer the information from the 'person' JSON element over the used name in the service
+
 ## [0.5.7] - 2025-01-14
 
 ### Changed

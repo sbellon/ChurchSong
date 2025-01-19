@@ -132,6 +132,11 @@ class Configuration:
                 f'Error: Configuration file "{self._config_toml}" not found\n'
             )
             sys.exit(1)
+        except UnicodeDecodeError as e:
+            sys.stderr.write(
+                f'Error: Configuration file "{self._config_toml}" in invalid: {e}'
+            )
+            sys.exit(1)
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise
