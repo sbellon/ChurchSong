@@ -93,6 +93,26 @@ class EventService(pydantic.BaseModel):
     name: str | None
     service_id: int = pydantic.Field(alias='serviceId')
 
+    # If a `person` element is present in the `eventService`, prefer it over the
+    # `eventService.name` for finding the person's name. Within the `person`, prefer
+    # a `person.domainAttributes.firstName` and `person.domainAttributes.lastName`,
+    # if set, over `person.title`.
+    @pydantic.root_validator(pre=True)
+    def flatten_person_name(cls, values: dict[str, str]) -> dict[str, str]:
+        person = values.get('person')
+        if isinstance(person, dict):
+            attrs = person.get('domainAttributes', {})
+            first_name = attrs.get('firstName')
+            last_name = attrs.get('lastName')
+            name = (
+                f'{first_name} {last_name}'
+                if first_name and last_name
+                else person.get('title')
+            )
+            if name:
+                values['name'] = name
+        return values
+
 
 class EventFile(pydantic.BaseModel):
     title: str
