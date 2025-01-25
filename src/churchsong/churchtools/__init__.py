@@ -70,6 +70,16 @@ class CalendarsData(pydantic.BaseModel):
     data: list[Calendar]
 
 
+class Person(pydantic.BaseModel):
+    firstname: str = pydantic.Field(alias='firstName')
+    lastname: str = pydantic.Field(alias='lastName')
+    nickname: str | None
+
+
+class PersonsData(pydantic.BaseModel):
+    data: Person
+
+
 class Service(pydantic.BaseModel):
     id: int
     name: str | None
@@ -90,6 +100,7 @@ class EventsData(pydantic.BaseModel):
 
 
 class EventService(pydantic.BaseModel):
+    person_id: int = pydantic.Field(alias='personId')
     name: str | None
     service_id: int = pydantic.Field(alias='serviceId')
 
@@ -343,6 +354,17 @@ class ChurchToolsAPI:
         r = self._get('/api/calendars')
         result = CalendarsData(**r.json())
         yield from result.data
+
+    def get_person(self, person_id: int) -> Person | None:
+        try:
+            r = self._get(f'/api/persons/{person_id}')
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == requests.codes.forbidden:
+                return None
+            raise
+        else:
+            result = PersonsData(**r.json())
+            return result.data
 
     def _get_appointments(self) -> typing.Generator[CalendarAppointment]:
         calendar_ids = ','.join(str(calendar.id) for calendar in self._get_calendars())

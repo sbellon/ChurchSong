@@ -6,6 +6,7 @@ import sys
 import typing
 
 from churchsong import utils
+from churchsong.churchtools.events import Person
 
 if typing.TYPE_CHECKING:
     from churchsong.churchtools.events import AgendaFileItem
@@ -245,7 +246,7 @@ class SongBeamer:
     def modify_and_save_agenda(
         self,
         event_date: datetime.datetime,
-        service_leads: dict[str, set[str]],
+        service_leads: dict[str, set[Person]],
         event_files: list['AgendaFileItem'],
     ) -> None:
         self._log.info('Modifying SongBeamer schedule')
@@ -272,11 +273,11 @@ class SongBeamer:
             + AgendaItem.parse(self._closing_slides)
             + [
                 AgendaItem(
-                    caption=f"'{service}: {', '.join(sorted(persons))}'",
+                    caption=f"'{serv}: {', '.join(sorted(p.fullname for p in pers))}'",
                     color=self._color_service.color,
                     bgcolor=self._color_service.bgcolor,
                 )
-                for service, persons in sorted(service_leads.items())
+                for serv, pers in sorted(service_leads.items())
             ]
         ):
             agenda += agenda_item

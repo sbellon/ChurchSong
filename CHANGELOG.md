@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [0.5.10] - 2025-01-25
+
+### Added
+- if the API user has permissions to query a person's nickname, prefer this over firstname in PowerPoint slide
+
 ## [0.5.9] - 2025-01-19
 
 ### Fixed

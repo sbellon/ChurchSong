@@ -20,6 +20,12 @@ class AgendaFileItem:
     filename: str
 
 
+@dataclasses.dataclass(eq=True, frozen=True)
+class Person:
+    fullname: str
+    shortname: str
+
+
 class ChurchToolsEvent:
     def __init__(
         self, cta: ChurchToolsAPI, event: EventShort, config: Configuration
@@ -32,23 +38,36 @@ class ChurchToolsEvent:
         self._files_dir = config.temp_dir / 'Files'
         self._person_dict = config.person_dict
 
-    def get_service_leads(self) -> defaultdict[str, set[str]]:
+    def get_service_leads(self) -> defaultdict[str, set[Person]]:
         self._log.info('Fetching service teams')
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
         }
         service_leads = defaultdict(
-            lambda: {self._person_dict.get(str(None), str(None))}
+            lambda: {
+                Person(
+                    fullname=self._person_dict.get(str(None), str(None)),
+                    shortname=fullname.split(' ')[0],
+                )
+            }
         )
         for event_service in self._full_event.event_services:
             service_name = service_id2name[event_service.service_id]
-            person_name = self._person_dict.get(
-                str(event_service.name), str(event_service.name)
-            )
-            if service_name not in service_leads:
-                service_leads[service_name] = {person_name}
+            # If we have access to the churchdb, we can query the person there and
+            # perhaps even get its proper nickname, if set in the database.
+            if person := self.cta.get_person(event_service.person_id):
+                fullname = f'{person.firstname} {person.lastname}'
+                nickname = person.nickname
             else:
-                service_leads[service_name].add(person_name)
+                fullname = str(event_service.name)
+                nickname = None
+            # Still fall back to our configuration mapping.
+            fullname = self._person_dict.get(fullname, fullname)
+            person = Person(fullname, nickname or fullname.split(' ')[0])
+            if service_name not in service_leads:
+                service_leads[service_name] = {person}
+            else:
+                service_leads[service_name].add(person)
         return service_leads
 
     def _download_with_progress(

@@ -1,8 +1,8 @@
 [project]
 name = "ChurchSong"
-version = "0.5.9"
+version = "0.5.10"
 authors = [{ name = "Stefan Bellon" }]
-description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff."
+description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.13"
@@ -25,7 +25,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/sbellon/ChurchSong"
 Repository = "https://github.com/sbellon/ChurchSong.git"
-Changelog = "https://github.com/sbellon/ChurchSong/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/sbellon/ChurchSong/blob/main/CHANGELOG.md"
 
 [project.scripts]
 ChurchSong = "churchsong.__main__:main"
