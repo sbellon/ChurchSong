@@ -7,34 +7,27 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv lock --locked
-  sync:
-    runs-on: windows-latest
-    needs: [lockfile]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync
   linting:
     runs-on: windows-latest
-    needs: [sync]
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uvx ruff check .
   formatting:
     runs-on: windows-latest
-    needs: [sync]
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uvx ruff format --check .
   typing:
     runs-on: windows-latest
-    needs: [sync]
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uvx pyright --project .
+      - run: uv sync && uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, typing]
