@@ -1,36 +1,42 @@
 name: Python Code Quality
 on: [push]
 jobs:
-  lock_file:
+  lockfile:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv lock --locked
+  sync:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
   linting:
     runs-on: windows-latest
-    needs: [lock_file]
+    needs: [sync]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uvx ruff check .
   formatting:
     runs-on: windows-latest
-    needs: [lock_file]
+    needs: [sync]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uvx ruff format --check .
-  type_consistency:
+  typing:
     runs-on: windows-latest
-    needs: [lock_file]
+    needs: [sync]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uvx pyright --project .
   build:
     runs-on: windows-latest
-    needs: [linting, formatting, type_consistency]
+    needs: [linting, formatting, typing]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
