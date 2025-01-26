@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uvx pyright .
+      - run: uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, type_consistency]
