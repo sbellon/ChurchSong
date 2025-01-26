@@ -5,33 +5,33 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup
       - run: uv lock --locked
   linting:
     runs-on: windows-latest
     needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup
       - run: uvx ruff check .
   formatting:
     runs-on: windows-latest
     needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup
       - run: uvx ruff format --check .
   typing:
     runs-on: windows-latest
     needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup
       - run: uv sync && uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, typing]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: ./.github/actions/setup
       - run: uv build
