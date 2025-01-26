@@ -3,6 +3,9 @@ on:
   push:
     paths-ignore:
       - '.github/**'
+  pull_request:
+    branches:
+      - main
 jobs:
   lockfile:
     runs-on: windows-latest
