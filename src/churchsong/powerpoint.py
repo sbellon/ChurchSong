@@ -52,7 +52,7 @@ class PowerPoint:
                 except FileNotFoundError as e:
                     self._log.error(f'Cannot embed portrait picture: {e}')
                     no_persons = ' + '.join(
-                        sorted(p.fullname for p in service_leads[service_name])
+                        sorted(p.fullname for p in service_leads[str(None)])
                     )
                     ph.insert_picture(
                         os.fspath(self._portraits_dir / f'{no_persons}.jpeg')

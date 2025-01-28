@@ -1,5 +1,11 @@
 # ChangeLog
 
+## [0.5.11] - unreleased
+
+### Fixed
+- fallback image for missing portraits on PowerPoint slide not working (regression introduced in 0.5.10)
+- do not try to query person's nickname if service person is external (regression introduced in 0.5.10)
+
 ## [0.5.10] - 2025-01-25
 
 ### Added
