@@ -55,7 +55,9 @@ class ChurchToolsEvent:
             service_name = service_id2name[event_service.service_id]
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
-            if person := self.cta.get_person(event_service.person_id):
+            if event_service.person_id is not None and (
+                person := self.cta.get_person(event_service.person_id)
+            ):
                 fullname = f'{person.firstname} {person.lastname}'
                 nickname = person.nickname
             else:

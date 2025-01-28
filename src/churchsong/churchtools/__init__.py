@@ -102,7 +102,7 @@ class EventsData(pydantic.BaseModel):
 
 
 class EventService(pydantic.BaseModel):
-    person_id: int = pydantic.Field(alias='personId')
+    person_id: int | None = pydantic.Field(alias='personId')
     name: str | None
     service_id: int = pydantic.Field(alias='serviceId')
 
