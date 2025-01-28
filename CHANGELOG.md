@@ -1,6 +1,6 @@
 # ChangeLog
 
-## [0.5.11] - unreleased
+## [0.5.11] - 2025-01-28
 
 ### Fixed
 - fallback image for missing portraits on PowerPoint slide not working (regression introduced in 0.5.10)
