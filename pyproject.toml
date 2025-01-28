@@ -87,14 +87,19 @@ tag = false
 sign_tags = false
 tag_name = "v{new_version}"
 tag_message = "Bump version: {current_version} → {new_version}"
-allow_dirty = true
+allow_dirty = false
 commit = true
 message = "Bump version: {current_version} → {new_version}"
 moveable_tags = []
 commit_args = ""
 setup_hooks = []
-pre_commit_hooks = ["uv sync"]
+pre_commit_hooks = ["uv sync", "git add uv.lock"]
 post_commit_hooks = []
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [unreleased]"
+replace = "## [{new_version}] - {now:%Y-%m-%d}"
