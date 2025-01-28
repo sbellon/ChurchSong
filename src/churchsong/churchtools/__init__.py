@@ -49,6 +49,8 @@ class CalendarAppointmentBase(pydantic.BaseModel):
     title: str
     subtitle: str | None
     description: str | None
+    image: str | None
+    link: str | None
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     all_day: bool = pydantic.Field(alias='allDay')
 
