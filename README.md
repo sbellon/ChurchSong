@@ -13,13 +13,9 @@ changed.
 The ChurchTools song database can also be checked for consistency regarding metadata
 as well as present .sng files to contain a background image.
 
-## Prerequisites
-
-Python package manager [uv](https://docs.astral.sh/uv/) must be installed and
-accessible via PATH. Easiest way is to follow the steps listed as
-[Standalone Installer](https://docs.astral.sh/uv/getting-started/installation/).
-
 ## Installation
+
+### Automatic installation
 
 A simple installation method (including a generic configuration template that you still
 have to configure for your needs) is to execute the following in a `cmd.exe` shell:
@@ -28,20 +24,41 @@ have to configure for your needs) is to execute the following in a `cmd.exe` she
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/install.ps1 | iex"
 ```
 
-Manual installation involves the steps `uv install ChurchSong` as well as putting
-the files `ChurchSong.bat` and `ChurchSong.ico` from `resources` folder somewhere for
-convenience as you can just double-click it to load the upcoming agenda and start
-SongBeamer.
+A shortcut will be installed on the desktop and command `ChurchSong` will be available
+from the command line.
 
-With any installation method, tool `ChurchSong` is available from the command line
-afterwards.
+### Manual installation
+
+If you do not want to use this method, you will have to do a manual install.
+
+The recommendation is to use Python package manager [uv](https://docs.astral.sh/uv/)
+which you have to install first and make it accessible via PATH. This can be done by
+following the steps listed at
+[Standalone Installer](https://docs.astral.sh/uv/getting-started/installation/).
+
+Afterwards you have to execute `uv install ChurchSong` to install ChurchSong itself.
+
+You may put the files `ChurchSong.bat` and `ChurchSong.ico` from `resources` folder
+somewhere for convenience as you can just double-click it to load the upcoming agenda
+and start SongBeamer.
+
+Command `ChurchSong` will be available from the command line afterwards.
+
+### Updating
+
+Once installed you can update to the latest release version by executing
+`ChurchSong self update` from the command line.
 
 ## Configuration
 
 ### Config file
 
+You can check the location of your configuration files by executing
+`ChurchSong self info` from the command line. Typically, on Windows, the location of
+the configuration file will be `%LOCALAPPDATA%\ChurchSong\config.toml`.
+
 You need to adjust the content of `%LOCALAPPDATA%\ChurchSong\config.toml` for your
-needs.
+needs (at least `base_url` and `login_token`).
 
 If you used the simple installation method above, the template was copied there for
 you, if you did a manuall install you have to copy `resources/config.toml.example`
