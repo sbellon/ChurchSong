@@ -1,5 +1,10 @@
 # ChangeLog
 
+## [unrelease]
+
+### Changed
+- updated external dependencies
+
 ## [0.5.11] - 2025-01-28
 
 ### Fixed
