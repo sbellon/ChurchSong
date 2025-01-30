@@ -9,8 +9,16 @@ on:
 env:
   UV_LOCKED: 1
 jobs:
+  lockfile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Check lockfile
+        run: uv lock --check
   linting:
     runs-on: windows-latest
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -18,20 +26,22 @@ jobs:
         run: uvx ruff check .
   formatting:
     runs-on: windows-latest
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Run ruff format
         run: uvx ruff format --check .
   typing:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest # currently does not sucessfully run on windows-latest
+    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Sync dependencies
         run: uv sync --all-extras --dev
       - name: Run pyright
-        run: uv run --project . -- uvx pyright --project .
+        run: uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, typing]
