@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv sync && uvx pyright --project .
+      - run: uv run --project . -- uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, typing]
