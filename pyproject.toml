@@ -101,5 +101,5 @@ filename = "pyproject.toml"
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.md"
-search = "## [unreleased]"
-replace = "## [{new_version}] - {now:%Y-%m-%d}"
+search = "Unreleased"
+replace = "{new_version} ({now:%Y-%m-%d})"
