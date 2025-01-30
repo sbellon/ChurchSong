@@ -6,38 +6,37 @@ on:
   pull_request:
     branches:
       - main
+env:
+  UV_LOCKED: 1
 jobs:
-  lockfile:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - run: uv lock --locked
   linting:
     runs-on: windows-latest
-    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uvx ruff check .
+      - name: Run ruff check
+        run: uvx ruff check .
   formatting:
     runs-on: windows-latest
-    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uvx ruff format --check .
+      - name: Run ruff format
+        run: uvx ruff format --check .
   typing:
     runs-on: windows-latest
-    needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv run --project . -- uvx pyright --project .
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+      - name: Run pyright
+        run: uv run --project . -- uvx pyright --project .
   build:
     runs-on: windows-latest
     needs: [linting, formatting, typing]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: uv build
+      - name: Run build
+        run: uv build
