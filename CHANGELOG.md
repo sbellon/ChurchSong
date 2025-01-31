@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.12 (2025-01-31)
 
 ### Added
 - update notice if a later version is available at PyPI
