@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- remove hint how to update in 'self version' (leave it there in update notice)
+
 ## 0.5.12 (2025-01-31)
 
 ### Added
