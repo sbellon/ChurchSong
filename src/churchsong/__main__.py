@@ -63,10 +63,8 @@ def parse_datetime(date_str: str) -> datetime.datetime:
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
     sys.stderr.write(f'Application version: {get_app_version(config)}\n')
-    if latest := get_latest_version(config) or True:
-        sys.stderr.write(
-            f'Latest version:      {latest} (update with "ChurchSong self update")\n'
-        )
+    if latest := get_latest_version(config):
+        sys.stderr.write(f'Latest version:      {latest}\n')
     sys.stderr.write(f'Configuration file:  {config.config_toml}\n')
     sys.stderr.write(f'User data directory: {config.data_dir}\n')
 
