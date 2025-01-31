@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.13 (2025-01-31)
 
 ### Changed
 - remove hint how to update in 'self version' (leave it there in update notice)
