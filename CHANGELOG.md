@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.12 (2025-01-31)
 
 ### Changed
 - updated external dependencies
