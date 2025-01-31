@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- update notice if a later version is available at PyPI
+
 ### Changed
 - updated external dependencies
 

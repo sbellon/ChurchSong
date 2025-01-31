@@ -25,6 +25,33 @@ def get_app_version(config: Configuration) -> str:
         return 'unknown'
 
 
+def get_latest_version(config: Configuration) -> str | None:
+    import pydantic
+    import requests
+
+    class PyPI(pydantic.BaseModel):
+        version: str
+
+    class PyPIInfo(pydantic.BaseModel):
+        info: PyPI
+
+    try:
+        r = requests.get(f'https://pypi.org/pypi/{config.package_name}/json')  # noqa: S113
+        result = PyPIInfo(**r.json())
+    except Exception:  # noqa: BLE001
+        return None
+    else:
+        return result.info.version
+
+
+def print_update_hint(config: Configuration) -> None:
+    latest = get_latest_version(config)
+    if latest and latest != get_app_version(config):
+        sys.stdout.write(
+            f'Note: Update to version {latest} possible via "ChurchSong self update"\n'
+        )
+
+
 def parse_datetime(date_str: str) -> datetime.datetime:
     date = datetime.datetime.fromisoformat(date_str)
     if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
@@ -36,6 +63,10 @@ def parse_datetime(date_str: str) -> datetime.datetime:
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
     sys.stderr.write(f'Application version: {get_app_version(config)}\n')
+    if latest := get_latest_version(config) or True:
+        sys.stderr.write(
+            f'Latest version:      {latest} (update with "ChurchSong self update")\n'
+        )
     sys.stderr.write(f'Configuration file:  {config.config_toml}\n')
     sys.stderr.write(f'User data directory: {config.data_dir}\n')
 
@@ -102,6 +133,7 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
 def main() -> None:
     sys.stderr.write('\r\033[2K\r')
     config = Configuration()
+    print_update_hint(config)
     try:
         config.log.debug('Parsing command line with args: %s', sys.argv)
         parser = argparse.ArgumentParser(
