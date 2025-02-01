@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- better error message if SongBeamer cannot be started
 - updated external dependencies
 
 ## 0.5.13 (2025-01-31)
