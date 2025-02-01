@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- fixed crash if song has no duration set
+
 ### Changed
 - better error message if SongBeamer cannot be started
 - updated external dependencies

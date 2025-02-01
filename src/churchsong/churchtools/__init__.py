@@ -172,7 +172,7 @@ class Arrangement(pydantic.BaseModel):
     key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
     bpm: str | None
     beat: str | None
-    duration: int
+    duration: int | None
     files: list[File]
     sng_file_content: list[str] = []  # NOT filled by ChurchTools, but internally
 
