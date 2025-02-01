@@ -1,5 +1,15 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed crash if song has no duration set
+
+### Changed
+- safe-guard single usage of old ChurchTools AJAX API to fetch song tags
+- better error messages (e.g. if SongBeamer cannot be started, or URL/token are not configured correctly)
+- updated external dependencies
+
 ## 0.5.13 (2025-01-31)
 
 ### Changed

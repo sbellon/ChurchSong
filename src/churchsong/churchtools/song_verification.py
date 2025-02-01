@@ -67,7 +67,7 @@ SONG_CHECKS: typing.Final[
         ),
         (
             'Dur.',
-            lambda song: [miss_if(arr.duration == 0) for arr in song.arrangements],
+            lambda song: [miss_if(not arr.duration) for arr in song.arrangements],
         ),
         (
             '.sng',

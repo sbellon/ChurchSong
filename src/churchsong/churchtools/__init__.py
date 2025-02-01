@@ -172,7 +172,7 @@ class Arrangement(pydantic.BaseModel):
     key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
     bpm: str | None
     beat: str | None
-    duration: int
+    duration: int | None
     files: list[File]
     sng_file_content: list[str] = []  # NOT filled by ChurchTools, but internally
 
@@ -239,7 +239,22 @@ class ChurchToolsAPI:
         )
 
     def _assert_permissions(self, *required_perms: str) -> None:
-        r = self._get('/api/permissions/global')
+        try:
+            r = self._get('/api/permissions/global')
+        except requests.ConnectionError as e:
+            self._log.error(e)
+            sys.stderr.write(f'Error: {e}\n\n')
+            sys.stderr.write(
+                'Did you configure the URL of your ChurchTools instance correctly?\n'
+            )
+            sys.exit(1)
+        except requests.HTTPError as e:
+            self._log.error(e)
+            sys.stderr.write(f'Error: {e}\n\n')
+            sys.stderr.write(
+                'Did you configure your ChurchTools API token correctly?\n'
+            )
+            sys.exit(1)
         permissions = PermissionsGlobalData(**r.json())
         has_permission = True
         for perm in required_perms:
@@ -318,12 +333,16 @@ class ChurchToolsAPI:
 
         # NOTE: Using the old AJAX API here because the new one does not contain tags.
         # If at some point the new API also contains the tags, this part is obsolete.
-        r = self._post('/?q=churchservice/ajax&func=getAllSongs')
-        result = AJAXSongsData(**r.json())
-        song_tags = {
-            int(song.id): {tags[tag_id] for tag_id in song.tags}
-            for song in result.data.songs.values()
-        }
+        try:
+            r = self._post('/?q=churchservice/ajax&func=getAllSongs')
+            result = AJAXSongsData(**r.json())
+            song_tags = {
+                int(song.id): {tags[tag_id] for tag_id in song.tags}
+                for song in result.data.songs.values()
+            }
+        except requests.RequestException as e:
+            song_tags = {}
+            self._log.error(e)
 
         # Use the new API to actually fetch the other information.
         api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
@@ -342,7 +361,8 @@ class ChurchToolsAPI:
                 else:
                     current_page = last_page
                 for song in tmp.data:
-                    song.tags = song_tags[song.id]
+                    if not song.tags:
+                        song.tags = song_tags.get(song.id, set())
                     yield song
 
         return (

@@ -2,6 +2,7 @@ import datetime
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import typing
 
@@ -297,7 +298,12 @@ class SongBeamer:
                 windows.open_message_box(self._app_name, self._already_running_notice)
                 windows.bring_songbeamer_window_to_front()
 
-            windows.start_songbeamer(self._temp_dir)
+            try:
+                windows.start_songbeamer(self._temp_dir)
+            except subprocess.CalledProcessError as e:
+                self._log.error(e)
+                sys.stderr.write(f'Error: cannot start SongBeamer: {e}\n')
+                sys.exit(e.returncode)
         else:
             sys.stderr.write(
                 f'Error: Starting SongBeamer not supported on {sys.platform}\n'
