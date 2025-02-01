@@ -239,7 +239,22 @@ class ChurchToolsAPI:
         )
 
     def _assert_permissions(self, *required_perms: str) -> None:
-        r = self._get('/api/permissions/global')
+        try:
+            r = self._get('/api/permissions/global')
+        except requests.ConnectionError as e:
+            self._log.error(e)
+            sys.stderr.write(f'Error: {e}\n\n')
+            sys.stderr.write(
+                'Did you configure the URL of your ChurchTools instance correctly?\n'
+            )
+            sys.exit(1)
+        except requests.HTTPError as e:
+            self._log.error(e)
+            sys.stderr.write(f'Error: {e}\n\n')
+            sys.stderr.write(
+                'Did you configure your ChurchTools API token correctly?\n'
+            )
+            sys.exit(1)
         permissions = PermissionsGlobalData(**r.json())
         has_permission = True
         for perm in required_perms:
