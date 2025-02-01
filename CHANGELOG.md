@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.14 (2025-02-01)
 
 ### Fixed
 - fixed crash if song has no duration set
