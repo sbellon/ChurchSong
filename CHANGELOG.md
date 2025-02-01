@@ -6,6 +6,7 @@
 - fixed crash if song has no duration set
 
 ### Changed
+- safe-guard single usage of old ChurchTools AJAX API to fetch song tags
 - better error message if SongBeamer cannot be started
 - updated external dependencies
 

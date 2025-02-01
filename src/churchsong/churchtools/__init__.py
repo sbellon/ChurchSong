@@ -318,12 +318,16 @@ class ChurchToolsAPI:
 
         # NOTE: Using the old AJAX API here because the new one does not contain tags.
         # If at some point the new API also contains the tags, this part is obsolete.
-        r = self._post('/?q=churchservice/ajax&func=getAllSongs')
-        result = AJAXSongsData(**r.json())
-        song_tags = {
-            int(song.id): {tags[tag_id] for tag_id in song.tags}
-            for song in result.data.songs.values()
-        }
+        try:
+            r = self._post('/?q=churchservice/ajax&func=getAllSongs')
+            result = AJAXSongsData(**r.json())
+            song_tags = {
+                int(song.id): {tags[tag_id] for tag_id in song.tags}
+                for song in result.data.songs.values()
+            }
+        except requests.RequestException as e:
+            song_tags = {}
+            self._log.error(e)
 
         # Use the new API to actually fetch the other information.
         api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
@@ -342,7 +346,8 @@ class ChurchToolsAPI:
                 else:
                     current_page = last_page
                 for song in tmp.data:
-                    song.tags = song_tags[song.id]
+                    if not song.tags:
+                        song.tags = song_tags.get(song.id, set())
                     yield song
 
         return (
