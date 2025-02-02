@@ -3,7 +3,7 @@ import datetime
 import inspect
 import sys
 import typing
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 import alive_progress
 import prettytable
@@ -135,7 +135,7 @@ class ChurchToolsSongVerification:
         checker.visit(ast.parse(inspect.getsource(func).strip(), mode='exec'))
         return checker.accessed()
 
-    def verify_songs(
+    def verify_songs(  # noqa: C901, PLR0912
         self,
         *,
         from_date: datetime.datetime | None = None,
@@ -166,6 +166,9 @@ class ChurchToolsSongVerification:
         for field_id in table.field_names[1:]:
             table.align[field_id] = 'l'
 
+        # Check whether there are duplicates regarding the CCLI number.
+        ccli2ids = defaultdict(set)
+
         # Iterate over songs (either from agenda of specified date, or all songs) and
         # execute selected checks.
         event = (
@@ -184,6 +187,9 @@ class ChurchToolsSongVerification:
                 ) or (exclude_tags and any(tag in song.tags for tag in exclude_tags)):
                     bar()
                     continue
+
+                if song.ccli:
+                    ccli2ids[song.ccli].add(song.id)
 
                 # Load .sng files - if existing - to have them available for checking.
                 if needs_sng_file_contents:
@@ -221,7 +227,18 @@ class ChurchToolsSongVerification:
                         )
                 bar()
 
+        output_duplicates = ''
+        for ccli_no, song_ids in sorted(ccli2ids.items()):
+            if len(song_ids) > 1:
+                ids = ', '.join(f'#{song_id}' for song_id in sorted(song_ids))
+                output_duplicates += f'\n  CCLI {ccli_no}: {ids}'
+        if output_duplicates:
+            output_duplicates = '\nDuplicate songs:' + output_duplicates
+
         # Output nicely formatted result table.
         sys.stdout.write(
-            '{}\n'.format(table.get_string(print_empty=False) or 'No problems found.')
+            '{}\n'.format(
+                table.get_string(print_empty=False) + output_duplicates
+                or 'No problems found.'
+            )
         )

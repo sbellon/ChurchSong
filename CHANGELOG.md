@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- check for multiple songs with the same CCLI number (should rather be arrangements)
+
 ### Changed
 - cover even more cases of wrongly configured URL/token and emit better error message
 
