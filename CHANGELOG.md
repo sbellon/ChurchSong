@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- cover even more cases of wrongly configured URL/token and emit better error message
+
 ## 0.5.14 (2025-02-01)
 
 ### Fixed

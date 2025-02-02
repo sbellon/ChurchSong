@@ -237,23 +237,34 @@ class ChurchToolsAPI:
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
         )
+        # Querying a person's nickname requires additional permissions, but they are
+        # optional and if not present, the nickname will just not be considered:
+        # - churchdb:view alldata(-1)
+        # - churchdb:security level person(1)
 
     def _assert_permissions(self, *required_perms: str) -> None:
         try:
             r = self._get('/api/permissions/global')
-        except requests.ConnectionError as e:
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema,
+        ) as e:
             self._log.error(e)
             sys.stderr.write(f'Error: {e}\n\n')
             sys.stderr.write(
                 'Did you configure the URL of your ChurchTools instance correctly?\n'
             )
             sys.exit(1)
-        except requests.HTTPError as e:
+        except requests.exceptions.HTTPError as e:
             self._log.error(e)
             sys.stderr.write(f'Error: {e}\n\n')
-            sys.stderr.write(
-                'Did you configure your ChurchTools API token correctly?\n'
-            )
+            if e.response.status_code in (
+                requests.codes.forbidden,
+                requests.codes.unauthorized,
+            ):
+                sys.stderr.write(
+                    'Did you configure your ChurchTools API token correctly?\n'
+                )
             sys.exit(1)
         permissions = PermissionsGlobalData(**r.json())
         has_permission = True
@@ -378,6 +389,9 @@ class ChurchToolsAPI:
         yield from result.data
 
     def get_person(self, person_id: int) -> Person | None:
+        # This requires additional permissions in ChurchTools:
+        # - churchdb:view alldata(-1)
+        # - churchdb:security level person(1)
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
