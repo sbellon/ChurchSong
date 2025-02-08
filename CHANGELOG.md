@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.15 (2025-02-08)
 
 ### Added
 - check for multiple songs with the same CCLI number (should rather be arrangements)
