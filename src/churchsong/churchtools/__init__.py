@@ -331,7 +331,7 @@ class ChurchToolsAPI:
         yield from result.data
 
     def get_songs(
-        self, event: EventShort | None = None
+        self, event: EventShort | None = None, *, require_tags: bool = True
     ) -> tuple[int, typing.Generator[Song]]:
         self._log.info(
             'Getting {}'.format(
@@ -340,25 +340,25 @@ class ChurchToolsAPI:
         )
 
         # Fetch mapping from tag_id to tag_name for song tags.
-        tags = {tag.id: tag.name for tag in self._get_tags('songs')}
+        song_tags = {}
+        if require_tags:
+            tags = {tag.id: tag.name for tag in self._get_tags('songs')}
 
-        # NOTE: Using the old AJAX API here because the new one does not contain tags.
-        # If at some point the new API also contains the tags, this part is obsolete.
-        try:
-            r = self._post('/?q=churchservice/ajax&func=getAllSongs')
-            result = AJAXSongsData(**r.json())
-            song_tags = {
-                int(song.id): {tags[tag_id] for tag_id in song.tags}
-                for song in result.data.songs.values()
-            }
-        except requests.RequestException as e:
-            song_tags = {}
-            self._log.error(e)
+            # NOTE: Using the old AJAX API here because the new one does not contain
+            # song tags. If at some point the new API also contains the song tags,
+            # this part is obsolete.
+            try:
+                r = self._post('/?q=churchservice/ajax&func=getAllSongs')
+                result = AJAXSongsData(**r.json())
+                song_tags = {
+                    int(song.id): {tags[tag_id] for tag_id in song.tags}
+                    for song in result.data.songs.values()
+                }
+            except requests.RequestException as e:
+                self._log.error(e)
 
-        # Use the new API to actually fetch the other information.
-        api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
-        r = self._get(api_url, params={'page': '1', 'limit': '1'})
-        result = SongsData(**r.json())
+        def empty_generator() -> typing.Generator[Song]:
+            yield from []
 
         def inner_generator() -> typing.Generator[Song]:
             current_page = 0
@@ -375,6 +375,14 @@ class ChurchToolsAPI:
                     if not song.tags:
                         song.tags = song_tags.get(song.id, set())
                     yield song
+
+        # Use the new API to actually fetch the other information.
+        try:
+            api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
+            r = self._get(api_url, params={'page': '1', 'limit': '1'})
+            result = SongsData(**r.json())
+        except requests.exceptions.HTTPError:
+            return (0, empty_generator())
 
         return (
             result.meta.pagination.total
@@ -415,8 +423,13 @@ class ChurchToolsAPI:
         result = ServicesData(**r.json())
         yield from result.data
 
-    def _get_events(self, from_date: datetime.date) -> typing.Generator[EventShort]:
-        r = self._get('/api/events', params={'from': f'{from_date:%Y-%m-%d}'})
+    def get_events(
+        self, from_date: datetime.date, to_date: datetime.date | None = None
+    ) -> typing.Generator[EventShort]:
+        params = {'from': f'{from_date:%Y-%m-%d}'}
+        if to_date:
+            params['to'] = f'{to_date:%Y-%m-%d}'
+        r = self._get('/api/events', params=params)
         result = EventsData(**r.json())
         yield from result.data
 
@@ -424,7 +437,7 @@ class ChurchToolsAPI:
         self, from_date: datetime.datetime, *, agenda_required: bool = False
     ) -> EventShort:
         try:
-            event_iter = self._get_events(from_date)
+            event_iter = self.get_events(from_date)
             event = next(event_iter)
             while event.end_date <= from_date:
                 event = next(event_iter)
