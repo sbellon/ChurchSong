@@ -1,6 +1,11 @@
 # ChangeLog
 
-### 0.5.17 (2025-02-10)
+## Unreleased
+
+### Fixed
+- fixed broken files for html, json, and latex
+
+## 0.5.17 (2025-02-10)
 
 ### Added
 - added output formats html, json, csv, and latex in addition to text and xlsx

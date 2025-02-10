@@ -33,7 +33,7 @@ class AsciiFormatter(BaseFormatter):
     ) -> None:
         self._filename = filename
         self._format = output_format
-        self._title = title
+        self._title = f'{title}\n' if output_format == 'text' else ''
         self._table = prettytable.PrettyTable()
         self._table.field_names = self._columns
         self._table.align['Id'] = 'r'
@@ -44,7 +44,7 @@ class AsciiFormatter(BaseFormatter):
         self._table.add_row(row)
 
     def done(self) -> None:
-        text = '{}\n{}\n'.format(
+        text = '{}{}\n'.format(
             self._title,
             self._table.get_formatted_string(
                 out_format=self._format, print_empty=False
