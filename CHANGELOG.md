@@ -1,6 +1,6 @@
 # ChangeLog
 
-### Unreleased
+### 0.5.17 (2025-02-10)
 
 ### Added
 - added output formats html, json, csv, and latex in addition to text and xlsx
