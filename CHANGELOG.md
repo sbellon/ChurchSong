@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- adjust column width to cell with maximum content
+
 ## 0.5.19 (2025-02-10)
 
 ### Fixed

@@ -8,6 +8,7 @@ from collections import defaultdict
 import alive_progress
 import openpyxl
 import openpyxl.styles
+import openpyxl.utils
 import prettytable
 
 from churchsong.churchtools import ChurchToolsAPI
@@ -81,6 +82,10 @@ class ExcelFormatter(BaseFormatter):
         ).alignment = self._alignright
 
     def done(self) -> None:
+        for i, column in enumerate(self._worksheet.columns):
+            self._worksheet.column_dimensions[
+                openpyxl.utils.get_column_letter(i + 1)
+            ].width = 1 + max(len(str(cell.value)) for cell in column)
         self._workbook.save(self._filename)
 
 
