@@ -28,7 +28,11 @@ class BaseFormatter(abc.ABC):
 
 
 class AsciiFormatter(BaseFormatter):
-    def __init__(self, title: str) -> None:
+    def __init__(
+        self, title: str, *, output_format: str, filename: pathlib.Path | None = None
+    ) -> None:
+        self._filename = filename
+        self._format = output_format
         self._title = title
         self._table = prettytable.PrettyTable()
         self._table.field_names = self._columns
@@ -40,9 +44,17 @@ class AsciiFormatter(BaseFormatter):
         self._table.add_row(row)
 
     def done(self) -> None:
-        sys.stdout.write(
-            f'{self._title}\n{self._table.get_string(print_empty=False)}\n'
+        text = '{}\n{}\n'.format(
+            self._title,
+            self._table.get_formatted_string(
+                out_format=self._format, print_empty=False
+            ),
         )
+        if self._filename:
+            with self._filename.open('w', encoding='utf-8') as fd:
+                fd.write(text)
+        else:
+            sys.stdout.write(text)
 
 
 class ExcelFormatter(BaseFormatter):
@@ -81,7 +93,9 @@ class ChurchToolsSongStatistics:
         self,
         from_date: datetime.datetime,
         to_date: datetime.datetime,
-        xlsx_file: pathlib.Path | None = None,
+        *,
+        output_file: pathlib.Path | None = None,
+        output_format: str,
     ) -> None:
         self._log.info('Building song usage statistics')
 
@@ -91,10 +105,13 @@ class ChurchToolsSongStatistics:
             else f'{from_date.year}'
         )
         title = f'Song statistics for {year_range}'
-        if xlsx_file:
-            formatter = ExcelFormatter(title=title, filename=xlsx_file)
+        if format == 'xlsx':
+            assert isinstance(output_file, pathlib.Path)  # noqa: S101
+            formatter = ExcelFormatter(title=title, filename=output_file)
         else:
-            formatter = AsciiFormatter(title=title)
+            formatter = AsciiFormatter(
+                title=title, output_format=output_format, filename=output_file
+            )
 
         # Iterate over events and songs and count usage.
         song_counts: dict[tuple[int, str], int] = defaultdict(int)

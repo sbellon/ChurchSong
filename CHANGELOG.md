@@ -2,6 +2,9 @@
 
 ### Unreleased
 
+### Added
+- added output formats html, json, csv, and latex in addition to text and xlsx
+
 ### Fixed
 - make song counts in Excel an integer instead of a string
 
