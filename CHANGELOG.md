@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- 'songs usage -YYYY' syntax was not working as expected
+
 ### Changed
 - adjust column width to cell with maximum content
 
