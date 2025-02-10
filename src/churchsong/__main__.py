@@ -180,12 +180,16 @@ def cmd_songs_usage(args: argparse.Namespace, config: Configuration) -> None:
         args.year_range.from_date.year,
         args.year_range.to_date.year,
     )
+    if args.format == 'xlsx' and not args.output:
+        sys.stderr.write('Error: Format "xlsx" requires to specify an output file\n')
+        sys.exit(1)
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongStatistics(cta, config)
     ctsv.song_usage(
         from_date=args.year_range.from_date,
         to_date=args.year_range.to_date,
-        xlsx_file=args.xlsx_file,
+        output_file=args.output,
+        output_format=args.format,
     )
 
 
@@ -279,10 +283,18 @@ def main() -> None:
             allow_abbrev=False,
         )
         parser_songs_usage.add_argument(
-            '--xlsx_file',
+            '--format',
+            metavar='FORMAT',
+            choices=['text', 'html', 'json', 'csv', 'latex', 'xlsx'],
+            default='text',
+            help='define output format (default is "text")',
+        )
+        parser_songs_usage.add_argument(
+            '--output',
             metavar='FILENAME',
             type=pathlib.Path,
-            help='output song usage statistics in Excel sheet instead to console',
+            help='output song usage statistics into file instead of console'
+            ' (mandatory for "xlsx")',
         )
         parser_songs_usage.add_argument(
             'year_range',
