@@ -1,9 +1,9 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.16 (2025-02-10)
 
 ### Added
-- command 'song usage' to calculate and output song usage statistics per given year range
+- command 'songs usage' to calculate and output song usage statistics per given year range
 
 ### Changed
 - updated external dependencies
