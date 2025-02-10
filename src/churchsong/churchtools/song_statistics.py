@@ -32,7 +32,7 @@ class AsciiFormatter(BaseFormatter):
         self, title: str, *, output_format: str, filename: pathlib.Path | None = None
     ) -> None:
         self._filename = filename
-        self._format = output_format
+        self._output_format = output_format
         self._title = f'{title}\n' if output_format == 'text' else ''
         self._table = prettytable.PrettyTable()
         self._table.field_names = self._columns
@@ -47,7 +47,7 @@ class AsciiFormatter(BaseFormatter):
         text = '{}{}\n'.format(
             self._title,
             self._table.get_formatted_string(
-                out_format=self._format, print_empty=False
+                out_format=self._output_format, print_empty=False
             ),
         )
         if self._filename:
@@ -105,7 +105,7 @@ class ChurchToolsSongStatistics:
             else f'{from_date.year}'
         )
         title = f'Song statistics for {year_range}'
-        if format == 'xlsx':
+        if output_format == 'xlsx':
             assert isinstance(output_file, pathlib.Path)  # noqa: S101
             formatter = ExcelFormatter(title=title, filename=output_file)
         else:

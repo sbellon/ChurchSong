@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed broken xlsx output
+
 ## 0.5.18 (2025-02-10)
 
 ### Fixed
