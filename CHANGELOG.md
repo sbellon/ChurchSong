@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.18 (2025-02-10)
 
 ### Fixed
 - fixed broken files for html, json, and latex
