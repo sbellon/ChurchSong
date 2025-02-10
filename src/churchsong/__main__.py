@@ -79,7 +79,7 @@ def parse_year_range(year_str: str) -> DateRange:
         from_year = to_year = int(m.group('year'))
     elif m := re.fullmatch(r'(?P<from_year>\d{4})?-(?P<to_year>\d{4})?', year_str):
         current_year = datetime.datetime.now(tz=local_tz).year
-        from_year = int(m.group('from_year')) if m.group('from_year') else current_year
+        from_year = int(m.group('from_year')) if m.group('from_year') else 2000
         to_year = int(m.group('to_year')) if m.group('to_year') else current_year
     else:
         msg = f'Invalid format: {year_str}'
