@@ -21,7 +21,7 @@ class BaseFormatter(abc.ABC):
     def __init__(self, title: str) -> None: ...
 
     @abc.abstractmethod
-    def add_row(self, row: list[str]) -> None: ...
+    def add_row(self, row: list) -> None: ...
 
     @abc.abstractmethod
     def done(self) -> None: ...
@@ -36,7 +36,7 @@ class AsciiFormatter(BaseFormatter):
         self._table.align['Song'] = 'l'
         self._table.align['Performed'] = 'r'
 
-    def add_row(self, row: list[str]) -> None:
+    def add_row(self, row: list) -> None:
         self._table.add_row(row)
 
     def done(self) -> None:
@@ -56,7 +56,7 @@ class ExcelFormatter(BaseFormatter):
         self._alignright = openpyxl.styles.Alignment(horizontal='right')
         self.add_row(self._columns)
 
-    def add_row(self, row: list[str]) -> None:
+    def add_row(self, row: list) -> None:
         self._worksheet.append(row)
         self._worksheet.cell(
             row=self._worksheet.max_row, column=1
@@ -110,7 +110,7 @@ class ChurchToolsSongStatistics:
         for (song_id, song_name), count in sorted(
             song_counts.items(), key=lambda s: (-s[1], s[0][1])
         ):
-            formatter.add_row([f'#{song_id}', song_name, f'{count}'])
+            formatter.add_row([f'#{song_id}', song_name, count])
 
         # Output according to the selected formatter.
         formatter.done()
