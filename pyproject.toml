@@ -14,6 +14,7 @@ classifiers = [
 ]
 dependencies = [
     "alive-progress>=3.2.0",
+    "openpyxl>=3.1.5",
     "platformdirs>=4.3.6",
     "prettytable>=3.12.0",
     "psutil>=6.1.0; sys_platform == 'win32'",

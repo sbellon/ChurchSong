@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime
 import functools
 import importlib.metadata
 import os
+import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -12,6 +15,7 @@ import time
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
+from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
 from churchsong.configuration import Configuration
 from churchsong.powerpoint import PowerPoint
@@ -59,6 +63,47 @@ def parse_datetime(date_str: str) -> datetime.datetime:
         local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
         date = date.replace(tzinfo=local_tz)
     return date
+
+
+@dataclasses.dataclass
+class DateRange:
+    from_date: datetime.datetime
+    to_date: datetime.datetime
+
+
+def parse_year_range(year_str: str) -> DateRange:
+    local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
+    if not year_str:
+        from_year = to_year = datetime.datetime.now(tz=local_tz).year
+    elif m := re.fullmatch(r'(?P<year>\d{4})', year_str):
+        from_year = to_year = int(m.group('year'))
+    elif m := re.fullmatch(r'(?P<from_year>\d{4})?-(?P<to_year>\d{4})?', year_str):
+        current_year = datetime.datetime.now(tz=local_tz).year
+        from_year = int(m.group('from_year')) if m.group('from_year') else current_year
+        to_year = int(m.group('to_year')) if m.group('to_year') else current_year
+    else:
+        msg = f'Invalid format: {year_str}'
+        raise ValueError(msg)
+    return DateRange(
+        from_date=datetime.datetime(
+            year=from_year,
+            month=1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            tzinfo=local_tz,
+        ),
+        to_date=datetime.datetime(
+            year=to_year,
+            month=12,
+            day=31,
+            hour=23,
+            minute=59,
+            second=59,
+            tzinfo=local_tz,
+        ),
+    )
 
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
@@ -125,6 +170,22 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
         include_tags=args.include_tags,
         exclude_tags=args.exclude_tags,
         execute_checks=args.execute_checks,
+    )
+
+
+def cmd_songs_usage(args: argparse.Namespace, config: Configuration) -> None:
+    config.log.info(
+        'Starting %s song usage statistics for %s-%s',
+        config.package_name,
+        args.year_range.from_date.year,
+        args.year_range.to_date.year,
+    )
+    cta = ChurchToolsAPI(config)
+    ctsv = ChurchToolsSongStatistics(cta, config)
+    ctsv.song_usage(
+        from_date=args.year_range.from_date,
+        to_date=args.year_range.to_date,
+        xlsx_file=args.xlsx_file,
     )
 
 
@@ -211,6 +272,28 @@ def main() -> None:
         )
         parser_songs_verify.set_defaults(
             func=functools.partial(cmd_songs_verify, config=config)
+        )
+        parser_songs_usage = subparser_songs.add_parser(
+            'usage',
+            help='calculate song usage statistics',
+            allow_abbrev=False,
+        )
+        parser_songs_usage.add_argument(
+            '--xlsx_file',
+            metavar='FILENAME',
+            type=pathlib.Path,
+            help='output song usage statistics in Excel sheet instead to console',
+        )
+        parser_songs_usage.add_argument(
+            'year_range',
+            metavar='[YEAR|[YEAR]-[YEAR]]',
+            type=parse_year_range,
+            default=parse_year_range(''),
+            nargs='?',
+            help='calculate song usage statistics for given year range (YYYY-YYYY)',
+        )
+        parser_songs_usage.set_defaults(
+            func=functools.partial(cmd_songs_usage, config=config)
         )
         parser_self = subparsers.add_parser(
             'self',
