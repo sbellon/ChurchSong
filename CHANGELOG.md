@@ -1,5 +1,10 @@
 # ChangeLog
 
+### Unreleased
+
+### Fixed
+- make song counts in Excel an integer instead of a string
+
 ## 0.5.16 (2025-02-10)
 
 ### Added
