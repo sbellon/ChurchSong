@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.19 (2025-02-10)
 
 ### Fixed
 - fixed broken xlsx output

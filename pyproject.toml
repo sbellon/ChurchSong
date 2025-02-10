@@ -1,6 +1,6 @@
 [project]
 name = "ChurchSong"
-version = "0.5.18"
+version = "0.5.19"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
@@ -76,7 +76,7 @@ classmethod-decorators = [
 ]
 
 [tool.bumpversion]
-current_version = "0.5.18"
+current_version = "0.5.19"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
