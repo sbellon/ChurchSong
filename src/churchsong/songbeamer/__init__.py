@@ -30,7 +30,7 @@ With the following known KEYs:
 - Caption: enclosed in single quote, e.g.
     Caption = 'This is a caption'
 
-- Color: color like clBlack, clBlue, clAqua, or intger value, e.g.
+- Color: color like clBlack, clBlue, clAqua, or integer value, e.g.
     Color = clBlack
   or
     Color = 16711920

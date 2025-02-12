@@ -61,7 +61,7 @@ You need to adjust the content of `%LOCALAPPDATA%\ChurchSong\config.toml` for yo
 needs (at least `base_url` and `login_token`).
 
 If you used the simple installation method above, the template was copied there for
-you, if you did a manuall install you have to copy `resources/config.toml.example`
+you, if you did a manual install you have to copy `resources/config.toml.example`
 there for yourself.
 
 ### PowerPoint template
