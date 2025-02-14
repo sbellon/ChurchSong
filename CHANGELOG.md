@@ -1,12 +1,13 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.20 (2025-02-14)
 
 ### Fixed
 - 'songs usage -YYYY' syntax was not working as expected
 
 ### Changed
 - adjust column width to cell with maximum content
+- updated external dependencies
 
 ## 0.5.19 (2025-02-10)
 
