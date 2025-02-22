@@ -75,6 +75,12 @@ classmethod-decorators = [
     "pydantic.root_validator",
 ]
 
+[tool.typos.default]
+extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*typos:\\s*disable$",
+    "(?s)(#|//)\\s*typos:\\s*off.*?\\n\\s*(#|//)\\s*typos:\\s*on",
+]
+
 [tool.bumpversion]
 current_version = "0.5.20"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
