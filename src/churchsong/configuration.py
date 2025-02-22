@@ -12,14 +12,10 @@ import pydantic
 
 from churchsong import utils
 
+T = typing.TypeVar('T', str, dict, list)
 
-@typing.overload
-def recursive_expand_vars(data: str) -> str: ...
-@typing.overload
-def recursive_expand_vars(data: dict) -> dict: ...
-@typing.overload
-def recursive_expand_vars(data: list) -> list: ...
-def recursive_expand_vars(data: typing.Any) -> typing.Any:
+
+def recursive_expand_vars(data: T) -> T:
     if isinstance(data, str):
         return utils.expand_envvars(data)
     if isinstance(data, dict):
