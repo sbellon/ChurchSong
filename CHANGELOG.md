@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.5.21 (2025-02-22)
 
 ### Fixed
 - fixed invalid SongBeamer Schedule.col file in case a caption was completely empty
