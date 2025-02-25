@@ -7,7 +7,7 @@ import typing
 import zipfile
 from collections import defaultdict
 
-import alive_progress
+import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import requests
 
 from churchsong.churchtools import ChurchToolsAPI, EventShort
@@ -43,7 +43,7 @@ class ChurchToolsEvent:
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
         }
-        service_leads = defaultdict(
+        service_leads: defaultdict[str, set[Person]] = defaultdict(
             lambda: {
                 Person(
                     fullname=self._person_dict.get(str(None), str(None)),
@@ -52,7 +52,7 @@ class ChurchToolsEvent:
             }
         )
         for event_service in self._full_event.event_services:
-            service_name = service_id2name[event_service.service_id]
+            service_name = str(service_id2name.get(event_service.service_id, None))
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
             if event_service.person_id is not None and (
@@ -84,7 +84,7 @@ class ChurchToolsEvent:
             title=title,
             spinner=None,
             receipt=False,
-        ) as bar:
+        ) as bar:  # pyright: ignore[reportUnknownVariableType]
             for chunk in response.iter_content(chunk_size=None):
                 output.write(chunk)
                 bar(len(chunk))
@@ -104,7 +104,7 @@ class ChurchToolsEvent:
 
     def _fetch_service_attachments(self) -> list[AgendaFileItem]:
         self._log.info('Fetching event attachments')
-        result = []
+        result: list[AgendaFileItem] = []
         for event_file in self._full_event.event_files:
             match event_file.domain_type:
                 case 'file':

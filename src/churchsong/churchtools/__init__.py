@@ -41,8 +41,15 @@ class PermissionsGlobalData(pydantic.BaseModel):
                 obj = getattr(obj, key)
             else:
                 return False
-        assert isinstance(obj, bool | list)  # noqa: S101
-        return obj
+        match obj:
+            case bool():
+                return obj
+            case list() if all(
+                isinstance(item, int) for item in typing.cast(list[typing.Any], obj)
+            ):
+                return typing.cast(list[typing.Any], obj)
+            case _:
+                return False
 
 
 class CalendarAppointmentBase(pydantic.BaseModel):
@@ -110,9 +117,10 @@ class EventService(pydantic.BaseModel):
     # `eventService.name` for finding the person's name. Within the `person`, prefer
     # a `person.domainAttributes.firstName` and `person.domainAttributes.lastName`,
     # if set, over `person.title`.
-    @pydantic.root_validator(pre=True)
-    def flatten_person_name(cls, values: dict[str, str]) -> dict[str, str]:
-        person = values.get('person')
+    @pydantic.model_validator(mode='before')
+    @classmethod
+    def flatten_person_name(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
+        person: dict[str, typing.Any] | None = data.get('person')
         if isinstance(person, dict):
             attrs = person.get('domainAttributes', {})
             first_name = attrs.get('firstName')
@@ -123,8 +131,8 @@ class EventService(pydantic.BaseModel):
                 else person.get('title')
             )
             if name:
-                values['name'] = name
-        return values
+                data['name'] = name
+        return data
 
 
 class EventFile(pydantic.BaseModel):

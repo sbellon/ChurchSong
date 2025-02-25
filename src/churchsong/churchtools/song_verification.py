@@ -5,7 +5,7 @@ import sys
 import typing
 from collections import OrderedDict, defaultdict
 
-import alive_progress
+import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import prettytable
 
 from churchsong.churchtools import ChurchToolsAPI, Song
@@ -167,7 +167,7 @@ class ChurchToolsSongVerification:
             table.align[field_id] = 'l'
 
         # Check whether there are duplicates regarding the CCLI number.
-        ccli2ids = defaultdict(set)
+        ccli2ids: defaultdict[str | None, set[int]] = defaultdict(set)
 
         # Iterate over songs (either from agenda of specified date, or all songs) and
         # execute selected checks.
@@ -179,7 +179,7 @@ class ChurchToolsSongVerification:
         number_songs, songs = self.cta.get_songs(event)
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
-        ) as bar:
+        ) as bar:  # pyright: ignore[reportUnknownVariableType]
             for song in sorted(songs, key=lambda e: e.name):
                 # Apply include and exclude tag switches.
                 if (
@@ -236,9 +236,7 @@ class ChurchToolsSongVerification:
             output_duplicates = '\nDuplicate songs:' + output_duplicates
 
         # Output nicely formatted result table.
+        table_text = table.get_string(print_empty=False)  # pyright: ignore[reportUnknownMemberType]
         sys.stdout.write(
-            '{}\n'.format(
-                table.get_string(print_empty=False) + output_duplicates
-                or 'No problems found.'
-            )
+            '{}\n'.format(table_text + output_duplicates or 'No problems found.')
         )
