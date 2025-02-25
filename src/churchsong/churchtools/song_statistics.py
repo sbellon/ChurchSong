@@ -5,7 +5,7 @@ import sys
 import typing
 from collections import defaultdict
 
-import alive_progress
+import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import openpyxl
 import openpyxl.styles
 import openpyxl.utils
@@ -22,7 +22,7 @@ class BaseFormatter(abc.ABC):
     def __init__(self, title: str) -> None: ...
 
     @abc.abstractmethod
-    def add_row(self, row: list) -> None: ...
+    def add_row(self, row: list[str]) -> None: ...
 
     @abc.abstractmethod
     def done(self) -> None: ...
@@ -41,16 +41,14 @@ class AsciiFormatter(BaseFormatter):
         self._table.align['Song'] = 'l'
         self._table.align['Performed'] = 'r'
 
-    def add_row(self, row: list) -> None:
+    def add_row(self, row: list[str]) -> None:
         self._table.add_row(row)
 
     def done(self) -> None:
-        text = '{}{}\n'.format(
-            self._title,
-            self._table.get_formatted_string(
-                out_format=self._output_format, print_empty=False
-            ),
+        table_text = self._table.get_formatted_string(  # pyright: ignore[reportUnknownMemberType]
+            out_format=self._output_format, print_empty=False
         )
+        text = f'{self._title}{table_text}\n'
         if self._filename:
             with self._filename.open('w', encoding='utf-8') as fd:
                 fd.write(text)
@@ -69,7 +67,7 @@ class ExcelFormatter(BaseFormatter):
         self._alignright = openpyxl.styles.Alignment(horizontal='right')
         self.add_row(self._columns)
 
-    def add_row(self, row: list) -> None:
+    def add_row(self, row: list[str]) -> None:
         self._worksheet.append(row)
         self._worksheet.cell(
             row=self._worksheet.max_row, column=1
@@ -122,7 +120,7 @@ class ChurchToolsSongStatistics:
         song_counts: dict[tuple[int, str], int] = defaultdict(int)
         with alive_progress.alive_bar(
             title='Calculating statistics', spinner=None, receipt=False
-        ) as bar:
+        ) as bar:  # pyright: ignore[reportUnknownVariableType]
             for event in self.cta.get_events(from_date, to_date):
                 _, songs = self.cta.get_songs(event, require_tags=False)
                 for song in songs:
@@ -132,7 +130,7 @@ class ChurchToolsSongStatistics:
         for (song_id, song_name), count in sorted(
             song_counts.items(), key=lambda s: (-s[1], s[0][1])
         ):
-            formatter.add_row([f'#{song_id}', song_name, count])
+            formatter.add_row([f'#{song_id}', song_name, f'{count}'])
 
         # Output according to the selected formatter.
         formatter.done()

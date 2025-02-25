@@ -106,6 +106,10 @@ def parse_year_range(year_str: str) -> DateRange:
     )
 
 
+def cmd_self_version(_args: argparse.Namespace, config: Configuration) -> None:
+    sys.stdout.write(f'{get_app_version(config)}\n')
+
+
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
     sys.stderr.write(f'Installed version:   {get_app_version(config)}\n')
     if latest := get_latest_version(config):
@@ -339,7 +343,7 @@ def main() -> None:
             allow_abbrev=False,
         )
         parser_self_version.set_defaults(
-            func=lambda _: sys.stdout.write(f'{get_app_version(config)}\n')
+            func=functools.partial(cmd_self_version, config=config)
         )
         parser.add_argument(
             '-v', '--version', action='version', version=get_app_version(config)

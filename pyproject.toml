@@ -44,7 +44,7 @@ license-files = []
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-typeCheckingMode = "basic"
+typeCheckingMode = "strict"
 
 [tool.ruff]
 line-length = 88

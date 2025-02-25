@@ -12,16 +12,17 @@ import pydantic
 
 from churchsong import utils
 
-T = typing.TypeVar('T', str, dict, list)
+T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
 
 
 def recursive_expand_vars(data: T) -> T:
-    if isinstance(data, str):
-        return utils.expand_envvars(data)
-    if isinstance(data, dict):
-        return {k: recursive_expand_vars(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [recursive_expand_vars(item) for item in data]
+    match data:
+        case str():
+            return utils.expand_envvars(data)
+        case dict():
+            return {k: recursive_expand_vars(v) for k, v in data.items()}
+        case list():
+            return [recursive_expand_vars(item) for item in data]
     return data
 
 
@@ -30,7 +31,8 @@ class TomlConfig(pydantic.BaseModel):
     ChurchTools: ChurchToolsConfig
     SongBeamer: SongBeamerConfig
 
-    @pydantic.root_validator(pre=True)
+    @pydantic.model_validator(mode='before')
+    @classmethod
     def apply_recursive_string_processing(
         cls, values: dict[str, typing.Any]
     ) -> dict[str, typing.Any]:

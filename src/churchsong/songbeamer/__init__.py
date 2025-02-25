@@ -195,27 +195,34 @@ class Agenda:
         songs_dir: pathlib.Path | None = None,
         color_replacements: list['SongBeamerColorReplacementsConfig'] | None = None,
     ) -> None:
-        self._agenda_items = []
+        self._agenda_items: list[AgendaItem] = []
         self._songs_dir = songs_dir
         self._color_replacements = color_replacements or []
 
     def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
-        if isinstance(other, AgendaItem):
-            if self._songs_dir and other.filename and other.filename.endswith('.sng'):
-                other.filename = os.fspath(self._songs_dir / other.filename)
-            for rep in self._color_replacements:
-                if other.color == rep.match_color:
-                    other.color = rep.color if rep.color else other.color
-                    other.bgcolor = rep.bgcolor if rep.bgcolor else other.bgcolor
-            self._agenda_items.append(other)
-        elif isinstance(other, list):
-            for item in other:
-                self += item
-        else:
-            raise TypeError(  # noqa: TRY003
-                'Unsupported operand type(s) for +=: '  # noqa: EM102
-                f"'Agenda' and '{type(other).__name__}'"
-            )
+        match other:
+            case AgendaItem():
+                if (
+                    self._songs_dir
+                    and other.filename
+                    and other.filename.endswith('.sng')
+                ):
+                    other.filename = os.fspath(self._songs_dir / other.filename)
+                    for rep in self._color_replacements:
+                        if other.color == rep.match_color:
+                            other.color = rep.color if rep.color else other.color
+                            other.bgcolor = (
+                                rep.bgcolor if rep.bgcolor else other.bgcolor
+                            )
+                    self._agenda_items.append(other)
+            case list():  # if all(isinstance(item, AgendaItem) for item in other):
+                for item in other:
+                    self += item
+            case _:
+                raise TypeError(  # noqa: TRY003
+                    'Unsupported operand type(s) for +=: '  # noqa: EM102
+                    f"'Agenda' and '{type(other).__name__}'"
+                )
         return self
 
     def __iter__(self) -> typing.Iterator[AgendaItem]:

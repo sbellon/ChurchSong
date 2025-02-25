@@ -27,13 +27,15 @@ class PowerPoint:
 
     def create(self, service_leads: dict[str, set[Person]]) -> None:
         self._log.info('Creating PowerPoint slide')
-        if self._prs.core_properties.revision == 1:
+        if self._prs.core_properties.revision == 1:  # pyright: ignore[reportUnknownMemberType]
             # Presentation is the fallback created one, just skip everything
             return
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            service_name = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue]
+            service_name: typing.Any = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+            if not isinstance(service_name, str):
+                continue
             sorted_persons = sorted(
                 service_leads[service_name], key=lambda p: p.fullname
             )
@@ -46,7 +48,7 @@ class PowerPoint:
                     person_fullnames,
                 )
                 try:
-                    ph.insert_picture(
+                    ph.insert_picture(  # pyright: ignore[reportUnknownMemberType]
                         os.fspath(self._portraits_dir / f'{person_fullnames}.jpeg')
                     )
                 except FileNotFoundError as e:
@@ -54,7 +56,7 @@ class PowerPoint:
                     no_persons = ' + '.join(
                         sorted(p.fullname for p in service_leads[str(None)])
                     )
-                    ph.insert_picture(
+                    ph.insert_picture(  # pyright: ignore[reportUnknownMemberType]
                         os.fspath(self._portraits_dir / f'{no_persons}.jpeg')
                     )
             elif (
