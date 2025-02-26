@@ -208,13 +208,11 @@ class Agenda:
                     and other.filename.endswith('.sng')
                 ):
                     other.filename = os.fspath(self._songs_dir / other.filename)
-                    for rep in self._color_replacements:
-                        if other.color == rep.match_color:
-                            other.color = rep.color if rep.color else other.color
-                            other.bgcolor = (
-                                rep.bgcolor if rep.bgcolor else other.bgcolor
-                            )
-                    self._agenda_items.append(other)
+                for rep in self._color_replacements:
+                    if other.color == rep.match_color:
+                        other.color = rep.color if rep.color else other.color
+                        other.bgcolor = rep.bgcolor if rep.bgcolor else other.bgcolor
+                self._agenda_items.append(other)
             case list():  # if all(isinstance(item, AgendaItem) for item in other):
                 for item in other:
                     self += item
