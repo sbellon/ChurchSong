@@ -69,7 +69,22 @@ content = """
 color = 'clBlack'
 bgcolor = 'clAqua'
 
-[[SongBeamer.Color.Replacements]]
-match_color = '16711920'
+[SongBeamer.Color.Header]
+color = 'clBlack'
+bgcolor = 'clRed'
+
+[SongBeamer.Color.Normal]
 color = 'clBlack'
 bgcolor = 'clYellow'
+
+[SongBeamer.Color.Song]
+color = 'clBlue'
+bgcolor = 'clGrey'
+
+[SongBeamer.Color.Link]
+color = 'clBlack'
+bgcolor = 'clGrey'
+
+[SongBeamer.Color.File]
+color = 'clBlack'
+bgcolor = 'clGrey'

@@ -1,20 +1,15 @@
 import datetime
 import os
-import pathlib
 import re
 import subprocess
 import sys
 import typing
 
 from churchsong import utils
-from churchsong.churchtools.events import Person
+from churchsong.churchtools.events import Item, ItemType, Person
 
 if typing.TYPE_CHECKING:
-    from churchsong.churchtools.events import AgendaFileItem
-    from churchsong.configuration import (
-        Configuration,
-        SongBeamerColorReplacementsConfig,
-    )
+    from churchsong.configuration import Configuration, SongBeamerColorConfig
 
 r"""
 SongBeamer agenda items look something like this:
@@ -30,7 +25,9 @@ With the following known KEYs:
 - Caption: enclosed in single quote, e.g.
     Caption = 'This is a caption'
 
-- Color: color like clBlack, clBlue, clAqua, or integer value, e.g.
+- Color: predefined color like clBlack, clMaroon, clGreen, clOlive, clNavy, clPurple,
+         clTeal, clGray, clSilver, clRed, clLime, clYellow, clBlue, clFuchsia, clAqua,
+         clWhite or integer value, e.g.
     Color = clBlack
   or
     Color = 16711920
@@ -189,39 +186,48 @@ class AgendaItem:
 
 
 class Agenda:
-    def __init__(
-        self,
-        *,
-        songs_dir: pathlib.Path | None = None,
-        color_replacements: list['SongBeamerColorReplacementsConfig'] | None = None,
-    ) -> None:
+    def __init__(self, *, colors: 'SongBeamerColorConfig') -> None:
         self._agenda_items: list[AgendaItem] = []
-        self._songs_dir = songs_dir
-        self._color_replacements = color_replacements or []
+        self._colors = colors
 
-    def __iadd__(self, other: AgendaItem | list[AgendaItem]) -> typing.Self:
+    def __iadd__(self, other: AgendaItem | Item) -> typing.Self:
         match other:
             case AgendaItem():
-                if (
-                    self._songs_dir
-                    and other.filename
-                    and other.filename.endswith('.sng')
-                ):
-                    other.filename = os.fspath(self._songs_dir / other.filename)
-                for rep in self._color_replacements:
-                    if other.color == rep.match_color:
-                        other.color = rep.color if rep.color else other.color
-                        other.bgcolor = rep.bgcolor if rep.bgcolor else other.bgcolor
                 self._agenda_items.append(other)
-            case list():  # if all(isinstance(item, AgendaItem) for item in other):
-                for item in other:
-                    self += item
+            case Item():
+                match other.type:
+                    case ItemType.HEADER:
+                        color = self._colors.Header.color
+                        bgcolor = self._colors.Header.bgcolor
+                    case ItemType.NORMAL:
+                        color = self._colors.Normal.color
+                        bgcolor = self._colors.Normal.bgcolor
+                    case ItemType.SONG:
+                        color = self._colors.Song.color
+                        bgcolor = self._colors.Song.bgcolor
+                    case ItemType.LINK:
+                        color = self._colors.Link.color
+                        bgcolor = self._colors.Link.bgcolor
+                    case ItemType.FILE:
+                        color = self._colors.File.color
+                        bgcolor = self._colors.File.bgcolor
+                self._agenda_items.append(
+                    AgendaItem(
+                        caption=f"'{other.title}'",
+                        color=color,
+                        bgcolor=bgcolor,
+                        filename=f"'{other.filename}'" if other.filename else None,
+                    )
+                )
             case _:
                 raise TypeError(  # noqa: TRY003
                     'Unsupported operand type(s) for +=: '  # noqa: EM102
                     f"'Agenda' and '{type(other).__name__}'"
                 )
         return self
+
+    def __getitem__(self, index: int) -> AgendaItem:
+        return self._agenda_items[index]
 
     def __iter__(self) -> typing.Iterator[AgendaItem]:
         return iter(self._agenda_items)
@@ -239,57 +245,49 @@ class SongBeamer:
         self._log = config.log
         self._app_name = config.package_name
         self._temp_dir = config.temp_dir.resolve()
-        self._songs_dir = self._temp_dir / 'Songs'
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
         self._event_datetime_format = config.event_datetime_format
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
-        self._color_service = config.color_service
-        self._color_replacements = config.color_replacements
+        self._colors = config.colors
         self._already_running_notice = config.already_running_notice
 
     def modify_and_save_agenda(
         self,
+        *,
         event_date: datetime.datetime,
+        agenda_items: list[Item],
+        event_files: list[Item],
         service_leads: dict[str, set[Person]],
-        event_files: list['AgendaFileItem'],
     ) -> None:
-        self._log.info('Modifying SongBeamer schedule')
-        with self._schedule_filepath.open(mode='r', encoding='utf-8') as fd:
-            schedule_content = fd.read()
+        self._log.info('Creating SongBeamer Schedule.col')
 
         # Set environment variable(s) for use in agenda items in configuration.
         os.environ['CHURCHSONG_EVENT_DATETIME'] = (
             f'{event_date.astimezone():{self._event_datetime_format}}'
         )
 
-        agenda = Agenda(
-            songs_dir=self._songs_dir, color_replacements=self._color_replacements
-        )
+        agenda = Agenda(colors=self._colors)
         for agenda_item in (
             AgendaItem.parse(self._opening_slides)
-            + [
-                AgendaItem(
-                    caption=f"'{event_file.title}'", filename=f"'{event_file.filename}'"
-                )
-                for event_file in event_files
-            ]
-            + AgendaItem.parse(schedule_content)
+            + event_files
+            + agenda_items
             + AgendaItem.parse(self._closing_slides)
             + [
                 AgendaItem(
                     caption=f"'{serv}: {', '.join(sorted(p.fullname for p in pers))}'",
-                    color=self._color_service.color,
-                    bgcolor=self._color_service.bgcolor,
+                    color=self._colors.Service.color,
+                    bgcolor=self._colors.Service.bgcolor,
                 )
                 for serv, pers in sorted(service_leads.items())
             ]
         ):
             agenda += agenda_item
             for slide in self._insert_slides:
-                if any(keyword in agenda_item.caption for keyword in slide.keywords):
-                    agenda += AgendaItem.parse(slide.content)
+                if any(keyword in agenda[-1].caption for keyword in slide.keywords):
+                    for insert_item in AgendaItem.parse(slide.content):
+                        agenda += insert_item
 
         with self._schedule_filepath.open(mode='w', encoding='utf-8') as fd:
             fd.write(str(agenda))

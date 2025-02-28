@@ -1,5 +1,14 @@
 # ChangeLog
 
+## Unreleased
+
+### Added
+- fall back to default arrangement if a song arrangement does not have a .sng file
+- SongBeamer Schedule.col is created from scratch allowing for better color control
+
+### Changed
+- do not use ChurchTools' SongBeamer export but download .sng files individually
+
 ## 0.5.21 (2025-02-22)
 
 ### Fixed

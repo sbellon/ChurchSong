@@ -196,13 +196,13 @@ class ChurchToolsSongVerification:
                     for arr in song.arrangements:
                         # If multiple .sng files are present, ChurchTools seems to
                         # export the .sng file of the arrangement with the lowest #id?
-                        sngfile = next(
+                        sng_file = next(
                             (file for file in arr.files if file.name.endswith('.sng')),
                             None,
                         )
-                        if sngfile:
+                        if sng_file:
                             arr.sng_file_content = (
-                                self.cta.download_url(sngfile.file_url)
+                                self.cta.download_url(sng_file.file_url)
                                 .text.lstrip('\ufeff')
                                 .splitlines()
                             )
