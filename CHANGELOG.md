@@ -8,6 +8,7 @@
 
 ### Changed
 - do not use ChurchTools' SongBeamer export but download .sng files individually
+- updated external dependencies
 
 ## 0.5.21 (2025-02-22)
 
