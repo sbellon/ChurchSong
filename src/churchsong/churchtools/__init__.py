@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime  # noqa: TC003
+import enum
 import sys
 import typing
 
@@ -135,9 +136,14 @@ class EventService(pydantic.BaseModel):
         return data
 
 
+class EventFileDomainType(enum.StrEnum):
+    FILE = 'file'
+    LINK = 'link'
+
+
 class EventFile(pydantic.BaseModel):
     title: str
-    domain_type: str = pydantic.Field(alias='domainType')
+    domain_type: EventFileDomainType = pydantic.Field(alias='domainType')
     frontend_url: str = pydantic.Field(alias='frontendUrl')
 
 
@@ -151,8 +157,27 @@ class EventFullData(pydantic.BaseModel):
     data: EventFull
 
 
+class EventAgendaSong(pydantic.BaseModel):
+    song_id: int = pydantic.Field(alias='songId')
+    arrangement_id: int = pydantic.Field(alias='arrangementId')
+    title: str
+
+
+class EventAgendaItemType(enum.StrEnum):
+    HEADER = 'header'
+    NORMAL = 'normal'
+    SONG = 'song'
+
+
+class EventAgendaItem(pydantic.BaseModel):
+    title: str
+    type: EventAgendaItemType = EventAgendaItemType.NORMAL
+    song: EventAgendaSong | None = None
+
+
 class EventAgenda(pydantic.BaseModel):
     id: int
+    items: list[EventAgendaItem]
 
 
 class EventAgendaData(pydantic.BaseModel):
@@ -175,6 +200,7 @@ class File(pydantic.BaseModel):
 class Arrangement(pydantic.BaseModel):
     id: int
     name: str
+    is_default: bool = pydantic.Field(alias='isDefault')
     source_name: str | None = pydantic.Field(alias='sourceName')
     source_reference: str | None = pydantic.Field(alias='sourceReference')
     key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
@@ -209,6 +235,10 @@ class SongsMeta(pydantic.BaseModel):
 class SongsData(pydantic.BaseModel):
     data: list[Song]
     meta: SongsMeta
+
+
+class SongData(pydantic.BaseModel):
+    data: Song
 
 
 class Tag(pydantic.BaseModel):
@@ -399,6 +429,11 @@ class ChurchToolsAPI:
             inner_generator(),
         )
 
+    def get_song(self, song_id: int) -> Song:
+        r = self._get(f'/api/songs/{song_id}')
+        result = SongData(**r.json())
+        return result.data
+
     def _get_calendars(self) -> typing.Generator[Calendar]:
         r = self._get('/api/calendars')
         result = CalendarsData(**r.json())
@@ -456,7 +491,7 @@ class ChurchToolsAPI:
             sys.exit(1)
         if agenda_required:
             try:
-                _agenda = self._get_event_agenda(event)
+                _agenda = self.get_event_agenda(event)
             except requests.HTTPError as e:
                 if e.response.status_code == requests.codes.not_found:
                     date = event.start_date.date()
@@ -474,28 +509,10 @@ class ChurchToolsAPI:
         result = EventFullData(**r.json())
         return result.data
 
-    def _get_event_agenda(self, event: EventShort) -> EventAgenda:
+    def get_event_agenda(self, event: EventShort) -> EventAgenda:
         r = self._get(f'/api/events/{event.id}/agenda')
         result = EventAgendaData(**r.json())
         return result.data
-
-    def _get_agenda_export(self, agenda: EventAgenda) -> AgendaExport:
-        r = self._post(
-            f'/api/agendas/{agenda.id}/export',
-            params={
-                'target': 'SONG_BEAMER',
-                'exportSongs': 'true',
-                'appendArrangement': 'false',
-                'withCategory': 'false',
-            },
-        )
-        result = AgendaExportData(**r.json())
-        return result.data
-
-    def download_agenda_zip(self, event: EventShort) -> requests.Response:
-        agenda = self._get_event_agenda(event)
-        url = self._get_agenda_export(agenda).url
-        return self._get(url, stream=True)
 
     def download_url(self, full_url: str) -> requests.Response:
         self._log.debug('Request GET %s', full_url)

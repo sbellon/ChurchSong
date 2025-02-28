@@ -1,29 +1,47 @@
 import dataclasses
-import io
+import enum
 import os
 import pathlib
 import re
 import typing
-import zipfile
 from collections import defaultdict
 
 import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import requests
 
-from churchsong.churchtools import ChurchToolsAPI, EventShort
+from churchsong.churchtools import (
+    ChurchToolsAPI,
+    EventAgendaItemType,
+    EventFileDomainType,
+    EventShort,
+)
 from churchsong.configuration import Configuration
 
 
+class ItemType(enum.StrEnum):
+    HEADER = 'header'
+    NORMAL = 'normal'
+    SONG = 'song'
+    FILE = 'file'
+    LINK = 'link'
+
+
 @dataclasses.dataclass
-class AgendaFileItem:
+class Item:
+    type: ItemType
     title: str
-    filename: str
+    filename: str | None = None
 
 
 @dataclasses.dataclass(eq=True, frozen=True)
 class Person:
     fullname: str
     shortname: str
+
+
+class Subfolder(enum.StrEnum):
+    FILES = 'Files'
+    SONGS = 'Songs'
 
 
 class ChurchToolsEvent:
@@ -35,7 +53,6 @@ class ChurchToolsEvent:
         self._event = event
         self._full_event = self.cta.get_full_event(self._event)
         self._temp_dir = config.temp_dir
-        self._files_dir = config.temp_dir / 'Files'
         self._person_dict = config.person_dict
 
     def get_service_leads(self) -> defaultdict[str, set[Person]]:
@@ -89,44 +106,84 @@ class ChurchToolsEvent:
                 output.write(chunk)
                 bar(len(chunk))
 
-    def _download_file(self, title: str, url: str) -> pathlib.Path:
+    def _download_file(self, name: str, url: str, subfolder: Subfolder) -> pathlib.Path:
         r = self.cta.download_url(url)
-        filename = title
         if 'Content-Disposition' in r.headers and (
             match := re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
         ):
-            filename = match.group(1)
-        self._files_dir.mkdir(parents=True, exist_ok=True)
-        filename = self._files_dir / filename
+            # ChurchTools apparently sends the filename="xyz" in latin1 instead of utf-8
+            filename = match.group(1).encode('latin1').decode('utf-8')
+        else:
+            filename = name
+        (self._temp_dir / subfolder).mkdir(parents=True, exist_ok=True)
+        filename = self._temp_dir / subfolder / filename
         with filename.open(mode='wb+') as fd:
-            self._download_with_progress(r, f'Downloading "{filename}"', output=fd)
+            self._download_with_progress(r, f'Downloading "{filename.name}"', output=fd)
         return filename
 
-    def _fetch_service_attachments(self) -> list[AgendaFileItem]:
-        self._log.info('Fetching event attachments')
-        result: list[AgendaFileItem] = []
-        for event_file in self._full_event.event_files:
-            match event_file.domain_type:
-                case 'file':
+    def download_event_files(self) -> list[Item]:
+        self._log.info('Downloading event files')
+        event_files: list[Item] = []
+        for item in self._full_event.event_files:
+            match item.domain_type:
+                case EventFileDomainType.FILE:
                     filename = self._download_file(
-                        event_file.title, event_file.frontend_url
+                        item.title, item.frontend_url, Subfolder.FILES
                     )
-                    result.append(AgendaFileItem(event_file.title, os.fspath(filename)))
-                case 'link':
-                    result.append(
-                        AgendaFileItem(event_file.title, event_file.frontend_url)
-                    )
+                    event_file = Item(ItemType.FILE, item.title, os.fspath(filename))
+                case EventFileDomainType.LINK:
+                    event_file = Item(ItemType.LINK, item.title, item.frontend_url)
                 case _:
-                    self._log.warning(
-                        f'Unexpected event file type: {event_file.domain_type}'
-                    )
-        return result
+                    self._log.warning(f'Unexpected event file type: {item.domain_type}')
+                    continue
+            event_files.append(event_file)
+        return event_files
 
-    def download_and_extract_agenda_zip(self) -> list[AgendaFileItem]:
-        self._log.info('Downloading and extracting SongBeamer export')
-        r = self.cta.download_agenda_zip(self._event)
-        with io.BytesIO() as buf:
-            self._download_with_progress(r, 'Downloading agenda', output=buf)
-            buf.seek(0)
-            zipfile.ZipFile(buf, mode='r').extractall(path=self._temp_dir)
-        return self._fetch_service_attachments()
+    def download_agenda_items(self) -> list[Item]:
+        self._log.info('Downloading songs')
+        agenda = self.cta.get_event_agenda(self._event)
+        agenda_items: list[Item] = []
+        for item in agenda.items:
+            match item.type:
+                case EventAgendaItemType.HEADER:
+                    agenda_item = Item(ItemType.HEADER, item.title)
+                case EventAgendaItemType.NORMAL:
+                    agenda_item = Item(ItemType.NORMAL, item.title)
+                case EventAgendaItemType.SONG:
+                    sng_filename = None
+                    if item.song:
+                        song = self.cta.get_song(item.song.song_id)
+                        item.title = song.name
+                        # Take first .sng file in chosen arrangement if it exists,
+                        # fall back to first .sng file in default arrangement otherwise.
+                        sng_file = next(
+                            (
+                                file
+                                for arr in song.arrangements
+                                if arr.id == item.song.arrangement_id
+                                for file in arr.files
+                                if file.name.endswith('.sng')
+                            ),
+                            None,
+                        ) or next(
+                            (
+                                file
+                                for arr in song.arrangements
+                                if arr.is_default
+                                for file in arr.files
+                                if file.name.endswith('.sng')
+                            ),
+                            None,
+                        )
+                        if sng_file:
+                            sng_filename = os.fspath(
+                                self._download_file(
+                                    song.name, sng_file.file_url, Subfolder.SONGS
+                                )
+                            )
+                    agenda_item = Item(ItemType.SONG, item.title, sng_filename)
+                case _:
+                    self._log.warning(f'Unexpected event item type: {item.type}')
+                    continue
+            agenda_items.append(agenda_item)
+        return agenda_items

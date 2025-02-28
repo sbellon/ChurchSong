@@ -26,27 +26,9 @@ def recursive_expand_vars(data: T) -> T:
     return data
 
 
-class TomlConfig(pydantic.BaseModel):
-    General: GeneralConfig
-    ChurchTools: ChurchToolsConfig
-    SongBeamer: SongBeamerConfig
-
-    @pydantic.model_validator(mode='before')
-    @classmethod
-    def apply_recursive_string_processing(
-        cls, values: dict[str, typing.Any]
-    ) -> dict[str, typing.Any]:
-        return recursive_expand_vars(values)
-
-
 class GeneralConfig(pydantic.BaseModel):
     log_level: str
-    log_file: str
-
-
-class ChurchToolsConfig(pydantic.BaseModel):
-    Settings: ChurchToolsSettingsConfig
-    Replacements: dict[str, str]
+    log_file: pathlib.Path
 
 
 class ChurchToolsSettingsConfig(pydantic.BaseModel):
@@ -54,24 +36,16 @@ class ChurchToolsSettingsConfig(pydantic.BaseModel):
     login_token: str
 
 
-class SongBeamerConfig(pydantic.BaseModel):
-    Settings: SongBeamerSettingsConfig
-    Slides: SongBeamerSlidesConfig | None = None
-    Color: SongBeamerColorConfig | None = None
+class ChurchToolsConfig(pydantic.BaseModel):
+    Settings: ChurchToolsSettingsConfig
+    Replacements: dict[str, str]
 
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
-    template_pptx: str
-    portraits_dir: str
-    temp_dir: str
+    template_pptx: pathlib.Path
+    portraits_dir: pathlib.Path
+    temp_dir: pathlib.Path
     already_running_notice: str = ''
-
-
-class SongBeamerSlidesConfig(pydantic.BaseModel):
-    event_datetime_format: str | None = None
-    Opening: SongBeamerSlidesStaticConfig | None = None
-    Closing: SongBeamerSlidesStaticConfig | None = None
-    Insert: list[SongBeamerSlidesDynamicConfig] | None = None
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
@@ -83,20 +57,44 @@ class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
     content: str
 
 
+class SongBeamerSlidesConfig(pydantic.BaseModel):
+    event_datetime_format: str = '%d.%m.%Y, %H:%M'
+    Opening: SongBeamerSlidesStaticConfig | None = None
+    Closing: SongBeamerSlidesStaticConfig | None = None
+    Insert: list[SongBeamerSlidesDynamicConfig] | None = None
+
+
+class SongBeamerColorItemConfig(pydantic.BaseModel):
+    color: str = 'clBlack'
+    bgcolor: str | None = None
+
+
 class SongBeamerColorConfig(pydantic.BaseModel):
-    Service: SongBeamerColorServiceConfig | None = None
-    Replacements: list[SongBeamerColorReplacementsConfig] | None = None
+    Service: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+    Header: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+    Normal: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+    Song: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+    Link: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+    File: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
 
 
-class SongBeamerColorServiceConfig(pydantic.BaseModel):
-    color: str
-    bgcolor: str | None = None
+class SongBeamerConfig(pydantic.BaseModel):
+    Settings: SongBeamerSettingsConfig
+    Slides: SongBeamerSlidesConfig = SongBeamerSlidesConfig()
+    Color: SongBeamerColorConfig = SongBeamerColorConfig()
 
 
-class SongBeamerColorReplacementsConfig(pydantic.BaseModel):
-    match_color: str
-    color: str | None = None
-    bgcolor: str | None = None
+class TomlConfig(pydantic.BaseModel):
+    General: GeneralConfig
+    ChurchTools: ChurchToolsConfig
+    SongBeamer: SongBeamerConfig
+
+    @pydantic.model_validator(mode='before')
+    @classmethod
+    def apply_recursive_string_processing(
+        cls, values: dict[str, typing.Any]
+    ) -> dict[str, typing.Any]:
+        return recursive_expand_vars(values)
 
 
 class Configuration:
@@ -238,18 +236,5 @@ class Configuration:
         )
 
     @property
-    def color_service(self) -> SongBeamerColorServiceConfig:
-        return (
-            self._config.SongBeamer.Color.Service
-            if self._config.SongBeamer.Color and self._config.SongBeamer.Color.Service
-            else SongBeamerColorServiceConfig(color='clBlack')
-        )
-
-    @property
-    def color_replacements(self) -> list[SongBeamerColorReplacementsConfig]:
-        return (
-            self._config.SongBeamer.Color.Replacements
-            if self._config.SongBeamer.Color
-            and self._config.SongBeamer.Color.Replacements
-            else []
-        )
+    def colors(self) -> SongBeamerColorConfig:
+        return self._config.SongBeamer.Color
