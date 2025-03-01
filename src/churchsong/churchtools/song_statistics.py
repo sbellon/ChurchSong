@@ -1,5 +1,6 @@
 import abc
 import datetime
+import enum
 import pathlib
 import sys
 import typing
@@ -13,6 +14,17 @@ import prettytable
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration
+
+
+# The values of FormatType are the accepted formats of prettytable and openpyxl.
+class FormatType(str, enum.Enum):
+    TEXT = 'text'
+    HTML = 'html'
+    JSON = 'json'
+    CSV = 'csv'
+    LATEX = 'latex'
+    MEDIAWIKI = 'mediawiki'
+    XLSX = 'xlsx'
 
 
 class BaseFormatter(abc.ABC):

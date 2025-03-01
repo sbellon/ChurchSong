@@ -15,7 +15,7 @@ import time
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
-from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
+from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
 from churchsong.configuration import Configuration
 from churchsong.powerpoint import PowerPoint
@@ -295,9 +295,10 @@ def main() -> None:
         parser_songs_usage.add_argument(
             '--format',
             metavar='FORMAT',
-            choices=['text', 'html', 'json', 'csv', 'latex', 'xlsx'],
-            default='text',
-            help='define output format (default is "text")',
+            type=str,
+            choices=[e.value for e in FormatType],
+            default=FormatType.TEXT,
+            help=f'define output format (default is "{FormatType.TEXT}")',
         )
         parser_songs_usage.add_argument(
             '--output',
