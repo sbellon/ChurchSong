@@ -6,7 +6,7 @@ import sys
 import typing
 
 from churchsong import utils
-from churchsong.churchtools.events import Item, Person
+from churchsong.churchtools.events import Item
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration, SongBeamerColorConfig
@@ -130,7 +130,7 @@ class AgendaItem:
     def __init__(
         self,
         caption: str,
-        color: str = 'clBlack',
+        color: str,
         bgcolor: str | None = None,
         filename: str | None = None,
     ) -> None:
@@ -240,13 +240,13 @@ class SongBeamer:
         self._colors = config.colors
         self._already_running_notice = config.already_running_notice
 
-    def modify_and_save_agenda(
+    def create_schedule(
         self,
         *,
         event_date: datetime.datetime,
-        agenda_items: list[Item],
         event_files: list[Item],
-        service_leads: dict[str, set[Person]],
+        agenda_items: list[Item],
+        service_items: list[Item],
     ) -> None:
         self._log.info('Creating SongBeamer Schedule.col')
 
@@ -261,14 +261,7 @@ class SongBeamer:
             + event_files
             + agenda_items
             + AgendaItem.parse(self._closing_slides)
-            + [
-                AgendaItem(
-                    caption=f"'{serv}: {', '.join(sorted(p.fullname for p in pers))}'",
-                    color=self._colors.Service.color,
-                    bgcolor=self._colors.Service.bgcolor,
-                )
-                for serv, pers in sorted(service_leads.items())
-            ]
+            + service_items
         ):
             agenda += agenda_item
             for slide in self._insert_slides:
