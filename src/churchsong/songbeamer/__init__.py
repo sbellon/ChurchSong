@@ -6,7 +6,7 @@ import sys
 import typing
 
 from churchsong import utils
-from churchsong.churchtools.events import Item, ItemType, Person
+from churchsong.churchtools.events import Item, Person
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration, SongBeamerColorConfig
@@ -195,22 +195,9 @@ class Agenda:
             case AgendaItem():
                 self._agenda_items.append(other)
             case Item():
-                match other.type:
-                    case ItemType.HEADER:
-                        color = self._colors.Header.color
-                        bgcolor = self._colors.Header.bgcolor
-                    case ItemType.NORMAL:
-                        color = self._colors.Normal.color
-                        bgcolor = self._colors.Normal.bgcolor
-                    case ItemType.SONG:
-                        color = self._colors.Song.color
-                        bgcolor = self._colors.Song.bgcolor
-                    case ItemType.LINK:
-                        color = self._colors.Link.color
-                        bgcolor = self._colors.Link.bgcolor
-                    case ItemType.FILE:
-                        color = self._colors.File.color
-                        bgcolor = self._colors.File.bgcolor
+                color_attr = getattr(self._colors, other.type.value)
+                color = color_attr.color
+                bgcolor = color_attr.bgcolor
                 self._agenda_items.append(
                     AgendaItem(
                         caption=f"'{other.title}'",

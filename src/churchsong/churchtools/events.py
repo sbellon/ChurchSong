@@ -18,12 +18,13 @@ from churchsong.churchtools import (
 from churchsong.configuration import Configuration
 
 
+# The values of ItemType need to match those in configuration.SongBeamerColorConfig:
 class ItemType(enum.StrEnum):
-    HEADER = 'header'
-    NORMAL = 'normal'
-    SONG = 'song'
-    FILE = 'file'
-    LINK = 'link'
+    HEADER = 'Header'
+    NORMAL = 'Normal'
+    SONG = 'Song'
+    FILE = 'File'
+    LINK = 'Link'
 
 
 @dataclasses.dataclass
@@ -39,6 +40,7 @@ class Person:
     shortname: str
 
 
+# The values of Subfolder are the actual subfolder names created beneath temp_dir.
 class Subfolder(enum.StrEnum):
     FILES = 'Files'
     SONGS = 'Songs'
