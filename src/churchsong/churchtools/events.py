@@ -20,6 +20,7 @@ from churchsong.configuration import Configuration
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:
 class ItemType(enum.StrEnum):
+    SERVICE = 'Service'
     HEADER = 'Header'
     NORMAL = 'Normal'
     SONG = 'Song'
@@ -52,44 +53,10 @@ class ChurchToolsEvent:
     ) -> None:
         self.cta = cta
         self._log = config.log
-        self._event = event
-        self._full_event = self.cta.get_full_event(self._event)
+        self._event = self.cta.get_full_event(event)
+        self._agenda = self.cta.get_event_agenda(event)
         self._temp_dir = config.temp_dir
         self._person_dict = config.person_dict
-
-    def get_service_leads(self) -> defaultdict[str, set[Person]]:
-        self._log.info('Fetching service teams')
-        service_id2name = {
-            service.id: service.name for service in self.cta.get_services()
-        }
-        service_leads: defaultdict[str, set[Person]] = defaultdict(
-            lambda: {
-                Person(
-                    fullname=self._person_dict.get(str(None), str(None)),
-                    shortname=fullname.split(' ')[0],
-                )
-            }
-        )
-        for event_service in self._full_event.event_services:
-            service_name = str(service_id2name.get(event_service.service_id, None))
-            # If we have access to the churchdb, we can query the person there and
-            # perhaps even get its proper nickname, if set in the database.
-            if event_service.person_id is not None and (
-                person := self.cta.get_person(event_service.person_id)
-            ):
-                fullname = f'{person.firstname} {person.lastname}'
-                nickname = person.nickname
-            else:
-                fullname = str(event_service.name)
-                nickname = None
-            # Still fall back to our configuration mapping.
-            fullname = self._person_dict.get(fullname, fullname)
-            person = Person(fullname, nickname or fullname.split(' ')[0])
-            if service_name not in service_leads:
-                service_leads[service_name] = {person}
-            else:
-                service_leads[service_name].add(person)
-        return service_leads
 
     def _download_with_progress(
         self,
@@ -126,7 +93,7 @@ class ChurchToolsEvent:
     def download_event_files(self) -> list[Item]:
         self._log.info('Downloading event files')
         event_files: list[Item] = []
-        for item in self._full_event.event_files:
+        for item in self._event.event_files:
             match item.domain_type:
                 case EventFileDomainType.FILE:
                     filename = self._download_file(
@@ -142,10 +109,9 @@ class ChurchToolsEvent:
         return event_files
 
     def download_agenda_items(self) -> list[Item]:
-        self._log.info('Downloading songs')
-        agenda = self.cta.get_event_agenda(self._event)
+        self._log.info('Downloading agenda items and songs')
         agenda_items: list[Item] = []
-        for item in agenda.items:
+        for item in self._agenda.items:
             match item.type:
                 case EventAgendaItemType.HEADER:
                     agenda_item = Item(ItemType.HEADER, item.title)
@@ -189,3 +155,44 @@ class ChurchToolsEvent:
                     continue
             agenda_items.append(agenda_item)
         return agenda_items
+
+    def get_service_info(self) -> tuple[list[Item], defaultdict[str, set[Person]]]:
+        self._log.info('Fetching service team information')
+        service_id2name = {
+            service.id: service.name for service in self.cta.get_services()
+        }
+        service_leads: defaultdict[str, set[Person]] = defaultdict(
+            lambda: {
+                Person(
+                    fullname=self._person_dict.get(str(None), str(None)),
+                    shortname=fullname.split(' ')[0],
+                )
+            }
+        )
+        for event_service in self._event.event_services:
+            service_name = str(service_id2name.get(event_service.service_id, None))
+            # If we have access to the churchdb, we can query the person there and
+            # perhaps even get its proper nickname, if set in the database.
+            if event_service.person_id is not None and (
+                person := self.cta.get_person(event_service.person_id)
+            ):
+                fullname = f'{person.firstname} {person.lastname}'
+                nickname = person.nickname
+            else:
+                fullname = str(event_service.name)
+                nickname = None
+            # Still fall back to our configuration mapping.
+            fullname = self._person_dict.get(fullname, fullname)
+            person = Person(fullname, nickname or fullname.split(' ')[0])
+            if service_name not in service_leads:
+                service_leads[service_name] = {person}
+            else:
+                service_leads[service_name].add(person)
+        service_items = [
+            Item(
+                ItemType.SERVICE,
+                f'{serv}: {", ".join(sorted(p.fullname for p in pers))}',
+            )
+            for serv, pers in sorted(service_leads.items())
+        ]
+        return service_items, service_leads

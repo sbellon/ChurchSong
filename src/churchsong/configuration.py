@@ -27,8 +27,8 @@ def recursive_expand_vars(data: T) -> T:
 
 
 class GeneralConfig(pydantic.BaseModel):
-    log_level: str
-    log_file: pathlib.Path
+    log_level: str = 'WARNING'
+    log_file: pathlib.Path = pathlib.Path('./Logs/ChurchSong.log')
 
 
 class ChurchToolsSettingsConfig(pydantic.BaseModel):
@@ -38,7 +38,7 @@ class ChurchToolsSettingsConfig(pydantic.BaseModel):
 
 class ChurchToolsConfig(pydantic.BaseModel):
     Settings: ChurchToolsSettingsConfig
-    Replacements: dict[str, str]
+    Replacements: dict[str, str] = {str(None): 'Nobody'}
 
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
@@ -49,19 +49,19 @@ class SongBeamerSettingsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
-    content: str
+    content: str = ''
 
 
 class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
-    keywords: list[str]
-    content: str
+    keywords: list[str] = []
+    content: str = ''
 
 
 class SongBeamerSlidesConfig(pydantic.BaseModel):
-    event_datetime_format: str = '%d.%m.%Y, %H:%M'
-    Opening: SongBeamerSlidesStaticConfig | None = None
-    Closing: SongBeamerSlidesStaticConfig | None = None
-    Insert: list[SongBeamerSlidesDynamicConfig] | None = None
+    event_datetime_format: str = '%Y-%m-%d %H:%M'
+    Opening: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
+    Closing: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
+    Insert: list[SongBeamerSlidesDynamicConfig] = []
 
 
 class SongBeamerColorItemConfig(pydantic.BaseModel):
@@ -85,7 +85,7 @@ class SongBeamerConfig(pydantic.BaseModel):
 
 
 class TomlConfig(pydantic.BaseModel):
-    General: GeneralConfig
+    General: GeneralConfig = GeneralConfig()
     ChurchTools: ChurchToolsConfig
     SongBeamer: SongBeamerConfig
 
@@ -204,36 +204,19 @@ class Configuration:
 
     @property
     def event_datetime_format(self) -> str:
-        return (
-            self._config.SongBeamer.Slides.event_datetime_format
-            if self._config.SongBeamer.Slides
-            and self._config.SongBeamer.Slides.event_datetime_format
-            else '%Y-%m-%d %H:%M'
-        )
+        return self._config.SongBeamer.Slides.event_datetime_format
 
     @property
     def opening_slides(self) -> str:
-        return (
-            self._config.SongBeamer.Slides.Opening.content
-            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Opening
-            else ''
-        )
+        return self._config.SongBeamer.Slides.Opening.content
 
     @property
     def closing_slides(self) -> str:
-        return (
-            self._config.SongBeamer.Slides.Closing.content
-            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Closing
-            else ''
-        )
+        return self._config.SongBeamer.Slides.Closing.content
 
     @property
     def insert_slides(self) -> list[SongBeamerSlidesDynamicConfig]:
-        return (
-            self._config.SongBeamer.Slides.Insert
-            if self._config.SongBeamer.Slides and self._config.SongBeamer.Slides.Insert
-            else []
-        )
+        return self._config.SongBeamer.Slides.Insert
 
     @property
     def colors(self) -> SongBeamerColorConfig:
