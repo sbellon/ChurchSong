@@ -3,6 +3,7 @@ import enum
 import os
 import pathlib
 import re
+import sys
 import typing
 from collections import defaultdict
 
@@ -74,6 +75,7 @@ class ChurchToolsEvent:
             for chunk in response.iter_content(chunk_size=None):
                 output.write(chunk)
                 bar(len(chunk))
+        sys.stdout.write(f'{title} done.\n')
 
     def _download_file(self, name: str, url: str, subfolder: Subfolder) -> pathlib.Path:
         r = self.cta.download_url(url)

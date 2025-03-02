@@ -138,10 +138,10 @@ class ChurchToolsSongVerification:
     def verify_songs(  # noqa: C901, PLR0912
         self,
         *,
-        from_date: datetime.datetime | None = None,
-        include_tags: list[str] | None = None,
-        exclude_tags: list[str] | None = None,
-        execute_checks: list[str] | None = None,
+        from_date: datetime.datetime | None,
+        include_tags: list[str],
+        exclude_tags: list[str],
+        execute_checks: list[str],
     ) -> None:
         self._log.info('Verifying ChurchTools song database')
 
