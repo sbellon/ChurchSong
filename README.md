@@ -105,7 +105,10 @@ With `songs verify FROM_DATE` you can select to only check the songs of the next
 agenda after `FROM_DATE` (like `agenda FROM_DATE`, `FROM_DATE` can be an ISO date
 format, e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
-You can check the whole ChurchTools songs database by using `songs verify --all`.
+You can check the whole ChurchTools songs database by using `songs verify all`.
+
+Only the default arrangements of the songs are verified, unless you also specify
+`--all_arrangements` in which case all arrangements are checked for.
 
 By using command options `--exclude_tags` and/or `--include_tags` you can filter out
 songs with specific tags or only include songs with specific tags in the check.

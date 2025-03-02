@@ -8,7 +8,7 @@ from collections import OrderedDict, defaultdict
 import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import prettytable
 
-from churchsong.churchtools import ChurchToolsAPI, Song
+from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song
 from churchsong.configuration import Configuration
 
 
@@ -17,18 +17,18 @@ def miss_if(b: bool) -> str:  # noqa: FBT001
 
 
 SONG_CHECKS: typing.Final[
-    typing.OrderedDict[str, typing.Callable[[Song], list[str]]]
+    typing.OrderedDict[str, typing.Callable[[Song, list[Arrangement]], list[str]]]
 ] = OrderedDict(
     [  # now the list of checks for each song ...
         (
             'CCLI',
-            lambda song: [
-                miss_if(not song.author or not song.ccli) for _ in song.arrangements
+            lambda song, arrangements: [
+                miss_if(not song.author or not song.ccli) for _ in arrangements
             ],
         ),
         (
             'Tags',
-            lambda song: [
+            lambda song, arrangements: [
                 ', '.join(
                     filter(
                         None,  # remove all falsy elements to not join them
@@ -54,31 +54,33 @@ SONG_CHECKS: typing.Final[
                         ],
                     )
                 )
-                for arr in song.arrangements
+                for arr in arrangements
             ]
             or [miss_if(not song.tags)],
         ),
         (
             'Src.',
-            lambda song: [
+            lambda _song, arrangements: [
                 miss_if(not arr.source_name or not arr.source_reference)
-                for arr in song.arrangements
+                for arr in arrangements
             ],
         ),
         (
             'Dur.',
-            lambda song: [miss_if(not arr.duration) for arr in song.arrangements],
+            lambda _song, arrangements: [
+                miss_if(not arr.duration) for arr in arrangements
+            ],
         ),
         (
             '.sng',
-            lambda song: [
+            lambda _song, arrangements: [
                 miss_if(not any(file.name.endswith('.sng') for file in arr.files))
-                for arr in song.arrangements
+                for arr in arrangements
             ],
         ),
         (
             'BGImg',
-            lambda song: [
+            lambda _song, arrangements: [
                 miss_if(
                     not any(
                         line.startswith('#BackgroundImage=')
@@ -87,12 +89,12 @@ SONG_CHECKS: typing.Final[
                     if arr.sng_file_content
                     else False
                 )
-                for arr in song.arrangements
+                for arr in arrangements
             ],
         ),
         (
             '#Lang',
-            lambda song: [
+            lambda song, arrangements: [
                 miss_if(
                     'EN/DE' in song.tags
                     and not any(
@@ -104,7 +106,7 @@ SONG_CHECKS: typing.Final[
                     if arr.sng_file_content
                     else False
                 )
-                for arr in song.arrangements
+                for arr in arrangements
             ],
         ),
     ]
@@ -130,7 +132,9 @@ class ChurchToolsSongVerification:
             return self._accessed
 
     @staticmethod
-    def _is_sng_file_content_required(func: typing.Callable[[Song], list[str]]) -> bool:
+    def _is_sng_file_content_required(
+        func: typing.Callable[[Song, list[Arrangement]], list[str]],
+    ) -> bool:
         checker = ChurchToolsSongVerification.MemberAccessChecker('sng_file_content')
         checker.visit(ast.parse(inspect.getsource(func).strip(), mode='exec'))
         return checker.accessed()
@@ -142,6 +146,7 @@ class ChurchToolsSongVerification:
         include_tags: list[str],
         exclude_tags: list[str],
         execute_checks: list[str],
+        all_arrangements: bool,
     ) -> None:
         self._log.info('Verifying ChurchTools song database')
 
@@ -191,9 +196,15 @@ class ChurchToolsSongVerification:
                 if song.ccli:
                     ccli2ids[song.ccli].add(song.id)
 
+                arrangements = (
+                    song.arrangements
+                    if all_arrangements
+                    else [arr for arr in song.arrangements if arr.is_default]
+                )
+
                 # Load .sng files - if existing - to have them available for checking.
                 if needs_sng_file_contents:
-                    for arr in song.arrangements:
+                    for arr in arrangements:
                         # If multiple .sng files are present, ChurchTools seems to
                         # export the .sng file of the arrangement with the lowest #id?
                         sng_file = next(
@@ -209,13 +220,15 @@ class ChurchToolsSongVerification:
 
                 # Execute the actual checks.
                 check_results = zip(
-                    *(check(song) for check in active_song_checks.values()), strict=True
+                    *(
+                        check(song, arrangements)
+                        for check in active_song_checks.values()
+                    ),
+                    strict=True,
                 )
 
                 # Create the result table row(s) for later output.
-                for arr, check_result in zip(
-                    song.arrangements, check_results, strict=True
-                ):
+                for arr, check_result in zip(arrangements, check_results, strict=True):
                     if any(res for res in check_result):
                         table.add_row(
                             [

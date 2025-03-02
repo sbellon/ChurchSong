@@ -142,14 +142,14 @@ class ChurchToolsEvent:
                     case EventAgendaItemType.SONG:
                         sng_file = self._sng_file(item)
                         progress()
-                        sng_filename = (
+                        filename = (
                             self._download_file(
                                 item.title, sng_file.file_url, Subfolder.SONGS
                             )
                             if sng_file
                             else None
                         )
-                        agenda_item = Item(ItemType.SONG, item.title, sng_filename)
+                        agenda_item = Item(ItemType.SONG, item.title, filename)
                     case _:
                         self._log.warning(f'Unexpected event item type: {item.type}')
                         continue
@@ -191,8 +191,8 @@ class ChurchToolsEvent:
         service_items = [
             Item(
                 ItemType.SERVICE,
-                f'{serv}: {", ".join(sorted(p.fullname for p in pers))}',
+                f'{service}: {", ".join(sorted(p.fullname for p in persons))}',
             )
-            for serv, pers in sorted(service_leads.items())
+            for service, persons in sorted(service_leads.items())
         ]
         return service_items, service_leads
