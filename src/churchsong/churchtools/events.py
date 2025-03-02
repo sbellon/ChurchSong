@@ -105,8 +105,9 @@ class ChurchToolsEvent:
         agenda_items: list[Item] = []
         with alive_progress.alive_bar(
             len(self._event.event_files) + len(self._agenda.items),
+            length=20,
             title='Downloading: Agenda',
-            title_length=60,
+            title_length=32,
             spinner=None,
             receipt=False,
         ) as bar:  # pyright: ignore[reportUnknownVariableType]
