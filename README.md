@@ -8,10 +8,13 @@ portraits to be presented at the beginning of the event.
 
 Additionally, the SongBeamer agenda can be modified by placing slides at the opening
 or closing, or after specific keywords. Colors of the SongBeamer captions can also be
-changed.
+configured.
 
 The ChurchTools song database can also be checked for consistency regarding metadata
 as well as present .sng files to contain a background image.
+
+Finally, you can create song usage statistics in various output formats for chosen
+time periods.
 
 ## Installation
 
@@ -46,7 +49,7 @@ Command `ChurchSong` will be available from the command line afterwards.
 
 ### Updating
 
-Once installed you can update to the latest release version by executing
+Once installed via `uv` you can update to the latest release version by executing
 `ChurchSong self update` from the command line.
 
 ## Configuration
@@ -82,7 +85,7 @@ look for the next event, you can specify additional command line arguments
 (e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
 If everything goes well, the agenda is downloaded into the `temp_dir`, the slide is
-created from the template, SongBeamer's `Schedule.col` is adjusted and finally
+created from the template, a `Schedule.col` for SongBeamer is created and finally
 SongBeamer itself is launched with the prepared `Schedule.col`.
 
 You can keep the `temp_dir` as is (it is added to and overwritten in future
@@ -106,3 +109,16 @@ You can check the whole ChurchTools songs database by using `songs verify --all`
 
 By using command options `--exclude_tags` and/or `--include_tags` you can filter out
 songs with specific tags or only include songs with specific tags in the check.
+
+### Song usage statistics
+
+If you are interested in how many times what song has been performed in a specific
+year or in specific years, you can use `songs usage` to create output in various
+formats (currently supporting `text`, `html`, `json`, `csv`, `latex`, `mediawiki`, and
+`xlsx`) by specifying the format with `--format`.
+
+Output format `xlsx` requires to specify an output file using `--output`. This is
+optional for all other output formats.
+
+The time period for the statistics can be specified using either `YYYY`, `-YYYY`,
+`YYYY-`, or `YYYY-YYYY`.
