@@ -244,7 +244,6 @@ class SongBeamer:
         self,
         *,
         event_date: datetime.datetime,
-        event_files: list[Item],
         agenda_items: list[Item],
         service_items: list[Item],
     ) -> None:
@@ -258,7 +257,6 @@ class SongBeamer:
         agenda = Agenda(colors=self._colors)
         for agenda_item in (
             AgendaItem.parse(self._opening_slides)
-            + event_files
             + agenda_items
             + AgendaItem.parse(self._closing_slides)
             + service_items

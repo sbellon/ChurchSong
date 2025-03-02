@@ -149,7 +149,6 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(args.from_date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
-    event_files = cte.download_event_files()
     agenda_items = cte.download_agenda_items()
     service_items, service_leads = cte.get_service_info()
 
@@ -160,7 +159,6 @@ def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     sb = SongBeamer(config)
     sb.create_schedule(
         event_date=event.start_date,
-        event_files=event_files,
         agenda_items=agenda_items,
         service_items=service_items,
     )
