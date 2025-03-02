@@ -56,7 +56,9 @@ def print_update_hint(config: Configuration) -> None:
         )
 
 
-def parse_datetime(date_str: str) -> datetime.datetime:
+def parse_datetime(date_str: str) -> datetime.datetime | None:
+    if date_str.lower() == 'all':
+        return None
     date = datetime.datetime.fromisoformat(date_str)
     if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
         # convert offset-naive datetime object to offset-aware
@@ -174,10 +176,11 @@ def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongVerification(cta, config)
     ctsv.verify_songs(
-        from_date=None if args.all else args.from_date,
+        from_date=args.from_date,
         include_tags=args.include_tags,
         exclude_tags=args.exclude_tags,
         execute_checks=args.execute_checks,
+        all_arrangements=args.all_arrangements,
     )
 
 
@@ -270,9 +273,9 @@ def main() -> None:
             ),
         )
         parser_songs_verify.add_argument(
-            '--all',
+            '--all_arrangements',
             action='store_true',
-            help='check all songs in ChurchTools database and not just for next event',
+            help='check all arrangements of the songs instead of just the default',
         )
         parser_songs_verify.add_argument(
             'from_date',
@@ -280,7 +283,7 @@ def main() -> None:
             type=parse_datetime,
             default=datetime.datetime.now(datetime.UTC),
             nargs='?',
-            help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD)',
+            help='verify only songs of next event >= FROM_DATE (YYYY-MM-DD), or "all"',
         )
         parser_songs_verify.set_defaults(
             func=functools.partial(cmd_songs_verify, config=config)

@@ -3,14 +3,23 @@
 ## Unreleased
 
 ### Added
-- fall back to default arrangement if a song arrangement does not have a .sng file
+- when creating SongBeamer agenda, fall back to default arrangement of a song if an
+  arrangement does not have a .sng file
 - SongBeamer Schedule.col is created from scratch and not downloaded from ChurchTools
 - new config options SongBeamer.Color.{Header,Normal,Song,Link,File} for color control
+  of agenda items (consistent to already existing SongBeamer.Color.Service)
 
 ### Changed
-- do not use ChurchTools' SongBeamer export but download .sng files individually
+- do not use ChurchTools' SongBeamer export but download .sng files individually (this
+  change is required to realize the default arrangement fallback)
+- 'song verify --all' has been changed to 'song verify all' to avoid specifying '--all'
+  together with a date 'YYYY-MM-DD'
+- 'song verify' only checks default arrangements of songs unless '--all_arrangements'
+  is specified
+- updated external dependencies (prettytable)
+
+### Removed
 - config option SongBeamer.Color.Replacements is ignored from now on
-- updated external dependencies
 
 ## 0.5.21 (2025-02-22)
 
