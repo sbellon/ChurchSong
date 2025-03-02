@@ -42,9 +42,15 @@ jobs:
         run: uv sync --all-extras --dev
       - name: Run pyright
         run: uvx pyright --project .
+  typos:
+    runs-on: ubuntu-latest # currently does not sucessfully run on windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run typos check
+        uses: crate-ci/typos@v1.30.0
   build:
     runs-on: windows-latest
-    needs: [linting, formatting, typing]
+    needs: [linting, formatting, typing, typos]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
