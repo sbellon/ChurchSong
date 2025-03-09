@@ -5,6 +5,7 @@ import dataclasses
 import datetime
 import functools
 import importlib.metadata
+import os
 import pathlib
 import re
 import shutil
@@ -147,9 +148,11 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         config.package_name,
     ]
     if sys.platform == 'win32':
-        cmd = ['cmd', '/C', 'start', '/B', *cmd]
-    subprocess.Popen(cmd, close_fds=True)  # noqa: S603
-    sys.exit(0)
+        cmd = [shutil.which('cmd.exe') or 'cmd.exe', '/C', 'start', '/B', *cmd]
+        subprocess.Popen(cmd, close_fds=True)  # noqa: S603
+        sys.exit(0)
+    else:
+        os.execl(uv, *cmd)  # noqa: S606
 
 
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
