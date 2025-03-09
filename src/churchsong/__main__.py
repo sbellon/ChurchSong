@@ -5,7 +5,6 @@ import dataclasses
 import datetime
 import functools
 import importlib.metadata
-import os
 import pathlib
 import re
 import shutil
@@ -52,7 +51,8 @@ def print_update_hint(config: Configuration) -> None:
     latest = get_latest_version(config)
     if latest and latest != get_app_version(config):
         sys.stdout.write(
-            f'Note: Update to version {latest} possible via "ChurchSong self update"\n'
+            f'Note: Update to version {latest} possible via '
+            f'"{config.package_name} self update"\n'
         )
 
 
@@ -130,13 +130,26 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         sys.exit(1)
     try:
         # "uv self update" does not touch ChurchSong, so we can use subprocess.run()
-        subprocess.run([uv, 'self', 'update'], check=True)  # noqa: S603
-        # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
-        # "exec" instead of start a subprocess.
-        os.execl(uv, uv, 'tool', 'upgrade', config.package_name, '--no-progress')  # noqa: S606
+        subprocess.run([uv, 'self', 'update', '--no-config'], check=True)  # noqa: S603
     except subprocess.CalledProcessError as e:
         config.log.fatal(f'"uv self update" failed: {e}')
         raise
+    # However "uv tool upgrade ChurchSong" modifies files in use, so we cannot wait
+    # for it to finish.
+    cmd = [
+        uv,
+        'tool',
+        'upgrade',
+        '--no-config',
+        '--no-progress',
+        '--python-preference',
+        'only-managed',
+        config.package_name,
+    ]
+    if sys.platform == 'win32':
+        cmd = ['cmd', '/C', 'start', '/B', *cmd]
+    subprocess.Popen(cmd, close_fds=True)  # noqa: S603
+    sys.exit(0)
 
 
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
