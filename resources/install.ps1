@@ -17,7 +17,7 @@ $result = [UIntPtr]::Zero
 $Env:Path = [Environment]::GetEnvironmentVariable("Path", "User")
 
 Write-Output "Installing ChurchSong with uv ..."
-& uv tool install --python-preference only-managed ChurchSong
+& uv tool install --no-config --force --reinstall --python-preference only-managed ChurchSong
 
 Write-Output "Installing Desktop shortcut to ChurchSong ..."
 if (-not (Test-Path "$Env:LOCALAPPDATA\ChurchSong")) {
