@@ -16,7 +16,8 @@
   together with a date 'YYYY-MM-DD'
 - 'song verify' only checks default arrangements of songs unless '--all_arrangements'
   is specified
-- 'self update' now spawns the 'uv tool upgrade' command differently
+- 'self update' now spawns the 'uv tool upgrade' command in the background and
+  redirects output to a separate log file
 - updated external dependencies (prettytable)
 
 ### Removed
