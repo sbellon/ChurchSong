@@ -149,7 +149,17 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
     ]
     if sys.platform == 'win32':
         cmd = [shutil.which('cmd.exe') or 'cmd.exe', '/C', 'start', '/B', *cmd]
-        subprocess.Popen(cmd, close_fds=True)  # noqa: S603
+        local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
+        with config.log_file.with_name(f'{config.package_name}-update.log').open(
+            'a'
+        ) as fd:
+            latest_version = get_latest_version(config) or 'unknown'
+            app_version = get_app_version(config)
+            timestamp = f'{datetime.datetime.now(tz=local_tz):%Y-%m-%d %H:%M:%S}'
+            fd.write(f'{timestamp} - Update {app_version} to {latest_version} ...\n')
+            fd.write(f'{timestamp} - {subprocess.list2cmdline(cmd)}\n')
+            fd.flush()
+            subprocess.Popen(cmd, close_fds=True, stdout=fd, stderr=fd)  # noqa: S603
         sys.exit(0)
     else:
         os.execl(uv, *cmd)  # noqa: S606
