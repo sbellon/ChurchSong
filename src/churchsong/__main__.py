@@ -149,13 +149,12 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
     ]
     if sys.platform == 'win32':
         cmd = [shutil.which('cmd.exe') or 'cmd.exe', '/C', 'start', '/B', *cmd]
+        update_log_file = config.log_file.with_name(f'{config.package_name}-update.log')
+        app_version = get_app_version(config)
+        latest_version = get_latest_version(config) or 'unknown'
         local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
-        with config.log_file.with_name(f'{config.package_name}-update.log').open(
-            'a'
-        ) as fd:
-            latest_version = get_latest_version(config) or 'unknown'
-            app_version = get_app_version(config)
-            timestamp = f'{datetime.datetime.now(tz=local_tz):%Y-%m-%d %H:%M:%S}'
+        timestamp = f'{datetime.datetime.now(tz=local_tz):%Y-%m-%d %H:%M:%S}'
+        with update_log_file.open('a') as fd:
             fd.write(f'{timestamp} - Update {app_version} to {latest_version} ...\n')
             fd.write(f'{timestamp} - {subprocess.list2cmdline(cmd)}\n')
             fd.flush()
