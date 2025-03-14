@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.6.0 (2025-03-14)
 
 ### Added
 - when creating SongBeamer agenda, fall back to default arrangement of a song if an
