@@ -130,13 +130,15 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         sys.stderr.write(f'{err_msg}\n')
         sys.exit(1)
     try:
-        # "uv self update" does not touch ChurchSong, so we can use subprocess.run()
-        subprocess.run([uv, 'self', 'update', '--no-config'], check=True)  # noqa: S603
+        # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
+        cmd = [uv, 'self', 'update', '--no-config']
+        config.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+        subprocess.run(cmd, check=True)  # noqa: S603
     except subprocess.CalledProcessError as e:
         config.log.fatal(f'"uv self update" failed: {e}')
         raise
-    # However "uv tool upgrade ChurchSong" modifies files in use, so we cannot wait
-    # for it to finish.
+    # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
+    # "exec" instead of starting a subprocess.
     cmd = [
         uv,
         'tool',
@@ -147,21 +149,8 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         'only-managed',
         config.package_name,
     ]
-    if sys.platform == 'win32':
-        cmd = [shutil.which('cmd.exe') or 'cmd.exe', '/C', 'start', '/B', *cmd]
-        update_log_file = config.log_file.with_name(f'{config.package_name}-update.log')
-        app_version = get_app_version(config)
-        latest_version = get_latest_version(config) or 'unknown'
-        local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
-        timestamp = f'{datetime.datetime.now(tz=local_tz):%Y-%m-%d %H:%M:%S}'
-        with update_log_file.open('a') as fd:
-            fd.write(f'{timestamp} - Update {app_version} to {latest_version} ...\n')
-            fd.write(f'{timestamp} - {subprocess.list2cmdline(cmd)}\n')
-            fd.flush()
-            subprocess.Popen(cmd, close_fds=True, stdout=fd, stderr=fd)  # noqa: S603
-        sys.exit(0)
-    else:
-        os.execl(uv, *cmd)  # noqa: S606
+    config.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+    os.execl(uv, *cmd)  # noqa: S606
 
 
 def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
