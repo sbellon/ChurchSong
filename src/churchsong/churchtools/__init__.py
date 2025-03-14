@@ -46,9 +46,9 @@ class PermissionsGlobalData(pydantic.BaseModel):
             case bool():
                 return obj
             case list() if all(
-                isinstance(item, int) for item in typing.cast(list[typing.Any], obj)
+                isinstance(item, int) for item in typing.cast('list[typing.Any]', obj)
             ):
-                return typing.cast(list[typing.Any], obj)
+                return typing.cast('list[typing.Any]', obj)
             case _:
                 return False
 
