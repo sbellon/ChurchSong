@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.6.1 (2025-03-17)
 
 ### Changed
 - 'songs verify' only reports missing .sng file for the default arrangement from now on
