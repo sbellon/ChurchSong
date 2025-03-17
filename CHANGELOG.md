@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- 'songs verify' only reports missing .sng file for the default arrangement from now on
+
 ## 0.6.0 (2025-03-14)
 
 ### Added
@@ -12,9 +17,9 @@
 ### Changed
 - do not use ChurchTools' SongBeamer export but download .sng files individually (this
   change is required to realize the default arrangement fallback)
-- 'song verify --all' has been changed to 'song verify all' to avoid specifying '--all'
-  together with a date 'YYYY-MM-DD'
-- 'song verify' only checks default arrangements of songs unless '--all_arrangements'
+- 'songs verify --all' has been changed to 'songs verify all' to avoid specifying
+  '--all' together with a date 'YYYY-MM-DD'
+- 'songs verify' only checks default arrangements of songs unless '--all_arrangements'
   is specified
 - updated external dependencies (prettytable)
 

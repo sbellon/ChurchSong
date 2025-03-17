@@ -74,7 +74,10 @@ SONG_CHECKS: typing.Final[
         (
             '.sng',
             lambda _song, arrangements: [
-                miss_if(not any(file.name.endswith('.sng') for file in arr.files))
+                miss_if(
+                    arr.is_default
+                    and not any(file.name.endswith('.sng') for file in arr.files)
+                )
                 for arr in arrangements
             ],
         ),
