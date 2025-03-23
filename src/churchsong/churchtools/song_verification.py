@@ -265,7 +265,10 @@ class ChurchToolsSongVerification:
             output_duplicates = '\nDuplicate songs:' + output_duplicates
 
         # Output nicely formatted result table.
-        table_text = table.get_string(print_empty=False)  # pyright: ignore[reportUnknownMemberType]
+        table_text = table.get_string(  # pyright: ignore[reportUnknownMemberType]
+            print_empty=False,
+            sortby=None if event else 'Song',
+        )
         sys.stdout.write(
             '{}\n'.format(table_text + output_duplicates or 'No problems found.')
         )

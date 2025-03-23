@@ -4,6 +4,7 @@
 
 ### Changed
 - optimized loading of song tags for 'songs verify all'
+- enforce alphabetical sorting in 'songs verify all' output
 
 ## 0.6.2 (2025-03-23)
 
