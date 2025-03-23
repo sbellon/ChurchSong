@@ -312,7 +312,7 @@ def main() -> None:
             metavar='FORMAT',
             type=str,
             choices=[e.value for e in FormatType],
-            default=FormatType.TEXT,
+            default=FormatType.TEXT.value,
             help=f'define output format (default is "{FormatType.TEXT}")',
         )
         parser_songs_usage.add_argument(
