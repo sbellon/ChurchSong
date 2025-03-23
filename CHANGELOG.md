@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed default output format 'text' for 'songs usage' crashing
+
 ## 0.6.1 (2025-03-17)
 
 ### Changed
