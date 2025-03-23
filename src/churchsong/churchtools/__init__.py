@@ -349,31 +349,23 @@ class ChurchToolsAPI:
     ) -> requests.Response:
         return self._request('POST', url, params, stream=stream)
 
-    def _get_tags(self, tag_type: str) -> typing.Generator[Tag]:
-        assert tag_type in {'persons', 'songs'}  # noqa: S101
-        r = self._get('/api/tags', params={'type': tag_type})
-        result = TagsData(**r.json())
-        yield from result.data
-
     def _get_song_tags(self, song_id: int) -> list[Tag]:
-        try:
-            r = self._get(
-                '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
-            )
-            result = SongsData(**r.json())
-            return result.data[0].tags
-        except requests.exceptions.RequestException as e:
-            self._log.error(f'Failed to fetch song tags for song ID {song_id}: {e}')
-            return []
+        r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
+        result = SongsData(**r.json())
+        return result.data[0].tags
 
     def get_songs(
         self, event: EventShort | None = None, *, require_tags: bool = True
     ) -> tuple[int, typing.Generator[Song]]:
-        self._log.info(
-            'Getting {}'.format(
-                f'songs for {event.start_date:%Y-%m-%d}' if event else 'all songs'
-            )
-        )
+        if event:
+            self._log.info(f'Getting songs for {event.start_date:%Y-%m-%d}')
+            api_url = f'/api/events/{event.id}/agenda/songs'
+            params = {}  # {'include': 'tags'} is sadly not supported by that API.
+        else:
+            self._log.info('Getting all songs')
+            api_url = '/api/songs'
+            params = {'include': 'tags'}
+            require_tags = False  # Tags are already included in the result by default.
 
         def empty_generator() -> typing.Generator[Song]:
             yield from []
@@ -382,9 +374,7 @@ class ChurchToolsAPI:
             current_page = 0
             last_page = sys.maxsize
             while current_page < last_page:
-                r = self._get(
-                    api_url, params={'page': str(current_page + 1), 'include': 'tags'}
-                )
+                r = self._get(api_url, params={'page': str(current_page + 1), **params})
                 tmp = SongsData(**r.json())
                 if tmp.meta.pagination:
                     current_page = tmp.meta.pagination.current
@@ -397,7 +387,6 @@ class ChurchToolsAPI:
                     yield song
 
         try:
-            api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
             r = self._get(api_url, params={'page': '1', 'limit': '1'})
             result = SongsData(**r.json())
         except requests.exceptions.HTTPError:
