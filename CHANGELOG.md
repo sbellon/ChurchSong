@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- do not use old ChurchTools AJAX API to fetch song tags any more, use new API instead
+
 ### Fixed
 - fixed default output format 'text' for 'songs usage' crashing
 
