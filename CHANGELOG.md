@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.6.2 (2025-03-23)
 
 ### Changed
 - do not use old ChurchTools AJAX API to fetch song tags any more, use new API instead
