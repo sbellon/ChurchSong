@@ -217,7 +217,7 @@ class Song(pydantic.BaseModel):
     author: str | None
     ccli: str | None
     arrangements: list[Arrangement]
-    tags: set[str] = set()
+    tags: list[Tag] = []
 
 
 class Pagination(pydantic.BaseModel):
@@ -248,19 +248,6 @@ class Tag(pydantic.BaseModel):
 
 class TagsData(pydantic.BaseModel):
     data: list[Tag]
-
-
-class AJAXSong(pydantic.BaseModel):
-    id: str
-    tags: list[int]
-
-
-class AJAXSongs(pydantic.BaseModel):
-    songs: dict[str, AJAXSong]
-
-
-class AJAXSongsData(pydantic.BaseModel):
-    data: AJAXSongs
 
 
 class ChurchToolsAPI:
@@ -368,6 +355,17 @@ class ChurchToolsAPI:
         result = TagsData(**r.json())
         yield from result.data
 
+    def _get_song_tags(self, song_id: int) -> list[Tag]:
+        try:
+            r = self._get(
+                '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
+            )
+            result = SongsData(**r.json())
+            return result.data[0].tags
+        except requests.exceptions.RequestException as e:
+            self._log.error(f'Failed to fetch song tags for song ID {song_id}: {e}')
+            return []
+
     def get_songs(
         self, event: EventShort | None = None, *, require_tags: bool = True
     ) -> tuple[int, typing.Generator[Song]]:
@@ -377,24 +375,6 @@ class ChurchToolsAPI:
             )
         )
 
-        # Fetch mapping from tag_id to tag_name for song tags.
-        song_tags = {}
-        if require_tags:
-            tags = {tag.id: tag.name for tag in self._get_tags('songs')}
-
-            # NOTE: Using the old AJAX API here because the new one does not contain
-            # song tags. If at some point the new API also contains the song tags,
-            # this part is obsolete.
-            try:
-                r = self._post('/?q=churchservice/ajax&func=getAllSongs')
-                result = AJAXSongsData(**r.json())
-                song_tags = {
-                    int(song.id): {tags[tag_id] for tag_id in song.tags}
-                    for song in result.data.songs.values()
-                }
-            except requests.RequestException as e:
-                self._log.error(e)
-
         def empty_generator() -> typing.Generator[Song]:
             yield from []
 
@@ -402,7 +382,9 @@ class ChurchToolsAPI:
             current_page = 0
             last_page = sys.maxsize
             while current_page < last_page:
-                r = self._get(api_url, params={'page': str(current_page + 1)})
+                r = self._get(
+                    api_url, params={'page': str(current_page + 1), 'include': 'tags'}
+                )
                 tmp = SongsData(**r.json())
                 if tmp.meta.pagination:
                     current_page = tmp.meta.pagination.current
@@ -410,11 +392,10 @@ class ChurchToolsAPI:
                 else:
                     current_page = last_page
                 for song in tmp.data:
-                    if not song.tags:
-                        song.tags = song_tags.get(song.id, set())
+                    if require_tags and not song.tags:
+                        song.tags = self._get_song_tags(song.id)
                     yield song
 
-        # Use the new API to actually fetch the other information.
         try:
             api_url = f'/api/events/{event.id}/agenda/songs' if event else '/api/songs'
             r = self._get(api_url, params={'page': '1', 'limit': '1'})

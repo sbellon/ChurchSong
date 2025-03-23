@@ -8,12 +8,16 @@ from collections import OrderedDict, defaultdict
 import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import prettytable
 
-from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song
+from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
 from churchsong.configuration import Configuration
 
 
 def miss_if(b: bool) -> str:  # noqa: FBT001
     return 'miss' if b else ''
+
+
+def contains(tag: str, tags: list[Tag]) -> bool:
+    return any(t.name == tag for t in tags)
 
 
 SONG_CHECKS: typing.Final[
@@ -37,8 +41,13 @@ SONG_CHECKS: typing.Final[
                                 f'miss "{tag}"'
                                 if arr.source_name
                                 and arr.source_reference
-                                and (tag := f'{arr.source_name} {arr.source_reference}')
-                                not in song.tags
+                                and not contains(
+                                    (
+                                        tag
+                                        := f'{arr.source_name} {arr.source_reference}'
+                                    ),
+                                    song.tags,
+                                )
                                 else ''
                             ),
                             (
@@ -47,7 +56,7 @@ SONG_CHECKS: typing.Final[
                                     line.startswith('#LangCount=2')
                                     for line in arr.sng_file_content
                                 )
-                                and 'EN/DE' not in song.tags
+                                and not contains('EN/DE', song.tags)
                                 else ''
                             ),
                             # ... add further tag checks here ...
@@ -99,7 +108,7 @@ SONG_CHECKS: typing.Final[
             '#Lang',
             lambda song, arrangements: [
                 miss_if(
-                    'EN/DE' in song.tags
+                    contains('EN/DE', song.tags)
                     and not any(
                         line.startswith(
                             ('#LangCount=2', '#LangCount=3', '#LangCount=4')
@@ -188,11 +197,15 @@ class ChurchToolsSongVerification:
         with alive_progress.alive_bar(
             number_songs, title='Verifying Songs', spinner=None, receipt=False
         ) as bar:  # pyright: ignore[reportUnknownVariableType]
-            for song in sorted(songs, key=lambda e: e.name):
+            for song in songs:
                 # Apply include and exclude tag switches.
                 if (
-                    include_tags and not any(tag in song.tags for tag in include_tags)
-                ) or (exclude_tags and any(tag in song.tags for tag in exclude_tags)):
+                    include_tags
+                    and not any(contains(tag, song.tags) for tag in include_tags)
+                ) or (
+                    exclude_tags
+                    and any(contains(tag, song.tags) for tag in exclude_tags)
+                ):
                     bar()
                     continue
 
