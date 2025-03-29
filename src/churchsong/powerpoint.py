@@ -33,9 +33,11 @@ class PowerPoint:
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
-            service_name: typing.Any = ph._base_placeholder.name  # noqa: SLF001 # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-            if not isinstance(service_name, str):
-                continue
+            base_placeholder = typing.cast(
+                'pptx.shapes.placeholder.BasePlaceholder',
+                getattr(ph, '_base_placeholder', None),
+            )
+            service_name = base_placeholder.name
             sorted_persons = sorted(
                 service_leads[service_name], key=lambda p: p.fullname
             )
