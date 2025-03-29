@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.6.3 (2025-03-29)
 
 ### Changed
 - optimized loading of song tags for 'songs verify all'
