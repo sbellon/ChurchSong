@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime  # noqa: TC003 (false positive, pydantic needs it)
 import enum
 import sys
 import typing
@@ -8,8 +9,6 @@ import pydantic
 import requests
 
 if typing.TYPE_CHECKING:
-    import datetime
-
     from churchsong.configuration import Configuration
 
 
