@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime  # noqa: TC003
 import enum
 import sys
 import typing
@@ -9,6 +8,8 @@ import pydantic
 import requests
 
 if typing.TYPE_CHECKING:
+    import datetime
+
     from churchsong.configuration import Configuration
 
 
@@ -324,7 +325,6 @@ class ChurchToolsAPI:
             f'{self._base_url}{url}',
             headers=self._headers(),
             params=params,
-            timeout=None,  # noqa: S113
             stream=stream,
         )
         self._log.debug('Response is %s %s', r.status_code, r.reason)
@@ -486,9 +486,4 @@ class ChurchToolsAPI:
 
     def download_url(self, full_url: str) -> requests.Response:
         self._log.debug('Request GET %s', full_url)
-        return requests.get(
-            full_url,
-            headers=self._headers(),
-            timeout=None,  # noqa: S113
-            stream=True,
-        )
+        return requests.get(full_url, headers=self._headers(), stream=True)

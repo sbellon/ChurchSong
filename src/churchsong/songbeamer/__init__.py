@@ -207,10 +207,11 @@ class Agenda:
                     )
                 )
             case _:
-                raise TypeError(  # noqa: TRY003
-                    'Unsupported operand type(s) for +=: '  # noqa: EM102
-                    f"'Agenda' and '{type(other).__name__}'"
+                msg = (
+                    'Unsupported operand type(s) for +=: '
+                    f'"Agenda" and "{type(other).__name__}"'
                 )
+                raise TypeError(msg)
         return self
 
     def __getitem__(self, index: int) -> AgendaItem:
