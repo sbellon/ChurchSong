@@ -40,9 +40,9 @@ def get_latest_version(config: Configuration) -> str | None:
         info: PyPI
 
     try:
-        r = requests.get(f'https://pypi.org/pypi/{config.package_name}/json')  # noqa: S113
+        r = requests.get(f'https://pypi.org/pypi/{config.package_name}/json')
         result = PyPIInfo(**r.json())
-    except Exception:  # noqa: BLE001
+    except (requests.RequestException, pydantic.ValidationError):
         return None
     else:
         return result.info.version
@@ -133,7 +133,7 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
         # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
         cmd = [uv, 'self', 'update', '--no-config']
         config.log.info('Executing: %s', subprocess.list2cmdline(cmd))
-        subprocess.run(cmd, check=True)  # noqa: S603
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         config.log.fatal(f'"uv self update" failed: {e}')
         raise
@@ -205,9 +205,6 @@ def cmd_songs_usage(args: argparse.Namespace, config: Configuration) -> None:
         args.year_range.from_date.year,
         args.year_range.to_date.year,
     )
-    if args.format == 'xlsx' and not args.output:
-        sys.stderr.write('Error: Format "xlsx" requires to specify an output file\n')
-        sys.exit(1)
     cta = ChurchToolsAPI(config)
     ctsv = ChurchToolsSongStatistics(cta, config)
     ctsv.song_usage(

@@ -121,7 +121,11 @@ class ChurchToolsSongStatistics:
         )
         title = f'Song statistics for {year_range}'
         if output_format == 'xlsx':
-            assert isinstance(output_file, pathlib.Path)  # noqa: S101
+            if not output_file:
+                sys.stderr.write(
+                    'Error: Format "xlsx" requires to specify an output file\n'
+                )
+                sys.exit(1)
             formatter = ExcelFormatter(title=title, filename=output_file)
         else:
             formatter = AsciiFormatter(
