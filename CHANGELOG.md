@@ -7,6 +7,7 @@
   subcommand
 - introduce localization and use it for the interactive selection screen
 - improve output of stack traces
+- updated external dependencies (pydantic)
 
 ## 0.6.3 (2025-03-29)
 
