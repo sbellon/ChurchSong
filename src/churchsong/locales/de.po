@@ -1,0 +1,44 @@
+# German translations for ChurchSong.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the ChurchSong project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ChurchSong 0.6.3\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-04-04 21:29+0200\n"
+"PO-Revision-Date: 2025-04-04 18:20+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: src/churchsong/interactivescreen.py:79
+msgid "ChurchSong Startmenu"
+msgstr "ChurchSong Startmenü"
+
+#: src/churchsong/interactivescreen.py:82
+msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
+msgstr "Lade SongBeamer-Ablauf aus ChurchTools und starte SongBeamer"
+
+#: src/churchsong/interactivescreen.py:87
+msgid "Download song files from ChurchTools"
+msgstr "Lade Lied-Dateien aus ChurchTools herunter"
+
+#: src/churchsong/interactivescreen.py:92
+msgid "Download event files from ChurchTools"
+msgstr "Lade Event-Dateien aus ChurchTools herunter"
+
+#: src/churchsong/interactivescreen.py:97
+msgid "Create PointPoint slides from ChurchTools data"
+msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
+
+#: src/churchsong/interactivescreen.py:102
+msgid "Execute"
+msgstr "Ausführen"
+

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+TOOL="uvx --from babel pybabel"
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"/..
+OCWD="$(pwd)"
+
+usage()
+{
+    echo "usage: babel { extract | init { LANG } | update { LANG } }\n" >&2
+    exit 1
+}
+
+cd "$ROOT"
+case "$1" in
+    extract)
+        $TOOL extract -o src/churchsong/locales/messages.pot src/churchsong
+        ;;
+    init)
+        $TOOL init -l $2 -i src/churchsong/locales/messages.pot -o src/churchsong/locales/$2.po --no-wrap
+        ;;
+    update)
+        $TOOL update -l $2 -i src/churchsong/locales/messages.pot -o src/churchsong/locales/$2.po --no-wrap --init-missing --ignore-obsolete --update-header-comment
+        ;;
+    *)
+        usage
+        ;;
+esac
+cd "$OCWD"
+

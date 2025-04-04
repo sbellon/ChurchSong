@@ -1,5 +1,14 @@
 # ChangeLog
 
+## Unreleased
+
+### Added
+- display interactive selection screen what parts to download when starting without
+  subcommand
+- introduce localization and use it for the interactive selection screen
+- improve output of stack traces
+- updated external dependencies (pydantic)
+
 ## 0.6.3 (2025-03-29)
 
 ### Changed
