@@ -13,13 +13,18 @@ import subprocess
 import sys
 import time
 
+import rich.traceback
+
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
 from churchsong.configuration import Configuration
+from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
+
+rich.traceback.install(show_locals=True)
 
 
 def get_app_version(config: Configuration) -> str:
@@ -153,32 +158,49 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
     os.execl(uv, *cmd)  # noqa: S606
 
 
-def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
-    if args.command is None:
+def cmd_interactive(args: argparse.Namespace, config: Configuration) -> None:
+    config.log.info('Starting interactive screen')
+    selection = InteractiveScreen().run()
+    if selection:
+        config.log.info(selection)
         args.from_date = datetime.datetime.now(tz=datetime.UTC)
+        _handle_agenda(args, config, selection)
 
+
+def cmd_agenda(args: argparse.Namespace, config: Configuration) -> None:
     config.log.info(
         'Starting %s agenda with FROM_DATE=%s',
         config.package_name,
         args.from_date,
     )
+    selection = DownloadSelection(schedule=True, songs=True, files=True, slides=True)
+    _handle_agenda(args, config, selection)
+
+
+def _handle_agenda(
+    args: argparse.Namespace, config: Configuration, selection: DownloadSelection
+) -> None:
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(args.from_date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
-    agenda_items = cte.download_agenda_items()
+    agenda_items = cte.download_agenda_items(
+        download_files=selection.files, download_songs=selection.songs
+    )
     service_items, service_leads = cte.get_service_info()
 
-    pp = PowerPoint(config)
-    pp.create(service_leads)
-    pp.save()
+    if selection.slides:
+        pp = PowerPoint(config)
+        pp.create(service_leads)
+        pp.save()
 
-    sb = SongBeamer(config)
-    sb.create_schedule(
-        event_date=event.start_date,
-        agenda_items=agenda_items,
-        service_items=service_items,
-    )
-    sb.launch()
+    if selection.schedule:
+        sb = SongBeamer(config)
+        sb.create_schedule(
+            event_date=event.start_date,
+            agenda_items=agenda_items,
+            service_items=service_items,
+        )
+        sb.launch()
 
 
 def cmd_songs_verify(args: argparse.Namespace, config: Configuration) -> None:
@@ -226,7 +248,7 @@ def main() -> None:
             description='Download ChurchTools event agenda and import into SongBeamer.',
             allow_abbrev=False,
         )
-        parser.set_defaults(func=functools.partial(cmd_agenda, config=config))
+        parser.set_defaults(func=functools.partial(cmd_interactive, config=config))
         subparsers = parser.add_subparsers(
             dest='command',
             help='possible commands, use --help to get detailed help',

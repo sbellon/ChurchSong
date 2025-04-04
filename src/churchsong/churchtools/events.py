@@ -57,7 +57,9 @@ class ChurchToolsEvent:
         self._temp_dir = config.temp_dir
         self._person_dict = config.person_dict
 
-    def _download_file(self, name: str, url: str, subfolder: Subfolder) -> str:
+    def _download_file(
+        self, name: str, url: str, subfolder: Subfolder, *, overwrite: bool = True
+    ) -> str:
         r = self.cta.download_url(url)
         if 'Content-Disposition' in r.headers and (
             match := re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
@@ -68,8 +70,9 @@ class ChurchToolsEvent:
             filename = name
         (self._temp_dir / subfolder).mkdir(parents=True, exist_ok=True)
         filename = self._temp_dir / subfolder / filename
-        with filename.open(mode='wb') as fd:
-            fd.write(r.content)
+        if overwrite:
+            with filename.open(mode='wb') as fd:
+                fd.write(r.content)
         return os.fspath(filename)
 
     def _sng_file(self, item: EventAgendaItem) -> File | None:
@@ -100,7 +103,9 @@ class ChurchToolsEvent:
             )
         return sng_file
 
-    def download_agenda_items(self) -> list[Item]:
+    def download_agenda_items(
+        self, *, download_files: bool = True, download_songs: bool = True
+    ) -> list[Item]:
         self._log.info('Downloading agenda items and songs')
         agenda_items: list[Item] = []
         with alive_progress.alive_bar(
@@ -121,7 +126,10 @@ class ChurchToolsEvent:
                 match item.domain_type:
                     case EventFileDomainType.FILE:
                         filename = self._download_file(
-                            item.title, item.frontend_url, Subfolder.FILES
+                            item.title,
+                            item.frontend_url,
+                            Subfolder.FILES,
+                            overwrite=download_files,
                         )
                         event_file = Item(ItemType.FILE, item.title, filename)
                     case EventFileDomainType.LINK:
@@ -145,7 +153,10 @@ class ChurchToolsEvent:
                         progress()
                         filename = (
                             self._download_file(
-                                item.title, sng_file.file_url, Subfolder.SONGS
+                                item.title,
+                                sng_file.file_url,
+                                Subfolder.SONGS,
+                                overwrite=download_songs,
                             )
                             if sng_file
                             else None

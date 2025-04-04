@@ -4,7 +4,7 @@ version = "0.6.3"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = {file = "LICENSE"}
 requires-python = ">=3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -16,11 +16,14 @@ dependencies = [
     "alive-progress>=3.2.0",
     "openpyxl>=3.1.5",
     "platformdirs>=4.3.6",
+    "polib>=1.2.0",
     "prettytable>=3.12.0",
     "psutil>=6.1.0; sys_platform == 'win32'",
     "pydantic>=2.9.2",
     "python-pptx>=1.0.2",
     "requests>=2.32.3",
+    "rich>=14.0.0",
+    "textual>=3.0.1",
 ]
 
 [project.urls]
@@ -41,6 +44,9 @@ package = true
 [tool.setuptools]
 license-files = []
 
+[tool.setuptools.package-data]
+"churchsong" = ["locales/*.po"]
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
@@ -48,6 +54,7 @@ typeCheckingMode = "strict"
 
 [tool.ruff]
 line-length = 88
+builtins = ["_"]
 
 [tool.ruff.lint]
 select = ["ALL"]

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import gettext
+import importlib.resources
+import io
+import locale
 import logging
 import logging.handlers
 import pathlib
@@ -8,6 +12,7 @@ import tomllib
 import typing
 
 import platformdirs
+import polib
 import pydantic
 
 from churchsong import utils
@@ -145,6 +150,16 @@ class Configuration:
         log_to_file.setFormatter(log_formatter)
         self._log.addHandler(log_to_file)
         self._log.removeHandler(log_to_stderr)
+
+        try:
+            cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
+            with importlib.resources.open_text('churchsong', f'locales/{cc}.po') as fd:
+                translations = gettext.GNUTranslations(
+                    io.BytesIO(polib.pofile(fd.read()).to_binary())
+                )
+        except FileNotFoundError:
+            translations = gettext.NullTranslations()
+        translations.install()
 
     @property
     def package_name(self) -> str:
