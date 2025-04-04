@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-04-04 21:21+0200\n"
+"POT-Creation-Date: 2025-04-04 21:29+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -23,22 +23,22 @@ msgid "ChurchSong Startmenu"
 msgstr "ChurchSong Startmenü"
 
 #: src/churchsong/interactivescreen.py:82
-msgid "Download SongBeamer schedule and launch SongBeamer"
-msgstr "Lade SongBeamer-Ablauf herunter und starte SongBeamer"
-
-#: src/churchsong/interactivescreen.py:86
-msgid "Download song files"
-msgstr "Lade Lied-Dateien herunter"
+msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
+msgstr "Lade SongBeamer-Ablauf aus ChurchTools und starte SongBeamer"
 
 #: src/churchsong/interactivescreen.py:87
-msgid "Download event files"
-msgstr "Lade Event-Dateien herunter"
-
-#: src/churchsong/interactivescreen.py:89
-msgid "Create PointPoint slides"
-msgstr "Erzeuge PowerPoint-Folien"
+msgid "Download song files from ChurchTools"
+msgstr "Lade Lied-Dateien aus ChurchTools herunter"
 
 #: src/churchsong/interactivescreen.py:92
+msgid "Download event files from ChurchTools"
+msgstr "Lade Event-Dateien aus ChurchTools herunter"
+
+#: src/churchsong/interactivescreen.py:97
+msgid "Create PointPoint slides from ChurchTools data"
+msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
+
+#: src/churchsong/interactivescreen.py:102
 msgid "Execute"
 msgstr "Ausführen"
 

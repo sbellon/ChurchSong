@@ -79,14 +79,24 @@ class InteractiveScreen(App[DownloadSelection]):
             yield Label(_('ChurchSong Startmenu'), id='checkbox_title')
 
             yield UnifiedCheckbox(
-                _('Download SongBeamer schedule and launch SongBeamer'),
+                _('Get SongBeamer schedule from ChurchTools and launch SongBeamer'),
                 id='schedule',
                 value=True,
             )
-            yield UnifiedCheckbox(_('Download song files'), id='songs', value=True)
-            yield UnifiedCheckbox(_('Download event files'), id='files', value=True)
             yield UnifiedCheckbox(
-                _('Create PointPoint slides'), id='slides', value=True
+                _('Download song files from ChurchTools'),
+                id='songs',
+                value=True,
+            )
+            yield UnifiedCheckbox(
+                _('Download event files from ChurchTools'),
+                id='files',
+                value=True,
+            )
+            yield UnifiedCheckbox(
+                _('Create PointPoint slides from ChurchTools data'),
+                id='slides',
+                value=True,
             )
 
             yield UnifiedButton(_('Execute'), id='submit')

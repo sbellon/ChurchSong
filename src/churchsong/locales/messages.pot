@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-04-04 21:21+0200\n"
+"POT-Creation-Date: 2025-04-04 21:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -22,22 +22,22 @@ msgid "ChurchSong Startmenu"
 msgstr ""
 
 #: src/churchsong/interactivescreen.py:82
-msgid "Download SongBeamer schedule and launch SongBeamer"
-msgstr ""
-
-#: src/churchsong/interactivescreen.py:86
-msgid "Download song files"
+msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr ""
 
 #: src/churchsong/interactivescreen.py:87
-msgid "Download event files"
-msgstr ""
-
-#: src/churchsong/interactivescreen.py:89
-msgid "Create PointPoint slides"
+msgid "Download song files from ChurchTools"
 msgstr ""
 
 #: src/churchsong/interactivescreen.py:92
+msgid "Download event files from ChurchTools"
+msgstr ""
+
+#: src/churchsong/interactivescreen.py:97
+msgid "Create PointPoint slides from ChurchTools data"
+msgstr ""
+
+#: src/churchsong/interactivescreen.py:102
 msgid "Execute"
 msgstr ""
 
