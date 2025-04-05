@@ -4,7 +4,7 @@ version = "0.6.3"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 requires-python = ">=3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -89,6 +89,10 @@ extend-ignore-re = [
     "(?Rm)^.*(#|//)\\s*typos:\\s*disable$",
     "(?s)(#|//)\\s*typos:\\s*off.*?\\n\\s*(#|//)\\s*typos:\\s*on",
 ]
+
+[tool.typos.type.po]
+extend-glob = ["*.po"]
+check-file = false
 
 [tool.bumpversion]
 current_version = "0.6.3"

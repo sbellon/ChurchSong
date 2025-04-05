@@ -4,7 +4,6 @@ import argparse
 import dataclasses
 import datetime
 import functools
-import importlib.metadata
 import os
 import pathlib
 import re
@@ -27,35 +26,9 @@ from churchsong.songbeamer import SongBeamer
 rich.traceback.install(show_locals=True)
 
 
-def get_app_version(config: Configuration) -> str:
-    try:
-        return importlib.metadata.version(config.package_name)
-    except (importlib.metadata.PackageNotFoundError, AssertionError):
-        return 'unknown'
-
-
-def get_latest_version(config: Configuration) -> str | None:
-    import pydantic
-    import requests
-
-    class PyPI(pydantic.BaseModel):
-        version: str
-
-    class PyPIInfo(pydantic.BaseModel):
-        info: PyPI
-
-    try:
-        r = requests.get(f'https://pypi.org/pypi/{config.package_name}/json')
-        result = PyPIInfo(**r.json())
-    except (requests.RequestException, pydantic.ValidationError):
-        return None
-    else:
-        return result.info.version
-
-
 def print_update_hint(config: Configuration) -> None:
-    latest = get_latest_version(config)
-    if latest and latest != get_app_version(config):
+    latest = config.latest_version
+    if latest and latest != config.version:
         sys.stdout.write(
             f'Note: Update to version {latest} possible via '
             f'"{config.package_name} self update"\n'
@@ -115,12 +88,12 @@ def parse_year_range(year_str: str) -> DateRange:
 
 
 def cmd_self_version(_args: argparse.Namespace, config: Configuration) -> None:
-    sys.stdout.write(f'{get_app_version(config)}\n')
+    sys.stdout.write(f'{config.version}\n')
 
 
 def cmd_self_info(_args: argparse.Namespace, config: Configuration) -> None:
-    sys.stderr.write(f'Installed version:   {get_app_version(config)}\n')
-    if latest := get_latest_version(config):
+    sys.stderr.write(f'Installed version:   {config.version}\n')
+    if latest := config.latest_version:
         sys.stderr.write(f'Latest version:      {latest}\n')
     sys.stderr.write(f'Configuration file:  {config.config_toml}\n')
     sys.stderr.write(f'User data directory: {config.data_dir}\n')
@@ -160,7 +133,7 @@ def cmd_self_update(_args: argparse.Namespace, config: Configuration) -> None:
 
 def cmd_interactive(args: argparse.Namespace, config: Configuration) -> None:
     config.log.info('Starting interactive screen')
-    selection = InteractiveScreen().run()
+    selection = InteractiveScreen(config).run()
     if selection:
         config.log.info(selection)
         args.from_date = datetime.datetime.now(tz=datetime.UTC)
@@ -386,9 +359,7 @@ def main() -> None:
         parser_self_version.set_defaults(
             func=functools.partial(cmd_self_version, config=config)
         )
-        parser.add_argument(
-            '-v', '--version', action='version', version=get_app_version(config)
-        )
+        parser.add_argument('-v', '--version', action='version', version=config.version)
         args = parser.parse_args()
         try:
             args.func(args)

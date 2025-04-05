@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gettext
+import importlib.metadata
 import importlib.resources
 import io
 import locale
@@ -14,6 +15,7 @@ import typing
 import platformdirs
 import polib
 import pydantic
+import requests
 
 from churchsong import utils
 
@@ -164,6 +166,29 @@ class Configuration:
     @property
     def package_name(self) -> str:
         return 'ChurchSong'
+
+    @property
+    def version(self) -> str:
+        try:
+            return importlib.metadata.version(self.package_name)
+        except (importlib.metadata.PackageNotFoundError, AssertionError):
+            return 'unknown'
+
+    @property
+    def latest_version(self) -> str | None:
+        class PyPI(pydantic.BaseModel):
+            version: str
+
+        class PyPIInfo(pydantic.BaseModel):
+            info: PyPI
+
+        try:
+            r = requests.get(f'https://pypi.org/pypi/{self.package_name}/json')
+            result = PyPIInfo(**r.json())
+        except (requests.RequestException, pydantic.ValidationError):
+            return None
+        else:
+            return result.info.version
 
     @property
     def config_toml(self) -> pathlib.Path:
