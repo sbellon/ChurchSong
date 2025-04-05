@@ -5,6 +5,9 @@
 ### Fixed
 - SongBeamer crash if a song contained apostrophe character (')
 
+### Changed
+- moved "SongBeamer already running notice" from config file to localization
+
 ## 0.7.0 (2025-04-05)
 
 ### Added

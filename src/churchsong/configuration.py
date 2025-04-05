@@ -52,7 +52,6 @@ class SongBeamerSettingsConfig(pydantic.BaseModel):
     template_pptx: pathlib.Path
     portraits_dir: pathlib.Path
     temp_dir: pathlib.Path
-    already_running_notice: str = ''
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
@@ -237,10 +236,6 @@ class Configuration:
         directory = self.data_dir / self._config.SongBeamer.Settings.temp_dir
         directory.mkdir(parents=True, exist_ok=True)
         return directory
-
-    @property
-    def already_running_notice(self) -> str:
-        return self._config.SongBeamer.Settings.already_running_notice
 
     @property
     def event_datetime_format(self) -> str:
