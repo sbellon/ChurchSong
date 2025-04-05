@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.1 (2025-04-05)
 
 ### Fixed
 - SongBeamer crash if a song contained apostrophe character (')
