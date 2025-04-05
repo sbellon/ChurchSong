@@ -79,10 +79,13 @@ team name has to be put at the PowerPoint base placeholder via the Select Pane
 ### SongBeamer agenda download
 
 To download the upcoming agenda you can just execute `ChurchSong` without any switches
-(e.g., double-click it) or use the command `agenda`. To specify a starting date to
-look for the next event, you can specify additional command line arguments
-`agenda FROM_DATE` as positional parameter with `FROM_DATE` in an ISO date format
-(e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
+(e.g., double-click it) to use an interactive menu where you can select the desired
+parts to download (default is all) and then execute the agenda download.
+
+Or you can bypass the interactive menu and use the command `agenda`. To specify a
+starting date to look for the next event, you can specify additional command line
+arguments `agenda FROM_DATE` as positional parameter with `FROM_DATE` in an ISO date
+format (e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
 If everything goes well, the agenda is downloaded into the `temp_dir`, the slide is
 created from the template, a `Schedule.col` for SongBeamer is created and finally

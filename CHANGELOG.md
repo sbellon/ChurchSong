@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.0 (2025-04-05)
 
 ### Added
 - display interactive selection screen what parts to download when starting without
