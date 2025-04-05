@@ -7,6 +7,7 @@
 
 ### Changed
 - moved "SongBeamer already running notice" from config file to localization
+- updated external dependencies (lxml)
 
 ## 0.7.0 (2025-04-05)
 
