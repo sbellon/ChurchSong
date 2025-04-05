@@ -151,7 +151,7 @@ class AgendaItem:
 
     @staticmethod
     def _encode(text: str) -> str:
-        text = re.sub(r'[^\x00-\x7F]', lambda x: f"'#{ord(x.group(0))}'", text)
+        text = re.sub(r"[^\x00-\x7F]|'", lambda x: f"'#{ord(x.group(0))}'", text)
         return result if (result := AgendaItem._toggle_quotes(text)) else "''"
 
     @classmethod
