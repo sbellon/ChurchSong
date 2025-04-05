@@ -239,7 +239,6 @@ class SongBeamer:
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
         self._colors = config.colors
-        self._already_running_notice = config.already_running_notice
 
     def create_schedule(
         self,
@@ -276,8 +275,25 @@ class SongBeamer:
         if sys.platform == 'win32':
             from churchsong.songbeamer import windows
 
-            if self._already_running_notice and windows.is_songbeamer_running():
-                windows.open_message_box(self._app_name, self._already_running_notice)
+            if windows.is_songbeamer_running():
+                already_running_notice = _(
+                    """SongBeamer is already running.
+
+If you have modified your agenda but not saved it,
+SongBeamer will ask now whether you want to save the agenda.
+
+Answer:
+
+- Yes: save and keep your modified agenda.
+- No: discard your changes and reload agenda from ChurchTools.
+- Cancel: keep your modified agenda but do not save it.
+
+The PowerPoint slides will get updated in any case!
+
+Click OK to continue.
+"""
+                )
+                windows.open_message_box(self._app_name, already_running_notice)
                 windows.bring_songbeamer_window_to_front()
 
             try:
