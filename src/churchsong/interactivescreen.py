@@ -29,16 +29,15 @@ class UnifiedCheckbox(Checkbox):
     """
 
     async def on_key(self, event: events.Key) -> None:
-        if event.key in ('enter', 'space'):
-            self.value = not self.value
-            self.post_message(self.Changed(self, self.value))
-            event.stop()
-        elif event.key == 'down':
-            self.screen.focus_next()
-            event.stop()
-        elif event.key == 'up':
-            self.screen.focus_previous()
-            event.stop()
+        match event.key:
+            case 'down':
+                self.screen.focus_next()
+                event.stop()
+            case 'up':
+                self.screen.focus_previous()
+                event.stop()
+            case _:
+                pass
 
     async def on_checkbox_changed(self, _event: Checkbox.Changed) -> None:
         submit_button = self.screen.query_one('#submit', Button)
@@ -69,6 +68,9 @@ class UnifiedCheckbox(Checkbox):
 
 class UnifiedButton(Button):
     DEFAULT_CSS = """
+    UnifiedButton {
+        border: round $surface;
+    }
     UnifiedButton:focus {
         border: round $primary;
     }
@@ -78,19 +80,18 @@ class UnifiedButton(Button):
         pass
 
     async def on_key(self, event: events.Key) -> None:
-        if event.key in ('enter', 'space'):
-            self.post_message(self.Selected())
-            event.stop()
-        elif event.key == 'down':
-            self.screen.focus_next()
-            event.stop()
-        elif event.key == 'up':
-            self.screen.focus_previous()
-            event.stop()
-
-    async def on_click(self, event: events.Click) -> None:
-        self.post_message(self.Selected())
-        event.stop()
+        match event.key:
+            case 'space':
+                self.post_message(self.Pressed(self))
+                event.stop()
+            case 'down':
+                self.screen.focus_next()
+                event.stop()
+            case 'up':
+                self.screen.focus_previous()
+                event.stop()
+            case _:
+                pass
 
 
 class Header(Horizontal):
@@ -118,9 +119,9 @@ class Header(Horizontal):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='left'):
-            yield Label('Header1', id='header_label_left')
+            yield Label(id='header_label_left')
         with Vertical(id='right'):
-            yield Label('Header2', id='header_label_right')
+            yield Label(id='header_label_right')
 
 
 class Footer(Horizontal):
@@ -134,7 +135,7 @@ class Footer(Horizontal):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static('Footer', id='footer')
+        yield Static(id='footer')
 
 
 class InteractiveScreen(App[DownloadSelection]):
@@ -153,32 +154,12 @@ class InteractiveScreen(App[DownloadSelection]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-
         with Center():
-            yield UnifiedCheckbox(
-                _('Get SongBeamer schedule from ChurchTools and launch SongBeamer'),
-                id='schedule',
-                value=True,
-            )
-            yield UnifiedCheckbox(
-                _('Download song files from ChurchTools'),
-                id='songs',
-                value=True,
-            )
-            yield UnifiedCheckbox(
-                _('Download event files from ChurchTools'),
-                id='files',
-                value=True,
-            )
-            yield UnifiedCheckbox(
-                _('Create PointPoint slides from ChurchTools data'),
-                id='slides',
-                value=True,
-            )
-            yield UnifiedButton(
-                _('Create selected files and start SongBeamer'), id='submit'
-            )
-
+            yield UnifiedCheckbox(id='schedule', value=True)
+            yield UnifiedCheckbox(id='songs', value=True)
+            yield UnifiedCheckbox(id='files', value=True)
+            yield UnifiedCheckbox(id='slides', value=True)
+            yield UnifiedButton(id='submit')
         yield Footer()
 
     def on_mount(self) -> None:
@@ -202,9 +183,29 @@ class InteractiveScreen(App[DownloadSelection]):
             'Enter to confirm.'
         )
         self.query_one('#footer', Static).update(footer_text)
+
+        # Initialize Checkbox labels.
+        schedule_checkbox = self.query_one('#schedule', Checkbox)
+        schedule_checkbox.label = _(
+            'Get SongBeamer schedule from ChurchTools and launch SongBeamer'
+        )
+        self.query_one('#songs', Checkbox).label = _(
+            'Download song files from ChurchTools'
+        )
+        self.query_one('#files', Checkbox).label = _(
+            'Download event files from ChurchTools'
+        )
+        self.query_one('#slides', Checkbox).label = _(
+            'Create PointPoint slides from ChurchTools data'
+        )
+
+        # Trigger Changed event on first Checkbox to initialize Button label.
+        schedule_checkbox.post_message(Checkbox.Changed(schedule_checkbox, value=True))
+
+        # Focus Button.
         self.query_one('#submit').focus()
 
-    def on_unified_button_selected(self, _message: UnifiedButton.Selected) -> None:
-        checkboxes = self.app.query(UnifiedCheckbox)
+    def on_button_pressed(self, _message: Button.Pressed) -> None:
+        checkboxes = self.app.query(Checkbox)
         ds = DownloadSelection(**{cb.id: cb.value for cb in checkboxes if cb.id})
         self.app.exit(ds)
