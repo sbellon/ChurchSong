@@ -7,15 +7,15 @@
 import contextlib
 import os
 import pathlib
+import typing
 
 from babel.messages.frontend import CommandLineInterface
-
 
 LANGUAGES = ['de']
 
 
 @contextlib.contextmanager
-def working_directory(path: pathlib.Path):
+def working_directory(path: pathlib.Path) -> typing.Iterator[None]:
     prev_cwd = pathlib.Path.cwd()
     try:
         os.chdir(path)
@@ -24,42 +24,61 @@ def working_directory(path: pathlib.Path):
         os.chdir(prev_cwd)
 
 
-def extract(root: pathlib.Path, directory: str, pot_file: str) -> None:
-    with working_directory(root):
-        CommandLineInterface().run(['pybabel', 'extract', '-o', pot_file, directory])
+class Babel:
+    RunType = typing.Callable[[list[str] | None], typing.Literal[0, 1] | None]
+
+    def __init__(
+        self, root_dir: pathlib.Path, src_dir: pathlib.Path, locale_dir: pathlib.Path
+    ) -> None:
+        self.root_dir = root_dir
+        self.src_dir = src_dir
+        self.locale_dir = locale_dir
+        self.pot_file = locale_dir / 'messages.pot'
+        babel = CommandLineInterface()
+        self.run = typing.cast('Babel.RunType', babel.run)  # pyright: ignore[reportUnknownMemberType]
+
+    def extract(self) -> None:
+        with working_directory(self.root_dir):
+            self.run(
+                [
+                    'pybabel',
+                    'extract',
+                    '-o',
+                    os.fspath(self.pot_file),
+                    os.fspath(self.src_dir),
+                ]
+            )
+
+    def update(self, language: str) -> None:
+        with working_directory(self.root_dir):
+            self.run(
+                [
+                    'pybabel',
+                    'update',
+                    '-l',
+                    language,
+                    '-i',
+                    os.fspath(self.pot_file),
+                    '-o',
+                    os.fspath(self.pot_file.parent / f'{language}.po'),
+                    '--no-wrap',
+                    '--init-missing',
+                    '--ignore-obsolete',
+                    '--update-header-comment',
+                ]
+            )
 
 
-def update(root: pathlib.Path, language: str, pot_file: str) -> None:
-    po_file = os.path.join(os.path.dirname(pot_file), f'{language}.po')
+def main() -> None:
+    babel = Babel(
+        pathlib.Path(__file__).parent.parent,
+        pathlib.Path('src/churchsong'),
+        pathlib.Path('src/churchsong/locales'),
+    )
 
-    with working_directory(root):
-        CommandLineInterface().run(
-            [
-                'pybabel',
-                'update',
-                '-l',
-                language,
-                '-i',
-                pot_file,
-                '-o',
-                po_file,
-                '--no-wrap',
-                '--init-missing',
-                '--ignore-obsolete',
-                '--update-header-comment',
-            ]
-        )
-
-
-def main():
-    root = pathlib.Path(__file__).parent.parent
-    directory = 'src/churchsong'
-    locale_dir = os.path.join(directory, 'locales')
-    pot_file = os.path.join(locale_dir, 'messages.pot')
-
-    extract(root, directory, pot_file)
+    babel.extract()
     for language in LANGUAGES:
-        update(root, language, pot_file)
+        babel.update(language)
 
 
 if __name__ == '__main__':
