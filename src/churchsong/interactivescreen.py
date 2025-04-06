@@ -2,8 +2,11 @@ import dataclasses
 
 from textual import events
 from textual.app import App, ComposeResult
+from textual.color import Color
 from textual.containers import Center, Horizontal, Vertical
+from textual.content import Content
 from textual.message import Message
+from textual.style import Style
 from textual.widgets import Button, Checkbox, Label, Static
 
 from churchsong.configuration import Configuration
@@ -24,7 +27,6 @@ class UnifiedCheckbox(Checkbox):
         color: $primary;
     }
     """
-    BUTTON_INNER = '✓'
 
     async def on_key(self, event: events.Key) -> None:
         if event.key in ('enter', 'space'):
@@ -38,8 +40,40 @@ class UnifiedCheckbox(Checkbox):
             self.screen.focus_previous()
             event.stop()
 
+    async def on_checkbox_changed(self, _event: Checkbox.Changed) -> None:
+        submit_button = self.screen.query_one('#submit', Button)
+        submit_button.label = (
+            _('Create selected files and start SongBeamer')
+            if self.screen.query_one('#schedule', Checkbox).value
+            else _('Create selected files')
+        )
+        submit_button.disabled = not any(
+            cb.value
+            for cb in self.screen.query('Checkbox')
+            if isinstance(cb, UnifiedCheckbox)
+        )
+        submit_button.refresh(layout=True)
+
+    @property
+    def _button(self) -> Content:
+        # Clone of property textual.widgets.ToggleButton._button()
+        button_style = self.get_visual_style('toggle--button')
+        checkmark_style = Style(
+            foreground=Color.parse('lightgreen' if self.value else 'red'),
+            background=button_style.background,
+        )
+        return Content.assemble(
+            ('✅' if self.value else '❌', checkmark_style),
+        )
+
 
 class UnifiedButton(Button):
+    DEFAULT_CSS = """
+    UnifiedButton:focus {
+        border: round $primary;
+    }
+    """
+
     class Selected(Message):
         pass
 
@@ -141,7 +175,9 @@ class InteractiveScreen(App[DownloadSelection]):
                 id='slides',
                 value=True,
             )
-            yield UnifiedButton(_('Execute'), id='submit')
+            yield UnifiedButton(
+                _('Create selected files and start SongBeamer'), id='submit'
+            )
 
         yield Footer()
 

@@ -1,9 +1,15 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- improve visuals of checkboxes
+- disable execute button in case nothing is selected
+
 ## 0.7.1 (2025-04-05)
 
 ### Fixed
-- SongBeamer crash if a song contained apostrophe character (')
+- fixed SongBeamer crash if a song contained apostrophe character (')
 
 ### Changed
 - moved "SongBeamer already running notice" from config file to localization
