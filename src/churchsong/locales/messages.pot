@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-04-05 23:28+0200\n"
+"POT-Creation-Date: 2025-04-06 08:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,27 +17,32 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: src/churchsong/interactivescreen.py:125
+#: src/churchsong/interactivescreen.py:46
+#: src/churchsong/interactivescreen.py:179
+msgid "Create selected files and start SongBeamer"
+msgstr ""
+
+#: src/churchsong/interactivescreen.py:48
+msgid "Create selected files"
+msgstr ""
+
+#: src/churchsong/interactivescreen.py:159
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:130
+#: src/churchsong/interactivescreen.py:164
 msgid "Download song files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:135
+#: src/churchsong/interactivescreen.py:169
 msgid "Download event files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:140
+#: src/churchsong/interactivescreen.py:174
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:144
-msgid "Execute"
-msgstr ""
-
-#: src/churchsong/interactivescreen.py:156
+#: src/churchsong/interactivescreen.py:192
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -45,7 +50,7 @@ msgid ""
 "Latest version: {}"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:162
+#: src/churchsong/interactivescreen.py:198
 msgid ""
 "Typically you want all options selected, but you can also disable parts "
 "if you already made local changes in a running SongBeamer instance and do"
