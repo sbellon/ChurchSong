@@ -75,7 +75,7 @@ wheels = [
 
 [[package]]
 name = "churchsong"
-version = "0.7.2"
+version = "0.7.3"
 source = { editable = "." }
 dependencies = [
     { name = "alive-progress" },
@@ -119,7 +119,7 @@ requires-dist = [
 dev = [{ name = "babel", specifier = ">=2.17.0" }]
 lint = [
     { name = "pyright", specifier = ">=1.1.387" },
-    { name = "ruff", specifier = ">=0.7.2" },
+    { name = "ruff", specifier = ">=0.7.3" },
 ]
 
 [[package]]

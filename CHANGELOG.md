@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.3 (2025-04-06)
 
 ### Changed
 - optimized interactive screen
