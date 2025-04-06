@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.2 (2025-04-06)
 
 ### Changed
 - improve visuals of checkboxes
