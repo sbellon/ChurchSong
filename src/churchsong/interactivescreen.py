@@ -3,7 +3,7 @@ import dataclasses
 from textual import events
 from textual.app import App, ComposeResult
 from textual.color import Color
-from textual.containers import Center, Horizontal, Vertical
+from textual.containers import Center, Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.message import Message
 from textual.style import Style
@@ -27,6 +27,16 @@ class UnifiedCheckbox(Checkbox):
         color: $primary;
     }
     """
+
+    def __init__(
+        self,
+        *,
+        id: str | None = None,  # noqa: A002 (introduced by ToggleButton)
+        unicode: bool = False,
+    ) -> None:
+        super().__init__(id=id, value=True)
+        self.char_on = '✅' if unicode else '■'
+        self.char_off = '❌' if unicode else ' '
 
     async def on_key(self, event: events.Key) -> None:
         match event.key:
@@ -62,7 +72,7 @@ class UnifiedCheckbox(Checkbox):
             background=button_style.background,
         )
         return Content.assemble(
-            ('✅' if self.value else '❌', checkmark_style),
+            (self.char_on if self.value else self.char_off, checkmark_style),
         )
 
 
@@ -135,7 +145,7 @@ class Footer(Horizontal):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static(id='footer')
+        yield VerticalScroll(Static(id='footer'), can_focus=False)
 
 
 class InteractiveScreen(App[DownloadSelection]):
@@ -155,10 +165,10 @@ class InteractiveScreen(App[DownloadSelection]):
     def compose(self) -> ComposeResult:
         yield Header()
         with Center():
-            yield UnifiedCheckbox(id='schedule', value=True)
-            yield UnifiedCheckbox(id='songs', value=True)
-            yield UnifiedCheckbox(id='files', value=True)
-            yield UnifiedCheckbox(id='slides', value=True)
+            yield UnifiedCheckbox(id='schedule', unicode=self.config.use_unicode_font)
+            yield UnifiedCheckbox(id='songs', unicode=self.config.use_unicode_font)
+            yield UnifiedCheckbox(id='files', unicode=self.config.use_unicode_font)
+            yield UnifiedCheckbox(id='slides', unicode=self.config.use_unicode_font)
             yield UnifiedButton(id='submit')
         yield Footer()
 
