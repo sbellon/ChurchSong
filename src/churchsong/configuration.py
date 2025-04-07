@@ -33,9 +33,14 @@ def recursive_expand_vars(data: T) -> T:
     return data
 
 
+class GeneralInteractiveConfig(pydantic.BaseModel):
+    use_unicode_font: bool = False
+
+
 class GeneralConfig(pydantic.BaseModel):
     log_level: str = 'WARNING'
     log_file: pathlib.Path = pathlib.Path('./Logs/ChurchSong.log')
+    Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
 
 
 class ChurchToolsSettingsConfig(pydantic.BaseModel):
@@ -210,6 +215,10 @@ class Configuration:
         filename = self.data_dir / self._config.General.log_file
         filename.parent.mkdir(parents=True, exist_ok=True)
         return filename
+
+    @property
+    def use_unicode_font(self) -> bool:
+        return self._config.General.Interactive.use_unicode_font
 
     @property
     def base_url(self) -> str:
