@@ -1,11 +1,19 @@
 import dataclasses
 
-from textual import events
+from textual import on
 from textual.app import App, ComposeResult
 from textual.color import Color
-from textual.containers import Center, Horizontal, Vertical, VerticalScroll
+from textual.containers import (
+    Center,
+    Container,
+    Horizontal,
+    Middle,
+    Vertical,
+    VerticalScroll,
+)
 from textual.content import Content
-from textual.message import Message
+from textual.events import Key, Mount
+from textual.screen import ModalScreen
 from textual.style import Style
 from textual.widgets import Button, Checkbox, Label, Static
 
@@ -20,9 +28,9 @@ class DownloadSelection:
     slides: bool
 
 
-class UnifiedCheckbox(Checkbox):
+class FocusCheckbox(Checkbox):
     DEFAULT_CSS = """
-    UnifiedCheckbox:focus {
+    FocusCheckbox:focus {
         border: round $primary;
         color: $primary;
     }
@@ -38,18 +46,8 @@ class UnifiedCheckbox(Checkbox):
         self.char_on = '✅' if unicode else '■'
         self.char_off = '❌' if unicode else ' '
 
-    async def on_key(self, event: events.Key) -> None:
-        match event.key:
-            case 'down':
-                self.screen.focus_next()
-                event.stop()
-            case 'up':
-                self.screen.focus_previous()
-                event.stop()
-            case _:
-                pass
-
-    async def on_checkbox_changed(self, _event: Checkbox.Changed) -> None:
+    @on(Checkbox.Changed)
+    def handle_checkbox(self, _event: Checkbox.Changed) -> None:
         submit_button = self.screen.query_one('#submit', Button)
         submit_button.label = (
             _('Create selected files and start SongBeamer')
@@ -57,9 +55,7 @@ class UnifiedCheckbox(Checkbox):
             else _('Create selected files')
         )
         submit_button.disabled = not any(
-            cb.value
-            for cb in self.screen.query('Checkbox')
-            if isinstance(cb, UnifiedCheckbox)
+            cb.value for cb in self.screen.query(FocusCheckbox)
         )
         submit_button.refresh(layout=True)
 
@@ -76,29 +72,21 @@ class UnifiedCheckbox(Checkbox):
         )
 
 
-class UnifiedButton(Button):
+class FocusButton(Button):
     DEFAULT_CSS = """
-    UnifiedButton {
+    FocusButton {
         border: round $surface;
     }
-    UnifiedButton:focus {
+    FocusButton:focus {
         border: round $primary;
     }
     """
 
-    class Selected(Message):
-        pass
-
-    async def on_key(self, event: events.Key) -> None:
+    @on(Key)
+    def handle_space(self, event: Key) -> None:
         match event.key:
             case 'space':
-                self.post_message(self.Pressed(self))
-                event.stop()
-            case 'down':
-                self.screen.focus_next()
-                event.stop()
-            case 'up':
-                self.screen.focus_previous()
+                self.post_message(Button.Pressed(self))
                 event.stop()
             case _:
                 pass
@@ -148,31 +136,67 @@ class Footer(Horizontal):
         yield VerticalScroll(Static(id='footer'), can_focus=False)
 
 
-class InteractiveScreen(App[DownloadSelection]):
+class ExitScreen(ModalScreen[None]):
     DEFAULT_CSS = """
-    Screen {
+    ExitScreen {
         align: center middle;
     }
-    #submit {
-        align: right middle;
+
+    ExitScreen > Container {
+        width: 50%;
+        height: auto;
+        border: thick $background 80%;
+        background: $surface;
+    }
+
+    ExitScreen > Container > Label {
+        width: 100%;
+        content-align-horizontal: center;
+        margin: 1 2;
+    }
+
+    ExitScreen > Container > Center > Button {
+        margin: 2 4;
     }
     """
 
+    def compose(self) -> ComposeResult:
+        with Container():
+            yield Label('Something went wrong, we have to quit!')
+            with Center():
+                yield Button('Exit', id='exit', variant='error')
+
+    @on(Key)
+    def handle_space(self, event: Key) -> None:
+        match event.key:
+            case 'space':
+                self.post_message(Button.Pressed(self.query_one(Button)))
+                event.stop()
+            case _:
+                pass
+
+    @on(Button.Pressed, '#exit')
+    def exit_app(self) -> None:
+        self.app.exit()
+
+
+class InteractiveScreen(App[DownloadSelection]):
     def __init__(self, config: Configuration) -> None:
         super().__init__()
         self.config = config
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with Center():
-            yield UnifiedCheckbox(id='schedule', unicode=self.config.use_unicode_font)
-            yield UnifiedCheckbox(id='songs', unicode=self.config.use_unicode_font)
-            yield UnifiedCheckbox(id='files', unicode=self.config.use_unicode_font)
-            yield UnifiedCheckbox(id='slides', unicode=self.config.use_unicode_font)
-            yield UnifiedButton(id='submit')
+        with Center(), Middle():
+            yield FocusCheckbox(id='schedule', unicode=self.config.use_unicode_font)
+            yield FocusCheckbox(id='songs', unicode=self.config.use_unicode_font)
+            yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
+            yield FocusCheckbox(id='slides', unicode=self.config.use_unicode_font)
+            yield FocusButton(id='submit')
         yield Footer()
 
-    def on_mount(self) -> None:
+    @on(Mount)
+    def initialize(self) -> None:
         self.query_one('#header_label_left', Label).update(self.config.package_name)
         current_version = self.config.version
         latest_version = self.config.latest_version
@@ -215,7 +239,20 @@ class InteractiveScreen(App[DownloadSelection]):
         # Focus Button.
         self.query_one('#submit').focus()
 
-    def on_button_pressed(self, _message: Button.Pressed) -> None:
+    @on(Key)
+    def handle_focus(self, event: Key) -> None:
+        match event.key:
+            case 'down':
+                self.screen.focus_next()
+                event.stop()
+            case 'up':
+                self.screen.focus_previous()
+                event.stop()
+            case _:
+                pass
+
+    @on(Button.Pressed, '#submit')
+    def handle_button(self, _message: Button.Pressed) -> None:
         checkboxes = self.app.query(Checkbox)
         ds = DownloadSelection(**{cb.id: cb.value for cb in checkboxes if cb.id})
         self.app.exit(ds)
