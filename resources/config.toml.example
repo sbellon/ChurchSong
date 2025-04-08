@@ -3,7 +3,7 @@ log_level = "INFO"
 log_file = "./Logs/ChurchSong.log"
 
 [General.Interactive]
-use_unicode_font = True
+use_unicode_font = true
 
 [ChurchTools.Settings]
 base_url = "https://YOUR-DOMAIN.church.tools"
