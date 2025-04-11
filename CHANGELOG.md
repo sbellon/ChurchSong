@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.4 (2025-04-11)
 
 ### Changed
 - reworked visuals for a simpler design language
