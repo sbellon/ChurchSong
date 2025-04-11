@@ -17,9 +17,31 @@ from textual.content import Content
 from textual.events import Key, Mount
 from textual.screen import ModalScreen
 from textual.style import Style
+from textual.theme import Theme
 from textual.widgets import Button, Checkbox, Footer, Label, Static
 
 from churchsong.configuration import Configuration
+
+# Modified example theme: https://textual.textualize.io/guide/design/#registering-a-theme
+arctic_theme = Theme(
+    name='arctic',
+    primary='blue',
+    secondary='darkblue',
+    accent='orange',
+    foreground='lightgray',
+    background='black',
+    success='#A3BE8C',  # unused
+    warning='#EBCB8B',  # unused
+    error='#BF616A',  # unused
+    surface='#3B4252',  # unused
+    panel='darkblue',  # same as secondary
+    dark=True,
+    variables={
+        'block-cursor-text-style': 'none',  # unused
+        'footer-key-foreground': 'orange',  # same as accent
+        'input-selection-background': 'darkblue 35%',  # unused
+    },
+)
 
 
 @dataclasses.dataclass
@@ -33,20 +55,20 @@ class DownloadSelection:
 class FocusCheckbox(Checkbox):
     DEFAULT_CSS = """
     FocusCheckbox {
-        background: black;
-        border: black;
+        background: $background;
+        border: $background;
         &:focus {
-            border: round blue;
+            border: round $primary;
             & > .toggle--label {
-                color: $surface;
-                background: lightgrey;
+                color: $background;
+                background: $foreground;
             }
         }
         & > .toggle--button {
-            background: black;
+            background: $background;
         }
         &.-on > .toggle--button {
-            background: black;
+            background: $background;
         }
     }
     """
@@ -94,16 +116,16 @@ class FocusCheckbox(Checkbox):
 class FocusButton(Button):
     DEFAULT_CSS = """
     FocusButton {
-        background: black;
-        border: black;
+        background: $background;
+        border: $background;
         &:focus {
-            color: lightgrey;
-            background: black;
-            border: round blue;
+            color: $foreground;
+            background: $background;
+            border: round $primary;
         }
         &:hover {
-            background: black;
-            border: round blue;
+            background: $background;
+            border: round $primary;
         }
     }
     """
@@ -132,15 +154,15 @@ class Header(Horizontal):
     }
     #left {
         width: 75%;
-        background: blue;
+        background: $primary;
     }
     #right {
         width: 25%;
-        background: darkblue;
+        background: $secondary;
     }
     Label {
-        text-style: bold italic;
-        color: white;
+        text-style: bold;
+        color: $accent;
     }
     """
 
@@ -151,11 +173,14 @@ class Header(Horizontal):
             yield Label(id='header_label_right')
 
 
-class MyFooter(Horizontal):
+class NoticeFooter(Horizontal):
     DEFAULT_CSS = """
-    MyFooter {
-        height: 1;
-        background: blue;
+    NoticeFooter {
+        height: 2;
+        background: $primary;
+        & > VerticalScroll {
+            margin: 0 1;
+        }
     }
     """
 
@@ -205,12 +230,6 @@ class ExitScreen(ModalScreen[None]):
 
 
 class InteractiveScreen(App[DownloadSelection]):
-    DEFAULT_CSS = """
-    Container {
-        background: black;
-    }
-    """
-
     BINDINGS: typing.ClassVar[list[BindingType]] = [
         ('up', 'focus_previous', 'Up'),
         ('down', 'focus_next', 'Down'),
@@ -230,11 +249,14 @@ class InteractiveScreen(App[DownloadSelection]):
                 yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
                 yield FocusCheckbox(id='slides', unicode=self.config.use_unicode_font)
                 yield FocusButton(id='submit')
-            yield MyFooter()
+            yield NoticeFooter()
             yield Footer(show_command_palette=False)
 
     @on(Mount)
     def initialize(self) -> None:
+        self.register_theme(arctic_theme)
+        self.theme = 'arctic'
+
         self.query_one('#header_label_left', Label).update(self.config.package_name)
         current_version = self.config.version
         latest_version = self.config.latest_version
