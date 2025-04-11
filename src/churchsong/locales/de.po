@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-04-07 19:45+0200\n"
+"POT-Creation-Date: 2025-04-11 14:16+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -18,15 +18,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: src/churchsong/interactivescreen.py:55
-msgid "Create selected files and start SongBeamer"
-msgstr "Erzeuge ausgewählte Dateien und starte SongBeamer"
+#: src/churchsong/interactivescreen.py:72
+msgid "Execute: Create selected files and start SongBeamer"
+msgstr "Ausführen: Erzeuge ausgewählte Dateien und starte SongBeamer"
 
-#: src/churchsong/interactivescreen.py:57
-msgid "Create selected files"
-msgstr "Erzeuge ausgewählte Dateien"
+#: src/churchsong/interactivescreen.py:74
+msgid "Execute: Create selected files"
+msgstr "Ausführen: Erzeuge ausgewählte Dateien"
 
-#: src/churchsong/interactivescreen.py:183
+#: src/churchsong/interactivescreen.py:245
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -37,27 +37,23 @@ msgstr ""
 "Aktuelle Version: {}\n"
 "Neueste Version: {}"
 
-#: src/churchsong/interactivescreen.py:189
-msgid ""
-"Typically you want all options selected, but you can also disable parts if you already made local changes in a running SongBeamer instance and do not want to overwrite them.\n"
-"Use the Mouse or Cursor Keys and Space/Enter to (de)select and press Enter to confirm."
-msgstr ""
-"Im Normalfall einfach alle Optionen ausgewählt lassen, aber falls Teile im laufenden SongBeamer verändert wurden, kann man auch nur einzelne andere Teile neu erzeugen lassen.\n"
-"Auswahl mit der Maus oder den Cursor-Tasten und mit Leer-/Enter-Taste (de)aktivieren und Ausführen wählen zum Bestätigen."
+#: src/churchsong/interactivescreen.py:251
+msgid "Please make your desired choice. By default, all actions are activated."
+msgstr "Bitte die gewünschte Auswahl treffen. Ohne Änderung sind alle Schritte aktiv."
 
-#: src/churchsong/interactivescreen.py:200
+#: src/churchsong/interactivescreen.py:258
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr "Lade SongBeamer-Ablauf aus ChurchTools und starte SongBeamer"
 
-#: src/churchsong/interactivescreen.py:203
+#: src/churchsong/interactivescreen.py:261
 msgid "Download song files from ChurchTools"
 msgstr "Lade Lied-Dateien aus ChurchTools herunter"
 
-#: src/churchsong/interactivescreen.py:206
+#: src/churchsong/interactivescreen.py:264
 msgid "Download event files from ChurchTools"
 msgstr "Lade Event-Dateien aus ChurchTools herunter"
 
-#: src/churchsong/interactivescreen.py:209
+#: src/churchsong/interactivescreen.py:267
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
 

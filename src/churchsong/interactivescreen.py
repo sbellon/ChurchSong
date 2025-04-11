@@ -1,7 +1,9 @@
 import dataclasses
+import typing
 
 from textual import on
 from textual.app import App, ComposeResult
+from textual.binding import BindingType
 from textual.color import Color
 from textual.containers import (
     Center,
@@ -15,9 +17,31 @@ from textual.content import Content
 from textual.events import Key, Mount
 from textual.screen import ModalScreen
 from textual.style import Style
-from textual.widgets import Button, Checkbox, Label, Static
+from textual.theme import Theme
+from textual.widgets import Button, Checkbox, Footer, Label, Static
 
 from churchsong.configuration import Configuration
+
+# Modified example theme: https://textual.textualize.io/guide/design/#registering-a-theme
+arctic_theme = Theme(
+    name='arctic',
+    primary='blue',
+    secondary='darkblue',
+    accent='orange',
+    foreground='lightgray',
+    background='black',
+    success='#A3BE8C',  # unused
+    warning='#EBCB8B',  # unused
+    error='#BF616A',  # unused
+    surface='#3B4252',  # unused
+    panel='darkblue',  # same as secondary
+    dark=True,
+    variables={
+        'block-cursor-text-style': 'none',  # unused
+        'footer-key-foreground': 'orange',  # same as accent
+        'input-selection-background': 'darkblue 35%',  # unused
+    },
+)
 
 
 @dataclasses.dataclass
@@ -30,11 +54,28 @@ class DownloadSelection:
 
 class FocusCheckbox(Checkbox):
     DEFAULT_CSS = """
-    FocusCheckbox:focus {
-        border: round $primary;
-        color: $primary;
+    FocusCheckbox {
+        background: $background;
+        border: $background;
+        &:focus {
+            border: round $primary;
+            & > .toggle--label {
+                color: $background;
+                background: $foreground;
+            }
+        }
+        & > .toggle--button {
+            background: $background;
+        }
+        &.-on > .toggle--button {
+            background: $background;
+        }
     }
     """
+
+    BINDINGS: typing.ClassVar[list[BindingType]] = [
+        ('space | return | click', 'toggle_button', 'Toggle'),
+    ]
 
     def __init__(
         self,
@@ -50,9 +91,9 @@ class FocusCheckbox(Checkbox):
     def handle_checkbox(self, _event: Checkbox.Changed) -> None:
         submit_button = self.screen.query_one('#submit', Button)
         submit_button.label = (
-            _('Create selected files and start SongBeamer')
+            _('Execute: Create selected files and start SongBeamer')
             if self.screen.query_one('#schedule', Checkbox).value
-            else _('Create selected files')
+            else _('Execute: Create selected files')
         )
         submit_button.disabled = not any(
             cb.value for cb in self.screen.query(FocusCheckbox)
@@ -75,43 +116,53 @@ class FocusCheckbox(Checkbox):
 class FocusButton(Button):
     DEFAULT_CSS = """
     FocusButton {
-        border: round $surface;
-    }
-    FocusButton:focus {
-        border: round $primary;
+        background: $background;
+        border: $background;
+        &:focus {
+            color: $foreground;
+            background: $background;
+            border: round $primary;
+        }
+        &:hover {
+            background: $background;
+            border: round $primary;
+        }
     }
     """
 
+    # The key binding does *not* activate space, therefore we need the @on(Key) below.
+    # But it makes for a consistent appearance w.r.t. the FocusCheckbox key bindings.
+    BINDINGS: typing.ClassVar[list[BindingType]] = [
+        ('space | return | click', 'nonexisting_dummy', 'Select'),
+    ]
+
     @on(Key)
     def handle_space(self, event: Key) -> None:
-        match event.key:
-            case 'space':
-                self.post_message(Button.Pressed(self))
-                event.stop()
-            case _:
-                pass
+        if event.key == 'space':
+            self.press()
+            event.stop()
 
 
 class Header(Horizontal):
     DEFAULT_CSS = """
     Header {
-        height: 5;
+        height: 3;
         dock: top;
-        background: darkblue;
     }
     Vertical {
         align: center middle;
-        border: round white;
     }
     #left {
         width: 75%;
+        background: $primary;
     }
     #right {
         width: 25%;
+        background: $secondary;
     }
     Label {
-        text-style: bold italic;
-        color: white;
+        text-style: bold;
+        color: $accent;
     }
     """
 
@@ -122,13 +173,14 @@ class Header(Horizontal):
             yield Label(id='header_label_right')
 
 
-class Footer(Horizontal):
+class NoticeFooter(Horizontal):
     DEFAULT_CSS = """
-    Footer {
-        height: 5;
-        dock: bottom;
-        background: darkblue;
-        border: round white;
+    NoticeFooter {
+        height: 2;
+        background: $primary;
+        & > VerticalScroll {
+            margin: 0 1;
+        }
     }
     """
 
@@ -168,12 +220,9 @@ class ExitScreen(ModalScreen[None]):
 
     @on(Key)
     def handle_space(self, event: Key) -> None:
-        match event.key:
-            case 'space':
-                self.post_message(Button.Pressed(self.query_one(Button)))
-                event.stop()
-            case _:
-                pass
+        if event.key == 'space':
+            self.query_one(Button).press()
+            event.stop()
 
     @on(Button.Pressed, '#exit')
     def exit_app(self) -> None:
@@ -181,22 +230,33 @@ class ExitScreen(ModalScreen[None]):
 
 
 class InteractiveScreen(App[DownloadSelection]):
+    BINDINGS: typing.ClassVar[list[BindingType]] = [
+        ('up', 'focus_previous', 'Up'),
+        ('down', 'focus_next', 'Down'),
+        ('^q', 'quit', 'Quit'),
+    ]
+
     def __init__(self, config: Configuration) -> None:
         super().__init__()
         self.config = config
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Center(), Middle():
-            yield FocusCheckbox(id='schedule', unicode=self.config.use_unicode_font)
-            yield FocusCheckbox(id='songs', unicode=self.config.use_unicode_font)
-            yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
-            yield FocusCheckbox(id='slides', unicode=self.config.use_unicode_font)
-            yield FocusButton(id='submit')
-        yield Footer()
+        with Vertical():
+            yield Header()
+            with Container(), Center(), Middle():
+                yield FocusCheckbox(id='schedule', unicode=self.config.use_unicode_font)
+                yield FocusCheckbox(id='songs', unicode=self.config.use_unicode_font)
+                yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
+                yield FocusCheckbox(id='slides', unicode=self.config.use_unicode_font)
+                yield FocusButton(id='submit')
+            yield NoticeFooter()
+            yield Footer(show_command_palette=False)
 
     @on(Mount)
     def initialize(self) -> None:
+        self.register_theme(arctic_theme)
+        self.theme = 'arctic'
+
         self.query_one('#header_label_left', Label).update(self.config.package_name)
         current_version = self.config.version
         latest_version = self.config.latest_version
@@ -210,11 +270,7 @@ class InteractiveScreen(App[DownloadSelection]):
         )
         self.query_one('#header_label_right', Label).update(version)
         footer_text = _(
-            'Typically you want all options selected, but you can also disable parts '
-            'if you already made local changes in a running SongBeamer instance and '
-            'do not want to overwrite them.\n'
-            'Use the Mouse or Cursor Keys and Space/Enter to (de)select and press '
-            'Enter to confirm.'
+            'Please make your desired choice. By default, all actions are activated.'
         )
         self.query_one('#footer', Static).update(footer_text)
 
@@ -238,18 +294,6 @@ class InteractiveScreen(App[DownloadSelection]):
 
         # Focus Button.
         self.query_one('#submit').focus()
-
-    @on(Key)
-    def handle_focus(self, event: Key) -> None:
-        match event.key:
-            case 'down':
-                self.screen.focus_next()
-                event.stop()
-            case 'up':
-                self.screen.focus_previous()
-                event.stop()
-            case _:
-                pass
 
     @on(Button.Pressed, '#submit')
     def handle_button(self, _message: Button.Pressed) -> None:

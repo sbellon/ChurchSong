@@ -1,5 +1,11 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- reworked visuals for a simpler design language
+- updated external dependencies (pydantic)
+
 ## 0.7.3 (2025-04-06)
 
 ### Changed
