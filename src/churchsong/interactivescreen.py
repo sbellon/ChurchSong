@@ -17,31 +17,9 @@ from textual.content import Content
 from textual.events import Key, Mount
 from textual.screen import ModalScreen
 from textual.style import Style
-from textual.theme import Theme
 from textual.widgets import Button, Checkbox, Footer, Label, Static
 
 from churchsong.configuration import Configuration
-
-# Modified example theme: https://textual.textualize.io/guide/design/#registering-a-theme
-arctic_theme = Theme(
-    name='arctic',
-    primary='blue',
-    secondary='darkblue',
-    accent='orange',
-    foreground='lightgray',
-    background='black',
-    success='#A3BE8C',  # unused
-    warning='#EBCB8B',  # unused
-    error='#BF616A',  # unused
-    surface='#3B4252',  # unused
-    panel='darkblue',  # same as secondary
-    dark=True,
-    variables={
-        'block-cursor-text-style': 'none',  # unused
-        'footer-key-foreground': 'orange',  # same as accent
-        'input-selection-background': 'darkblue 35%',  # unused
-    },
-)
 
 
 @dataclasses.dataclass
@@ -153,24 +131,25 @@ class Header(Horizontal):
         align: center middle;
     }
     #left {
-        width: 75%;
+        width: 1fr;
         background: $primary;
     }
     #right {
-        width: 25%;
+        min-width: 1%;
+        width: auto;
         background: $secondary;
     }
     Label {
-        text-style: bold;
-        color: $accent;
+        margin: 0 1;
     }
     """
 
     def compose(self) -> ComposeResult:
-        with Vertical(id='left'):
-            yield Label(id='header_label_left')
-        with Vertical(id='right'):
-            yield Label(id='header_label_right')
+        with Horizontal():
+            with Vertical(id='left'):
+                yield Label(id='header_label_left')
+            with Vertical(id='right'):
+                yield Label(id='header_label_right')
 
 
 class NoticeFooter(Horizontal):
@@ -254,8 +233,7 @@ class InteractiveScreen(App[DownloadSelection]):
 
     @on(Mount)
     def initialize(self) -> None:
-        self.register_theme(arctic_theme)
-        self.theme = 'arctic'
+        self.theme = 'textual-dark'
 
         self.query_one('#header_label_left', Label).update(self.config.package_name)
         current_version = self.config.version

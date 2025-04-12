@@ -1,5 +1,11 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- minor style tweaks
+- updated external dependencies (textual)
+
 ## 0.7.4 (2025-04-11)
 
 ### Changed
