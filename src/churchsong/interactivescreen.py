@@ -236,17 +236,15 @@ class InteractiveScreen(App[DownloadSelection]):
         self.theme = 'textual-dark'
 
         self.query_one('#header_label_left', Label).update(self.config.package_name)
-        current_version = self.config.version
+        version_label = self.query_one('#header_label_right', Label)
+        version = self.config.version
         latest_version = self.config.latest_version
-        update_available = latest_version and latest_version != current_version
-        version = (
-            current_version
-            if not update_available
-            else _('Update available\nCurrent version: {}\nLatest version: {}').format(
-                current_version, latest_version
-            )
-        )
-        self.query_one('#header_label_right', Label).update(version)
+        if latest_version and latest_version != version:
+            version = _(
+                'Update available\nCurrent version: {}\nLatest version: {}'
+            ).format(version, latest_version)
+            version_label.styles.color = self.current_theme.accent
+        version_label.update(version)
         footer_text = _(
             'Please make your desired choice. By default, all actions are activated.'
         )

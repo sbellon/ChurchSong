@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-04-11 14:16+0200\n"
+"POT-Creation-Date: 2025-04-12 16:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -25,7 +25,7 @@ msgstr ""
 msgid "Execute: Create selected files"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:245
+#: src/churchsong/interactivescreen.py:244
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -33,23 +33,23 @@ msgid ""
 "Latest version: {}"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:251
+#: src/churchsong/interactivescreen.py:249
 msgid "Please make your desired choice. By default, all actions are activated."
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:258
+#: src/churchsong/interactivescreen.py:256
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:261
+#: src/churchsong/interactivescreen.py:259
 msgid "Download song files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:264
+#: src/churchsong/interactivescreen.py:262
 msgid "Download event files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:267
+#: src/churchsong/interactivescreen.py:265
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr ""
 
