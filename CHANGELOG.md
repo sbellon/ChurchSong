@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.7.5 (2025-04-12)
 
 ### Changed
 - minor style tweaks (use textual-dark theme, highlight available update)
