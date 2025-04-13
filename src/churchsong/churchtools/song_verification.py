@@ -53,7 +53,9 @@ SONG_CHECKS: typing.Final[
                             (
                                 'miss "EN/DE"'
                                 if any(
-                                    line.startswith('#LangCount=2')
+                                    line.startswith(
+                                        ('#LangCount=2', '#LangCount=3', '#LangCount=4')
+                                    )
                                     for line in arr.sng_file_content
                                 )
                                 and not contains('EN/DE', song.tags)
@@ -107,16 +109,37 @@ SONG_CHECKS: typing.Final[
         (
             '#Lang',
             lambda song, arrangements: [
-                miss_if(
-                    contains('EN/DE', song.tags)
-                    and not any(
-                        line.startswith(
-                            ('#LangCount=2', '#LangCount=3', '#LangCount=4')
-                        )
-                        for line in arr.sng_file_content
+                ', '.join(
+                    filter(
+                        None,  # remove all falsy elements to not join them
+                        [  # now the list of individual tag checks ...
+                            (
+                                'miss #LangCount'
+                                if contains('EN/DE', song.tags)
+                                and arr.sng_file_content
+                                and not any(
+                                    line.startswith(
+                                        ('#LangCount=2', '#LangCount=3', '#LangCount=4')
+                                    )
+                                    for line in arr.sng_file_content
+                                )
+                                else ''
+                            ),
+                            (
+                                'miss #TitleLang'
+                                if contains('EN/DE', song.tags)
+                                and arr.sng_file_content
+                                and not any(
+                                    line.startswith(
+                                        ('#TitleLang2', '#TitleLang3', '#TitleLang4')
+                                    )
+                                    for line in arr.sng_file_content
+                                )
+                                else ''
+                            ),
+                            # ... add further tag checks here ...
+                        ],
                     )
-                    if arr.sng_file_content
-                    else False
                 )
                 for arr in arrangements
             ],
