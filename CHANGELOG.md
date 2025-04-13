@@ -5,6 +5,10 @@
 ### Added
 - 'songs verify' now also checks whether "EN/DE" songs have a #TitleLang2 set
 
+### Fixed
+- interactive screen: make container with checkboxes and submit button scrollable
+  in case terminal window is too small
+
 ## 0.7.5 (2025-04-12)
 
 ### Changed

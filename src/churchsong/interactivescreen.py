@@ -5,18 +5,12 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import BindingType
 from textual.color import Color
-from textual.containers import (
-    Center,
-    Container,
-    Horizontal,
-    Middle,
-    Vertical,
-    VerticalScroll,
-)
+from textual.containers import Center, Container, Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.events import Key, Mount
 from textual.screen import ModalScreen
 from textual.style import Style
+from textual.widget import Widget
 from textual.widgets import Button, Checkbox, Footer, Label, Static
 
 from churchsong.configuration import Configuration
@@ -28,6 +22,18 @@ class DownloadSelection:
     songs: bool
     files: bool
     slides: bool
+
+
+class ScrollableCenterMiddle(Widget):
+    DEFAULT_CSS = """
+    ScrollableCenterMiddle {
+        width: 1fr;
+        height: 1fr;
+        layout: vertical;
+        overflow: auto auto;
+        align: center middle;
+    }
+    """
 
 
 class FocusCheckbox(Checkbox):
@@ -222,7 +228,7 @@ class InteractiveScreen(App[DownloadSelection]):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Header()
-            with Container(), Center(), Middle():
+            with ScrollableCenterMiddle():
                 yield FocusCheckbox(id='schedule', unicode=self.config.use_unicode_font)
                 yield FocusCheckbox(id='songs', unicode=self.config.use_unicode_font)
                 yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
