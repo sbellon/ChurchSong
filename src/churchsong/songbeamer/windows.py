@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024-2025 Stefan Bellon
+#
+# SPDX-License-Identifier: MIT
+
 import sys
 
 if sys.platform == 'win32':
