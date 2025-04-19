@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.8.0 (2025-04-19)
 
 ### Added
 - 'songs verify' now also checks whether "EN/DE" songs have a #TitleLang2 set
