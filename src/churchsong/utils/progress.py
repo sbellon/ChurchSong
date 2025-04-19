@@ -2,23 +2,22 @@
 #
 # SPDX-License-Identifier: MIT
 
-from rich.console import Console
+from rich.console import Console, JustifyMethod
+from rich.highlighter import Highlighter
 from rich.progress import (
     BarColumn,
-    Highlighter,
-    JustifyMethod,
     MofNCompleteColumn,
     Progress,
-    StyleType,
     Task,
     TaskProgressColumn,
-    Text,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
 from rich.progress_bar import ProgressBar
+from rich.style import StyleType
 from rich.table import Column
+from rich.text import Text
 from rich.theme import Theme
 
 
