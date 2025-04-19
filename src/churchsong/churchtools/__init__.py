@@ -153,6 +153,8 @@ class EventFile(pydantic.BaseModel):
 
 class EventFull(pydantic.BaseModel):
     id: int
+    start_date: datetime.datetime = pydantic.Field(alias='startDate')
+    end_date: datetime.datetime = pydantic.Field(alias='endDate')
     event_files: list[EventFile] = pydantic.Field(alias='eventFiles')
     event_services: list[EventService] = pydantic.Field(alias='eventServices')
 

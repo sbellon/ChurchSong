@@ -10,7 +10,6 @@ import sys
 import typing
 from collections import defaultdict
 
-import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import openpyxl
 import openpyxl.styles
 import openpyxl.utils
@@ -18,6 +17,7 @@ import prettytable
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration
+from churchsong.utils.progress import progress
 
 
 # The values of FormatType are the accepted formats of prettytable and openpyxl.
@@ -138,14 +138,13 @@ class ChurchToolsSongStatistics:
 
         # Iterate over events and songs and count usage.
         song_counts: dict[tuple[int, str], int] = defaultdict(int)
-        with alive_progress.alive_bar(
-            title='Calculating statistics', spinner=None, receipt=False
-        ) as bar:  # pyright: ignore[reportUnknownVariableType]
+        with progress:
+            task = progress.add_task('Calculating statistics', total=None)
             for event in self.cta.get_events(from_date, to_date):
                 _, songs = self.cta.get_songs(event, require_tags=False)
                 for song in songs:
                     song_counts[song.id, song.name or f'#{song.id}'] += 1
-                    bar()
+                    progress.advance(task)
 
         for (song_id, song_name), count in sorted(
             song_counts.items(), key=lambda s: (-s[1], s[0][1])

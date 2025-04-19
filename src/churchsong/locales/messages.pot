@@ -6,9 +6,10 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: ChurchSong 0.6.3\n"
+"Project-Id-Version: ChurchSong 0.7.5\n"
+"\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-04-12 16:57+0200\n"
+"POT-Creation-Date: 2025-04-19 10:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Stefan Bellon\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,15 +18,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: src/churchsong/interactivescreen.py:72
+#: src/churchsong/interactivescreen.py:82
 msgid "Execute: Create selected files and start SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:74
+#: src/churchsong/interactivescreen.py:84
 msgid "Execute: Create selected files"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:244
+#: src/churchsong/interactivescreen.py:254
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -33,27 +34,27 @@ msgid ""
 "Latest version: {}"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:249
+#: src/churchsong/interactivescreen.py:259
 msgid "Please make your desired choice. By default, all actions are activated."
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:256
+#: src/churchsong/interactivescreen.py:266
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:259
+#: src/churchsong/interactivescreen.py:269
 msgid "Download song files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:262
+#: src/churchsong/interactivescreen.py:272
 msgid "Download event files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:265
+#: src/churchsong/interactivescreen.py:275
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr ""
 
-#: src/churchsong/songbeamer/__init__.py:280
+#: src/churchsong/songbeamer/__init__.py:284
 msgid ""
 "SongBeamer is already running.\n"
 "\n"
@@ -70,3 +71,4 @@ msgid ""
 "\n"
 "Click OK to continue.\n"
 msgstr ""
+

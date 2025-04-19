@@ -8,8 +8,6 @@ import os
 import re
 from collections import defaultdict
 
-import alive_progress  # pyright: ignore[reportMissingTypeStubs]
-
 from churchsong.churchtools import (
     ChurchToolsAPI,
     EventAgendaItem,
@@ -19,6 +17,7 @@ from churchsong.churchtools import (
     File,
 )
 from churchsong.configuration import Configuration
+from churchsong.utils.progress import progress
 
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:
@@ -112,21 +111,19 @@ class ChurchToolsEvent:
     ) -> list[Item]:
         self._log.info('Downloading agenda items and songs')
         agenda_items: list[Item] = []
-        with alive_progress.alive_bar(
-            len(self._event.event_files) + len(self._agenda.items),
-            length=20,
-            title='Downloading: Agenda',
-            title_length=32,
-            spinner=None,
-            receipt=False,
-        ) as bar:  # pyright: ignore[reportUnknownVariableType]
+        with progress:
+            task = progress.add_task(
+                f'Downloading: Agenda for {self._event.start_date:%Y-%m-%d}',
+                total=len(self._event.event_files) + len(self._agenda.items),
+            )
 
-            def progress() -> None:
-                bar.title = f'Downloading: {item.title}'
-                bar()
+            def update_progress() -> None:
+                progress.update(
+                    task, description=f'Downloading: {item.title}', advance=1
+                )
 
             for item in self._event.event_files:
-                progress()
+                update_progress()
                 match item.domain_type:
                     case EventFileDomainType.FILE:
                         filename = self._download_file(
@@ -147,14 +144,14 @@ class ChurchToolsEvent:
             for item in self._agenda.items:
                 match item.type:
                     case EventAgendaItemType.HEADER:
-                        progress()
+                        update_progress()
                         agenda_item = Item(ItemType.HEADER, item.title)
                     case EventAgendaItemType.NORMAL:
-                        progress()
+                        update_progress()
                         agenda_item = Item(ItemType.NORMAL, item.title)
                     case EventAgendaItemType.SONG:
                         sng_file = self._sng_file(item)
-                        progress()
+                        update_progress()
                         filename = (
                             self._download_file(
                                 item.title,

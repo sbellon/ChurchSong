@@ -7,6 +7,7 @@
 import contextlib
 import os
 import pathlib
+import subprocess
 import typing
 
 from babel.messages.frontend import CommandLineInterface
@@ -35,7 +36,10 @@ class Babel:
         self.locale_dir = locale_dir
         self.pot_file = locale_dir / 'messages.pot'
         babel = CommandLineInterface()
-        self.run = typing.cast('Babel.RunType', babel.run)  # pyright: ignore[reportUnknownMemberType]
+        self.run = typing.cast(
+            'Babel.RunType',
+            babel.run,  # pyright: ignore[reportUnknownMemberType]
+        )
 
     def extract(self) -> None:
         with working_directory(self.root_dir):
@@ -43,11 +47,32 @@ class Babel:
                 [
                     'pybabel',
                     'extract',
+                    '--project',
+                    'ChurchSong',
+                    '--version',
+                    subprocess.check_output(
+                        ['ChurchSong', 'self', 'version'],  # noqa: S607
+                        text=True,
+                    ),
+                    '--copyright-holder',
+                    'Stefan Bellon',
+                    '--msgid-bugs-address',
+                    'https://github.com/sbellon/ChurchSong/issues',
+                    '--last-translator',
+                    'Stefan Bellon',
                     '-o',
                     os.fspath(self.pot_file),
                     os.fspath(self.src_dir),
                 ]
             )
+
+    def patch(self) -> None:
+        with working_directory(self.root_dir):
+            with self.pot_file.open('r') as fd:
+                content = fd.read()
+            content = content.replace('FIRST AUTHOR <EMAIL@ADDRESS>', 'Stefan Bellon')
+            with self.pot_file.open('w') as fd:
+                fd.write(content)
 
     def update(self, language: str) -> None:
         with working_directory(self.root_dir):
@@ -77,6 +102,7 @@ def main() -> None:
     )
 
     babel.extract()
+    babel.patch()
     for language in LANGUAGES:
         babel.update(language)
 

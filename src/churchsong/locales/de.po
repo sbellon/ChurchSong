@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-04-12 16:57+0200\n"
+"POT-Creation-Date: 2025-04-19 10:44+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: Stefan Bellon\n"
 "Language: de\n"
@@ -18,15 +18,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: src/churchsong/interactivescreen.py:72
+#: src/churchsong/interactivescreen.py:82
 msgid "Execute: Create selected files and start SongBeamer"
 msgstr "Ausführen: Erzeuge ausgewählte Dateien und starte SongBeamer"
 
-#: src/churchsong/interactivescreen.py:74
+#: src/churchsong/interactivescreen.py:84
 msgid "Execute: Create selected files"
 msgstr "Ausführen: Erzeuge ausgewählte Dateien"
 
-#: src/churchsong/interactivescreen.py:244
+#: src/churchsong/interactivescreen.py:254
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -37,27 +37,27 @@ msgstr ""
 "Aktuelle Version: {}\n"
 "Neueste Version: {}"
 
-#: src/churchsong/interactivescreen.py:249
+#: src/churchsong/interactivescreen.py:259
 msgid "Please make your desired choice. By default, all actions are activated."
 msgstr "Bitte die gewünschte Auswahl treffen. Ohne Änderung sind alle Schritte aktiv."
 
-#: src/churchsong/interactivescreen.py:256
+#: src/churchsong/interactivescreen.py:266
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr "Lade SongBeamer-Ablauf aus ChurchTools und starte SongBeamer"
 
-#: src/churchsong/interactivescreen.py:259
+#: src/churchsong/interactivescreen.py:269
 msgid "Download song files from ChurchTools"
 msgstr "Lade Lied-Dateien aus ChurchTools herunter"
 
-#: src/churchsong/interactivescreen.py:262
+#: src/churchsong/interactivescreen.py:272
 msgid "Download event files from ChurchTools"
 msgstr "Lade Event-Dateien aus ChurchTools herunter"
 
-#: src/churchsong/interactivescreen.py:265
+#: src/churchsong/interactivescreen.py:275
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
 
-#: src/churchsong/songbeamer/__init__.py:280
+#: src/churchsong/songbeamer/__init__.py:284
 msgid ""
 "SongBeamer is already running.\n"
 "\n"
@@ -87,3 +87,4 @@ msgstr ""
 "Die PowerPoint-Folien werden in allen Fällen aktualisiert!\n"
 "\n"
 "Klicke OK um Fortzufahren.\n"
+
