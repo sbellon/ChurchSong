@@ -10,10 +10,8 @@ import sys
 import typing
 from collections import defaultdict
 
-import openpyxl
-import openpyxl.styles
-import openpyxl.utils
 import prettytable
+import xlsxwriter
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration
@@ -75,32 +73,27 @@ class AsciiFormatter(BaseFormatter):
 class ExcelFormatter(BaseFormatter):
     def __init__(self, title: str, *, filename: pathlib.Path) -> None:
         self._filename = filename
-        self._workbook = openpyxl.Workbook()
-        for worksheet in self._workbook.worksheets:
-            self._workbook.remove(worksheet)
-        self._worksheet = self._workbook.create_sheet(title=title)
-        self._alignleft = openpyxl.styles.Alignment(horizontal='left')
-        self._alignright = openpyxl.styles.Alignment(horizontal='right')
+        self._workbook = xlsxwriter.Workbook(str(self._filename))
+        self._worksheet = self._workbook.add_worksheet(name=title)
+
+        self._align_left = self._workbook.add_format({'align': 'left'})
+        self._align_right = self._workbook.add_format({'align': 'right'})
+
+        self._row_index = 0
+        self._col_widths = [len(col) for col in self._columns]
         self.add_row(self._columns)
 
     def add_row(self, row: list[str]) -> None:
-        self._worksheet.append(row)
-        self._worksheet.cell(
-            row=self._worksheet.max_row, column=1
-        ).alignment = self._alignright
-        self._worksheet.cell(
-            row=self._worksheet.max_row, column=2
-        ).alignment = self._alignleft
-        self._worksheet.cell(
-            row=self._worksheet.max_row, column=3
-        ).alignment = self._alignright
+        formats = [self._align_right, self._align_left, self._align_right]
+        for col_index, (value, fmt) in enumerate(zip(row, formats, strict=True)):
+            self._worksheet.write(self._row_index, col_index, value, fmt)
+            self._col_widths[col_index] = max(self._col_widths[col_index], len(value))
+        self._row_index += 1
 
     def done(self) -> None:
-        for i, column in enumerate(self._worksheet.columns):
-            self._worksheet.column_dimensions[
-                openpyxl.utils.get_column_letter(i + 1)
-            ].width = 1 + max(len(str(cell.value)) for cell in column)
-        self._workbook.save(self._filename)
+        for col_index, width in enumerate(self._col_widths):
+            self._worksheet.set_column(col_index, col_index, width + 1)
+        self._workbook.close()
 
 
 class ChurchToolsSongStatistics:
