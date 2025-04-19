@@ -37,8 +37,9 @@ class Babel:
         self.pot_file = locale_dir / 'messages.pot'
         babel = CommandLineInterface()
         self.run = typing.cast(
-            'Babel.RunType', babel.run
-        )  # pyright: ignore[reportUnknownMemberType]
+            'Babel.RunType',
+            babel.run,  # pyright: ignore[reportUnknownMemberType]
+        )
 
     def extract(self) -> None:
         with working_directory(self.root_dir):
@@ -49,7 +50,10 @@ class Babel:
                     '--project',
                     'ChurchSong',
                     '--version',
-                    subprocess.check_output(['ChurchSong', '-v'], text=True),
+                    subprocess.check_output(
+                        ['ChurchSong', 'self', 'version'],  # noqa: S607
+                        text=True,
+                    ),
                     '--copyright-holder',
                     'Stefan Bellon',
                     '--msgid-bugs-address',
