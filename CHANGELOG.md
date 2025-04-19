@@ -9,6 +9,13 @@
 - interactive screen: make container with checkboxes and submit button scrollable
   in case terminal window is too small
 
+### Changed
+- 'songs verify' switches --exclude_tags, --include_tags, and --execute_checks now
+  require comma-separation if multiple tags/checks are specified per option
+- internal refactorings
+  (use 'typer' for command-line parsing, use 'rich.progress' for progress bars)
+- updated external dependencies
+
 ## 0.7.5 (2025-04-12)
 
 ### Changed

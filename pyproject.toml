@@ -13,7 +13,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
-    "alive-progress>=3.2.0",
     "openpyxl>=3.1.5",
     "platformdirs>=4.3.6",
     "polib>=1.2.0",
@@ -24,6 +23,7 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=14.0.0",
     "textual>=3.0.1",
+    "typer>=0.15.2",
 ]
 
 [project.urls]
@@ -35,9 +35,7 @@ Changelog = "https://github.com/sbellon/ChurchSong/blob/main/CHANGELOG.md"
 ChurchSong = "churchsong.__main__:main"
 
 [dependency-groups]
-dev = [
-    "babel>=2.17.0",
-]
+dev = ["babel>=2.17.0"]
 lint = ["pyright>=1.1.387", "ruff>=0.7.5"]
 
 [tool.uv]
@@ -70,6 +68,8 @@ ignore = [
     "COM812", # missing-trailing-comma
     "S113",   # request-without-timeout
     "S603",   # subprocess-without-shell-equals-true
+    "FBT001", # boolean-type-hint-positional-argument
+    "FBT002", # boolean-default-value-positional-argument
 ]
 
 [tool.ruff.lint.flake8-quotes]

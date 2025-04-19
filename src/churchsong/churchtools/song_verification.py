@@ -9,14 +9,14 @@ import sys
 import typing
 from collections import OrderedDict, defaultdict
 
-import alive_progress  # pyright: ignore[reportMissingTypeStubs]
 import prettytable
 
 from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
 from churchsong.configuration import Configuration
+from churchsong.utils.progress import progress
 
 
-def miss_if(b: bool) -> str:  # noqa: FBT001
+def miss_if(b: bool) -> str:
     return 'miss' if b else ''
 
 
@@ -221,10 +221,10 @@ class ChurchToolsSongVerification:
             else None
         )
         number_songs, songs = self.cta.get_songs(event)
-        with alive_progress.alive_bar(
-            number_songs, title='Verifying Songs', spinner=None, receipt=False
-        ) as bar:  # pyright: ignore[reportUnknownVariableType]
-            for song in songs:
+        with progress:
+            for song in progress.track(
+                songs, description='Verifying Songs', total=number_songs
+            ):
                 # Apply include and exclude tag switches.
                 if (
                     include_tags
@@ -233,7 +233,6 @@ class ChurchToolsSongVerification:
                     exclude_tags
                     and any(contains(tag, song.tags) for tag in exclude_tags)
                 ):
-                    bar()
                     continue
 
                 if song.ccli:
@@ -281,7 +280,6 @@ class ChurchToolsSongVerification:
                                 *check_result,
                             ]
                         )
-                bar()
 
         output_duplicates = ''
         for ccli_no, song_ids in sorted(ccli2ids.items()):
