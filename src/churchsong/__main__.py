@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import dataclasses
 import datetime
 import os
 import pathlib
@@ -22,6 +23,7 @@ from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
+from churchsong.utils import flattened_split
 from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
 
 rich.traceback.install(show_locals=True)
@@ -55,16 +57,19 @@ def callback(
         is_eager=True,
     ),
 ) -> None:
-    if ctx.invoked_subcommand is None:
-        ctx.obj.log.info('Starting interactive screen')
-        if selection := InteractiveScreen(ctx.obj).run():
-            ctx.obj.log.info(selection)
-            _handle_agenda(now(), ctx.obj, selection)
-    elif (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
-        print(
-            f'Note: Update to version {latest} possible via '
-            f'"{ctx.obj.package_name} self update"'
-        )
+    match ctx.invoked_subcommand:
+        case None:
+            ctx.obj.log.info('Starting interactive screen')
+            if selection := InteractiveScreen(ctx.obj).run():
+                _handle_agenda(now(), ctx.obj, selection)
+        case 'version':
+            if (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
+                print(
+                    f'Note: Update to version {latest} possible via '
+                    f'"{ctx.obj.package_name} self update"'
+                )
+        case _:
+            pass
 
 
 @app.command(help='Create SongBeamer agenda.')
@@ -80,7 +85,6 @@ def agenda(
         ),
     ],
 ) -> None:
-    ctx.obj.log.info('Starting %s agenda with DATE=%s', ctx.obj.package_name, date)
     selection = DownloadSelection(schedule=True, songs=True, files=True, slides=True)
     _handle_agenda(date, ctx.obj, selection)
 
@@ -105,7 +109,6 @@ def verify(  # noqa: PLR0913
         typer.Option(
             '--exclude_tags',
             metavar='TAG,TAG,...',
-            parser=lambda s: s.split(','),
             default_factory=list,
             show_default='NONE',
             help='Song tags that should be excluded from verification.',
@@ -116,7 +119,6 @@ def verify(  # noqa: PLR0913
         typer.Option(
             '--include_tags',
             metavar='TAG,TAG,...',
-            parser=lambda s: s.split(','),
             default_factory=list,
             show_default='ALL',
             help='Song tags that should be included in verification.',
@@ -127,7 +129,6 @@ def verify(  # noqa: PLR0913
         typer.Option(
             '--execute_checks',
             metavar='TAG,TAG,...',
-            parser=lambda s: s.split(','),
             default_factory=list,
             show_default='ALL',
             help='Checks to execute (header names of result table).',
@@ -137,22 +138,21 @@ def verify(  # noqa: PLR0913
         bool,
         typer.Option(
             '--all_arrangements',
-            help='Check all arrangements of the songs instead of just the default.',
+            help='Check all arrangements of the songs '
+            'instead of just the default arrangement.',
         ),
     ] = False,
 ) -> None:
     ctx.obj.log.info(
-        'Starting %s song verification with FROM_DATE=%s',
-        ctx.obj.package_name,
-        date,
+        'Starting %s song verification with DATE=%s', ctx.obj.package_name, date
     )
     cta = ChurchToolsAPI(ctx.obj)
     ctsv = ChurchToolsSongVerification(cta, ctx.obj)
     ctsv.verify_songs(
-        from_date=date,
-        include_tags=[tag for group in include_tags for tag in group],  # flatten
-        exclude_tags=[tag for group in exclude_tags for tag in group],  # flatten
-        execute_checks=[tag for group in execute_checks for tag in group],  # flatten
+        date=date,
+        include_tags=flattened_split(include_tags),
+        exclude_tags=flattened_split(exclude_tags),
+        execute_checks=flattened_split(execute_checks),
         all_arrangements=all_arrangements,
     )
 
@@ -187,6 +187,7 @@ def usage(
         FormatType,
         typer.Option(
             '--format',
+            case_sensitive=False,
             help='Define output format.',
         ),
     ] = FormatType.TEXT,
@@ -237,7 +238,7 @@ def update(ctx: typer.Context) -> None:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         ctx.obj.log.fatal(f'"uv self update" failed: {e}')
-        raise
+        raise typer.Exit(e.returncode) from None
     # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
     # "exec" instead of starting a subprocess.
     cmd = [
@@ -257,6 +258,8 @@ def update(ctx: typer.Context) -> None:
 def _handle_agenda(
     date: datetime.datetime, config: Configuration, selection: DownloadSelection
 ) -> None:
+    sel = '' if all(dataclasses.asdict(selection).values()) else f' and {selection}'
+    config.log.info('Starting %s agenda with DATE=%s%s', config.package_name, date, sel)
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
