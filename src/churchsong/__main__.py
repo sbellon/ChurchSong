@@ -22,7 +22,7 @@ from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
-from churchsong.utils.date import DateRange, parse_datetime, parse_year_range
+from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
 
 rich.traceback.install(show_locals=True)
 
@@ -59,7 +59,7 @@ def callback(
         ctx.obj.log.info('Starting interactive screen')
         if selection := InteractiveScreen(ctx.obj).run():
             ctx.obj.log.info(selection)
-            _handle_agenda(datetime.datetime.now(tz=datetime.UTC), ctx.obj, selection)
+            _handle_agenda(now(), ctx.obj, selection)
     elif (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
         print(
             f'Note: Update to version {latest} possible via '
@@ -74,8 +74,8 @@ def agenda(
         datetime.datetime,
         typer.Argument(
             parser=parse_datetime,
-            default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat(),
-            show_default=f'{datetime.datetime.now(datetime.UTC):%Y-%m-%d}',
+            default_factory=lambda: now().isoformat(),
+            show_default=f'{now():%Y-%m-%d}',
             help='Search in ChurchTools for next event >= DATE (YYYY-MM-DD).',
         ),
     ],
@@ -94,8 +94,8 @@ def verify(  # noqa: PLR0913
         datetime.datetime,
         typer.Argument(
             parser=parse_datetime,
-            default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat(),
-            show_default=f'{datetime.datetime.now(datetime.UTC):%Y-%m-%d}',
+            default_factory=lambda: now().isoformat(),
+            show_default=f'{now():%Y-%m-%d}',
             help='Verify only songs of next event >= DATE (YYYY-MM-DD), or "all".',
         ),
     ],
@@ -169,7 +169,7 @@ def usage(
             metavar='[YEAR|YEAR-YEAR]',
             parser=parse_year_range,
             default_factory=lambda: '',
-            show_default=f'{datetime.datetime.now(datetime.UTC):%Y}',
+            show_default=f'{now():%Y}',
             help='Calculate song usage statistics for given year or range (YYYY-YYYY).',
         ),
     ],
@@ -198,8 +198,8 @@ def usage(
         year_range.to_date.year,
     )
     cta = ChurchToolsAPI(ctx.obj)
-    ctsv = ChurchToolsSongStatistics(cta, ctx.obj)
-    ctsv.song_usage(
+    ctss = ChurchToolsSongStatistics(cta, ctx.obj)
+    ctss.song_usage(
         from_date=year_range.from_date,
         to_date=year_range.to_date,
         output_file=output_file,

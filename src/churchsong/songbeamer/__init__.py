@@ -14,9 +14,7 @@ from rich import print  # noqa: A004
 
 from churchsong import utils
 from churchsong.churchtools.events import Item
-
-if typing.TYPE_CHECKING:
-    from churchsong.configuration import Configuration, SongBeamerColorConfig
+from churchsong.configuration import Configuration, SongBeamerColorConfig
 
 r"""
 SongBeamer agenda items look something like this:
@@ -193,7 +191,7 @@ class AgendaItem:
 
 
 class Agenda:
-    def __init__(self, *, colors: 'SongBeamerColorConfig') -> None:
+    def __init__(self, *, colors: SongBeamerColorConfig) -> None:
         self._agenda_items: list[AgendaItem] = []
         self._colors = colors
 
@@ -236,7 +234,7 @@ class Agenda:
 
 
 class SongBeamer:
-    def __init__(self, config: 'Configuration') -> None:
+    def __init__(self, config: Configuration) -> None:
         self._log = config.log
         self._app_name = config.package_name
         self._temp_dir = config.temp_dir.resolve()
