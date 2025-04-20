@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-from __future__ import annotations
-
 import gettext
 import importlib.metadata
 import importlib.resources
@@ -20,6 +18,8 @@ import platformdirs
 import polib
 import pydantic
 import requests
+import typer
+from rich import print  # noqa: A004
 
 from churchsong import utils
 
@@ -139,15 +139,17 @@ class Configuration:
             with self._config_toml.open('rb') as fd:
                 self._config = TomlConfig(**tomllib.load(fd))
         except FileNotFoundError:
-            sys.stderr.write(
-                f'Error: Configuration file "{self._config_toml}" not found\n'
+            print(
+                f'Error: Configuration file "{self._config_toml}" not found',
+                file=sys.stderr,
             )
-            sys.exit(1)
+            raise typer.Exit(1) from None
         except UnicodeDecodeError as e:
-            sys.stderr.write(
-                f'Error: Configuration file "{self._config_toml}" in invalid: {e}'
+            print(
+                f'Error: Configuration file "{self._config_toml}" in invalid: {e}',
+                file=sys.stderr,
             )
-            sys.exit(1)
+            raise typer.Exit(1) from None
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise

@@ -11,7 +11,9 @@ import typing
 from collections import defaultdict
 
 import prettytable
+import typer
 import xlsxwriter
+from rich import print  # noqa: A004
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration
@@ -44,11 +46,15 @@ class BaseFormatter(abc.ABC):
 
 class AsciiFormatter(BaseFormatter):
     def __init__(
-        self, title: str, *, output_format: str, filename: pathlib.Path | None = None
+        self,
+        title: str,
+        *,
+        output_format: FormatType,
+        filename: pathlib.Path | None = None,
     ) -> None:
         self._filename = filename
         self._output_format = output_format
-        self._title = f'{title}\n' if output_format == 'text' else ''
+        self._title = f'{title}\n' if output_format == FormatType.TEXT else ''
         self._table = prettytable.PrettyTable()
         self._table.field_names = self._columns
         self._table.align['Id'] = 'r'
@@ -60,14 +66,14 @@ class AsciiFormatter(BaseFormatter):
 
     def done(self) -> None:
         table_text = self._table.get_formatted_string(  # pyright: ignore[reportUnknownMemberType]
-            out_format=self._output_format, print_empty=False
+            out_format=self._output_format.value, print_empty=False
         )
-        text = f'{self._title}{table_text}\n'
+        text = f'{self._title}{table_text}'
         if self._filename:
             with self._filename.open('w', encoding='utf-8') as fd:
-                fd.write(text)
+                fd.write(f'{text}\n')
         else:
-            sys.stdout.write(text)
+            print(text)
 
 
 class ExcelFormatter(BaseFormatter):
@@ -107,7 +113,7 @@ class ChurchToolsSongStatistics:
         to_date: datetime.datetime,
         *,
         output_file: pathlib.Path | None = None,
-        output_format: str,
+        output_format: FormatType,
     ) -> None:
         self._log.info('Building song usage statistics')
 
@@ -117,12 +123,13 @@ class ChurchToolsSongStatistics:
             else f'{from_date.year}'
         )
         title = f'Song statistics for {year_range}'
-        if output_format == 'xlsx':
+        if output_format == FormatType.XLSX:
             if not output_file:
-                sys.stderr.write(
-                    'Error: Format "xlsx" requires to specify an output file\n'
+                print(
+                    'Error: Format "xlsx" requires to specify an output file',
+                    file=sys.stderr,
                 )
-                sys.exit(1)
+                raise typer.Exit(1)
             formatter = ExcelFormatter(title=title, filename=output_file)
         else:
             formatter = AsciiFormatter(
