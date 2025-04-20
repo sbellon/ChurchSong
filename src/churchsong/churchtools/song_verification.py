@@ -183,7 +183,7 @@ class ChurchToolsSongVerification:
     def verify_songs(  # noqa: C901, PLR0912
         self,
         *,
-        from_date: datetime.datetime | None,
+        date: datetime.datetime | None,
         include_tags: list[str],
         exclude_tags: list[str],
         execute_checks: list[str],
@@ -217,11 +217,7 @@ class ChurchToolsSongVerification:
 
         # Iterate over songs (either from agenda of specified date, or all songs) and
         # execute selected checks.
-        event = (
-            self.cta.get_next_event(from_date, agenda_required=True)
-            if from_date
-            else None
-        )
+        event = self.cta.get_next_event(date, agenda_required=True) if date else None
         number_songs, songs = self.cta.get_songs(event)
         with progress:
             for song in progress.track(

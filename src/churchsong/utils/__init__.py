@@ -12,3 +12,7 @@ def expand_envvars(text: str) -> str:
         lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
         text,
     )
+
+
+def flattened_split(the_list: list[str], *, sep: str = ',') -> list[str]:
+    return [split for item in the_list for split in item.split(sep)]

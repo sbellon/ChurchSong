@@ -126,13 +126,9 @@ class Configuration:
         self._log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
-        self._data_dir = pathlib.Path(
-            platformdirs.user_data_dir(self.package_name, appauthor=False)
-        )
+        self._data_dir = platformdirs.user_data_path(self.package_name, appauthor=False)
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        config_dir = pathlib.Path(
-            platformdirs.user_config_dir(self.package_name, appauthor=False)
-        )
+        config_dir = platformdirs.user_config_path(self.package_name, appauthor=False)
         config_dir.mkdir(parents=True, exist_ok=True)
         self._config_toml = config_dir / 'config.toml'
         try:
