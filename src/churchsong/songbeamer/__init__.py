@@ -9,6 +9,9 @@ import subprocess
 import sys
 import typing
 
+import typer
+from rich import print  # noqa: A004
+
 from churchsong import utils
 from churchsong.churchtools.events import Item
 
@@ -304,10 +307,11 @@ Click OK to continue.
                 windows.start_songbeamer(self._temp_dir)
             except subprocess.CalledProcessError as e:
                 self._log.error(e)
-                sys.stderr.write(f'Error: cannot start SongBeamer: {e}\n')
-                sys.exit(e.returncode)
+                print(f'Error: cannot start SongBeamer: {e}', file=sys.stderr)
+                raise typer.Exit(e.returncode) from None
         else:
-            sys.stderr.write(
-                f'Error: Starting SongBeamer not supported on {sys.platform}\n'
+            print(
+                f'Error: Starting SongBeamer not supported on {sys.platform}',
+                file=sys.stderr,
             )
-            sys.exit(1)
+            raise typer.Exit(1)

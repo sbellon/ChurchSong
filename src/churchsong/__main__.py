@@ -2,11 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-from __future__ import annotations
-
 import datetime
 import os
-import pathlib  # noqa: TC003 (false positive, typer needs it)
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -14,6 +12,7 @@ import typing
 
 import rich.traceback
 import typer
+from rich import print  # noqa: A004
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
@@ -40,7 +39,7 @@ app.add_typer(cmd_self, name='self')
 
 def show_version(ctx: typer.Context, value: bool) -> None:
     if value:
-        sys.stdout.write(f'{ctx.obj.version}\n')
+        print(f'{ctx.obj.version}')
         raise typer.Exit
 
 
@@ -62,9 +61,9 @@ def callback(
             ctx.obj.log.info(selection)
             _handle_agenda(datetime.datetime.now(tz=datetime.UTC), ctx.obj, selection)
     elif (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
-        sys.stdout.write(
+        print(
             f'Note: Update to version {latest} possible via '
-            f'"{ctx.obj.package_name} self update"\n'
+            f'"{ctx.obj.package_name} self update"'
         )
 
 
@@ -175,15 +174,16 @@ def usage(
         ),
     ],
     *,
-    output: typing.Annotated[
+    output_file: typing.Annotated[
         pathlib.Path | None,
         typer.Option(
+            '--output',
             show_default=False,
             help='Output song usage statistics into file instead of console '
             '(mandatory for "xlsx").',
         ),
     ] = None,
-    out_format: typing.Annotated[
+    output_format: typing.Annotated[
         FormatType,
         typer.Option(
             '--format',
@@ -202,23 +202,23 @@ def usage(
     ctsv.song_usage(
         from_date=year_range.from_date,
         to_date=year_range.to_date,
-        output_file=output,
-        output_format=out_format,
+        output_file=output_file,
+        output_format=output_format,
     )
 
 
 @cmd_self.command(help='Show application version.')
 def version(ctx: typer.Context) -> None:
-    sys.stdout.write(f'{ctx.obj.version}\n')
+    print(f'{ctx.obj.version}')
 
 
 @cmd_self.command(help='Show info about the application.')
 def info(ctx: typer.Context) -> None:
-    sys.stderr.write(f'Installed version:   {ctx.obj.version}\n')
+    print(f'Installed version:   {ctx.obj.version}')
     if latest := ctx.obj.latest_version != ctx.obj.version:
-        sys.stderr.write(f'Latest version:      {latest}\n')
-    sys.stderr.write(f'Configuration file:  {ctx.obj.config_toml}\n')
-    sys.stderr.write(f'User data directory: {ctx.obj.data_dir}\n')
+        print(f'Latest version:      {latest}')
+    print(f'Configuration file:  {ctx.obj.config_toml}')
+    print(f'User data directory: {ctx.obj.data_dir}')
 
 
 @cmd_self.command(help='Updates the application.')
@@ -228,8 +228,8 @@ def update(ctx: typer.Context) -> None:
     if not uv:
         err_msg = 'Cannot find "uv", aborting self update'
         ctx.obj.log.fatal(err_msg)
-        sys.stderr.write(f'{err_msg}\n')
-        sys.exit(1)
+        print(f'{err_msg}', file=sys.stderr)
+        raise typer.Exit(1)
     try:
         # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
         cmd = [uv, 'self', 'update', '--no-config']

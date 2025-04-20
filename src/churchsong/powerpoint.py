@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-from __future__ import annotations
-
 import os
 import typing
 
@@ -12,9 +10,8 @@ import pptx.exc
 import pptx.shapes
 import pptx.shapes.placeholder
 
-if typing.TYPE_CHECKING:
-    from churchsong.churchtools.events import Person
-    from churchsong.configuration import Configuration
+from churchsong.churchtools.events import Person
+from churchsong.configuration import Configuration
 
 
 class PowerPoint:

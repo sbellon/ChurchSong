@@ -2,18 +2,17 @@
 #
 # SPDX-License-Identifier: MIT
 
-from __future__ import annotations
-
-import datetime  # noqa: TC003 (false positive, pydantic needs it)
+import datetime
 import enum
 import sys
 import typing
 
 import pydantic
 import requests
+import typer
+from rich import print  # noqa: A004
 
-if typing.TYPE_CHECKING:
-    from churchsong.configuration import Configuration
+from churchsong.configuration import Configuration
 
 
 class PermissionsGlobalChurchCal(pydantic.BaseModel):
@@ -217,6 +216,15 @@ class Arrangement(pydantic.BaseModel):
     sng_file_content: list[str] = []  # NOT filled by ChurchTools, but internally
 
 
+class Tag(pydantic.BaseModel):
+    id: int
+    name: str
+
+
+class TagsData(pydantic.BaseModel):
+    data: list[Tag]
+
+
 class Song(pydantic.BaseModel):
     id: int
     name: str
@@ -247,15 +255,6 @@ class SongData(pydantic.BaseModel):
     data: Song
 
 
-class Tag(pydantic.BaseModel):
-    id: int
-    name: str
-
-
-class TagsData(pydantic.BaseModel):
-    data: list[Tag]
-
-
 class ChurchToolsAPI:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
@@ -281,32 +280,34 @@ class ChurchToolsAPI:
             requests.exceptions.MissingSchema,
         ) as e:
             self._log.error(e)
-            sys.stderr.write(f'Error: {e}\n\n')
-            sys.stderr.write(
-                'Did you configure the URL of your ChurchTools instance correctly?\n'
+            print(f'Error: {e}', file=sys.stderr)
+            print(
+                'Did you configure the URL of your ChurchTools instance correctly?',
+                file=sys.stderr,
             )
-            sys.exit(1)
+            raise typer.Exit(1) from None
         except requests.exceptions.HTTPError as e:
             self._log.error(e)
-            sys.stderr.write(f'Error: {e}\n\n')
+            print(f'Error: {e}', file=sys.stderr)
             if e.response.status_code in (
                 requests.codes.forbidden,
                 requests.codes.unauthorized,
             ):
-                sys.stderr.write(
-                    'Did you configure your ChurchTools API token correctly?\n'
+                print(
+                    'Did you configure your ChurchTools API token correctly?',
+                    file=sys.stderr,
                 )
-            sys.exit(1)
+            raise typer.Exit(1) from None
         permissions = PermissionsGlobalData(**r.json())
         has_permission = True
         for perm in required_perms:
             if not permissions.get_permission(perm):
                 err_msg = f'Missing permission "{perm}"'
                 self._log.error(f'{err_msg}')
-                sys.stderr.write(f'Error: {err_msg}\n')
+                print(f'Error: {err_msg}', file=sys.stderr)
                 has_permission = False
         if not has_permission:
-            sys.exit(1)
+            raise typer.Exit(1)
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -460,22 +461,22 @@ class ChurchToolsAPI:
             while event.end_date <= from_date:
                 event = next(event_iter)
         except StopIteration:
-            err_msg = f'No events present after {from_date} in ChurchTools'
+            err_msg = f'Error: No events present after {from_date} in ChurchTools'
             self._log.error(err_msg)
-            sys.stderr.write(f'{err_msg}\n')
-            sys.exit(1)
+            print(f'{err_msg}', file=sys.stderr)
+            raise typer.Exit(1) from None
         if agenda_required:
             try:
                 _agenda = self.get_event_agenda(event)
             except requests.HTTPError as e:
                 if e.response.status_code == requests.codes.not_found:
-                    date = event.start_date.date()
+                    date = f'{event.start_date.date():%Y-%m-%d}'
                     err_msg = (
-                        f'No event agenda present for {date:%Y-%m-%d} in ChurchTools'
+                        f'Error: No event agenda present for {date} in ChurchTools'
                     )
                     self._log.error(err_msg)
-                    sys.stderr.write(f'{err_msg}\n')
-                    sys.exit(1)
+                    print(f'{err_msg}', file=sys.stderr)
+                    raise typer.Exit(1) from None
                 raise
         return event
 

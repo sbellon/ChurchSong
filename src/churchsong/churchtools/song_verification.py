@@ -10,6 +10,8 @@ import typing
 from collections import OrderedDict, defaultdict
 
 import prettytable
+import typer
+from rich import print  # noqa: A004
 
 from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
 from churchsong.configuration import Configuration
@@ -196,8 +198,8 @@ class ChurchToolsSongVerification:
             if name in SONG_CHECKS
         )
         if not active_song_checks:
-            sys.stderr.write('Error: no valid check to execute selected\n')
-            sys.exit(1)
+            print('Error: no valid check to execute selected', file=sys.stderr)
+            raise typer.Exit(1)
         needs_sng_file_contents = any(
             self._is_sng_file_content_required(check)
             for check in active_song_checks.values()
@@ -294,6 +296,4 @@ class ChurchToolsSongVerification:
             print_empty=False,
             sortby=None if event else 'Song',
         )
-        sys.stdout.write(
-            '{}\n'.format(table_text + output_duplicates or 'No problems found.')
-        )
+        print('{}'.format(table_text + output_duplicates or 'No problems found.'))
