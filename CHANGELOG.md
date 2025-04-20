@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- fixed local time timezone not taking summer time into account when specifying time
+
 ### Changed
 - replaced 'openpyxl' with 'xlsxwriter' to reduce dependencies
 - use 'rich.print' for console output

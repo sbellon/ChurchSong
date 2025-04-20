@@ -5,7 +5,14 @@
 import dataclasses
 import datetime
 import re
-import time
+
+import tzlocal
+
+
+def now(tz: datetime.tzinfo | None = None) -> datetime.datetime:
+    if tz is None:
+        tz = tzlocal.get_localzone()
+    return datetime.datetime.now(tz=tz)
 
 
 @dataclasses.dataclass
@@ -15,7 +22,7 @@ class DateRange:
 
 
 def parse_year_range(year_str: str) -> DateRange:
-    local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
+    local_tz = tzlocal.get_localzone()
     if not year_str:
         from_year = to_year = datetime.datetime.now(tz=local_tz).year
     elif m := re.fullmatch(r'(?P<year>\d{4})', year_str):
@@ -55,6 +62,5 @@ def parse_datetime(date_str: str) -> datetime.datetime | None:
     date = datetime.datetime.fromisoformat(date_str)
     if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
         # convert offset-naive datetime object to offset-aware
-        local_tz = datetime.timezone(datetime.timedelta(seconds=-time.timezone))
-        date = date.replace(tzinfo=local_tz)
+        date = date.replace(tzinfo=tzlocal.get_localzone())
     return date
