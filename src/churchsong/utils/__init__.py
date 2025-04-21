@@ -5,7 +5,9 @@
 import os
 import re
 
-from click import UsageError as UsageError  # noqa: PLC0414
+from click import ClickException
+
+CliError = ClickException
 
 
 def expand_envvars(text: str) -> str:

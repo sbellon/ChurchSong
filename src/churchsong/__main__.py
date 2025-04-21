@@ -23,7 +23,7 @@ from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
-from churchsong.utils import UsageError, flattened_split
+from churchsong.utils import CliError, flattened_split
 from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
 
 rich.traceback.install(show_locals=True)
@@ -230,7 +230,7 @@ def update(ctx: typer.Context) -> None:
     if not uv:
         msg = 'Cannot find "uv", aborting self update'
         ctx.obj.log.fatal(msg)
-        raise UsageError(msg)
+        raise CliError(msg)
     try:
         # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
         cmd = [uv, 'self', 'update', '--no-config']
@@ -239,7 +239,7 @@ def update(ctx: typer.Context) -> None:
     except subprocess.CalledProcessError as e:
         msg = f'"uv self update" failed: {e}'
         ctx.obj.log.fatal(msg)
-        raise UsageError(msg) from None
+        raise CliError(msg) from None
     # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
     # "exec" instead of starting a subprocess.
     cmd = [

@@ -11,7 +11,7 @@ import pydantic
 import requests
 
 from churchsong.configuration import Configuration
-from churchsong.utils import UsageError
+from churchsong.utils import CliError
 
 
 class PermissionsGlobalChurchCal(pydantic.BaseModel):
@@ -283,7 +283,7 @@ class ChurchToolsAPI:
                 f'{e}\n\n'
                 'Did you configure the URL of your ChurchTools instance correctly?'
             )
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
         except requests.exceptions.HTTPError as e:
             self._log.error(e)
             msg = f'{e}'
@@ -292,7 +292,7 @@ class ChurchToolsAPI:
                 requests.codes.unauthorized,
             ):
                 msg += '\n\nDid you configure your ChurchTools API token correctly?'
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
         permissions = PermissionsGlobalData(**r.json())
         if missing_perms := {
             perm for perm in required_perms if not permissions.get_permission(perm)
@@ -301,7 +301,7 @@ class ChurchToolsAPI:
                 ', '.join(f'"{perm}"' for perm in missing_perms)
             )
             self._log.error(msg)
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -458,7 +458,7 @@ class ChurchToolsAPI:
             date = f'{from_date.date():%Y-%m-%d}'
             msg = f'No events present after {date} in ChurchTools.'
             self._log.error(msg)
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
         if agenda_required:
             try:
                 _agenda = self.get_event_agenda(event)
@@ -467,7 +467,7 @@ class ChurchToolsAPI:
                     date = f'{event.start_date.date():%Y-%m-%d}'
                     msg = f'No event agenda present for {date} in ChurchTools.'
                     self._log.error(msg)
-                    raise UsageError(msg) from None
+                    raise CliError(msg) from None
                 raise
         return event
 
