@@ -5,6 +5,8 @@
 import os
 import re
 
+from click import UsageError as UsageError  # noqa: PLC0414
+
 
 def expand_envvars(text: str) -> str:
     return re.sub(

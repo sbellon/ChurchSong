@@ -23,7 +23,7 @@ from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
-from churchsong.utils import flattened_split
+from churchsong.utils import UsageError, flattened_split
 from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
 
 rich.traceback.install(show_locals=True)
@@ -110,7 +110,7 @@ def verify(  # noqa: PLR0913
             '--exclude_tags',
             metavar='TAG,TAG,...',
             default_factory=list,
-            show_default='NONE',
+            show_default='no tags',
             help='Song tags that should be excluded from verification.',
         ),
     ],
@@ -120,7 +120,7 @@ def verify(  # noqa: PLR0913
             '--include_tags',
             metavar='TAG,TAG,...',
             default_factory=list,
-            show_default='ALL',
+            show_default='all tags',
             help='Song tags that should be included in verification.',
         ),
     ],
@@ -128,9 +128,9 @@ def verify(  # noqa: PLR0913
         list[str],
         typer.Option(
             '--execute_checks',
-            metavar='TAG,TAG,...',
+            metavar='CHECK,CHECK,...',
             default_factory=list,
-            show_default='ALL',
+            show_default='all checks',
             help='Checks to execute (header names of result table).',
         ),
     ],
@@ -178,6 +178,7 @@ def usage(
         pathlib.Path | None,
         typer.Option(
             '--output',
+            dir_okay=False,
             show_default=False,
             help='Output song usage statistics into file instead of console '
             '(mandatory for "xlsx").',
@@ -227,18 +228,18 @@ def update(ctx: typer.Context) -> None:
     ctx.obj.log.info('Starting %s update', ctx.obj.package_name)
     uv = shutil.which('uv')
     if not uv:
-        err_msg = 'Cannot find "uv", aborting self update'
-        ctx.obj.log.fatal(err_msg)
-        print(f'{err_msg}', file=sys.stderr)
-        raise typer.Exit(1)
+        msg = 'Cannot find "uv", aborting self update'
+        ctx.obj.log.fatal(msg)
+        raise UsageError(msg)
     try:
         # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
         cmd = [uv, 'self', 'update', '--no-config']
         ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        ctx.obj.log.fatal(f'"uv self update" failed: {e}')
-        raise typer.Exit(e.returncode) from None
+        msg = f'"uv self update" failed: {e}'
+        ctx.obj.log.fatal(msg)
+        raise UsageError(msg) from None
     # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
     # "exec" instead of starting a subprocess.
     cmd = [

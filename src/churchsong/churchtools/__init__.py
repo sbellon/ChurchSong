@@ -9,10 +9,9 @@ import typing
 
 import pydantic
 import requests
-import typer
-from rich import print  # noqa: A004
 
 from churchsong.configuration import Configuration
+from churchsong.utils import UsageError
 
 
 class PermissionsGlobalChurchCal(pydantic.BaseModel):
@@ -280,34 +279,29 @@ class ChurchToolsAPI:
             requests.exceptions.MissingSchema,
         ) as e:
             self._log.error(e)
-            print(f'Error: {e}', file=sys.stderr)
-            print(
-                'Did you configure the URL of your ChurchTools instance correctly?',
-                file=sys.stderr,
+            msg = (
+                f'{e}\n\n'
+                'Did you configure the URL of your ChurchTools instance correctly?'
             )
-            raise typer.Exit(1) from None
+            raise UsageError(msg) from None
         except requests.exceptions.HTTPError as e:
             self._log.error(e)
-            print(f'Error: {e}', file=sys.stderr)
+            msg = f'{e}'
             if e.response.status_code in (
                 requests.codes.forbidden,
                 requests.codes.unauthorized,
             ):
-                print(
-                    'Did you configure your ChurchTools API token correctly?',
-                    file=sys.stderr,
-                )
-            raise typer.Exit(1) from None
+                msg += '\n\nDid you configure your ChurchTools API token correctly?'
+            raise UsageError(msg) from None
         permissions = PermissionsGlobalData(**r.json())
-        has_permission = True
-        for perm in required_perms:
-            if not permissions.get_permission(perm):
-                err_msg = f'Missing permission "{perm}"'
-                self._log.error(f'{err_msg}')
-                print(f'Error: {err_msg}', file=sys.stderr)
-                has_permission = False
-        if not has_permission:
-            raise typer.Exit(1)
+        if missing_perms := {
+            perm for perm in required_perms if not permissions.get_permission(perm)
+        }:
+            msg = 'Missing required permissions for token user: {}'.format(
+                ', '.join(f'"{perm}"' for perm in missing_perms)
+            )
+            self._log.error(msg)
+            raise UsageError(msg) from None
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -461,22 +455,19 @@ class ChurchToolsAPI:
             while event.end_date <= from_date:
                 event = next(event_iter)
         except StopIteration:
-            err_msg = f'Error: No events present after {from_date} in ChurchTools'
-            self._log.error(err_msg)
-            print(f'{err_msg}', file=sys.stderr)
-            raise typer.Exit(1) from None
+            date = f'{from_date.date():%Y-%m-%d}'
+            msg = f'No events present after {date} in ChurchTools.'
+            self._log.error(msg)
+            raise UsageError(msg) from None
         if agenda_required:
             try:
                 _agenda = self.get_event_agenda(event)
             except requests.HTTPError as e:
                 if e.response.status_code == requests.codes.not_found:
                     date = f'{event.start_date.date():%Y-%m-%d}'
-                    err_msg = (
-                        f'Error: No event agenda present for {date} in ChurchTools'
-                    )
-                    self._log.error(err_msg)
-                    print(f'{err_msg}', file=sys.stderr)
-                    raise typer.Exit(1) from None
+                    msg = f'No event agenda present for {date} in ChurchTools.'
+                    self._log.error(msg)
+                    raise UsageError(msg) from None
                 raise
         return event
 

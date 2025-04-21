@@ -9,12 +9,9 @@ import subprocess
 import sys
 import typing
 
-import typer
-from rich import print  # noqa: A004
-
-from churchsong import utils
 from churchsong.churchtools.events import Item
 from churchsong.configuration import Configuration, SongBeamerColorConfig
+from churchsong.utils import UsageError, expand_envvars
 
 r"""
 SongBeamer agenda items look something like this:
@@ -187,7 +184,7 @@ class AgendaItem:
         if self.filename:
             result += f'\n      FileName = {self._encode(self.filename)}'
         result += '\n    end'
-        return utils.expand_envvars(result)
+        return expand_envvars(result)
 
 
 class Agenda:
@@ -304,12 +301,9 @@ Click OK to continue.
             try:
                 windows.start_songbeamer(self._temp_dir)
             except subprocess.CalledProcessError as e:
-                self._log.error(e)
-                print(f'Error: cannot start SongBeamer: {e}', file=sys.stderr)
-                raise typer.Exit(e.returncode) from None
+                msg = f'Cannot start SongBeamer: {e}'
+                self._log.error(msg)
+                raise UsageError(msg) from None
         else:
-            print(
-                f'Error: Starting SongBeamer not supported on {sys.platform}',
-                file=sys.stderr,
-            )
-            raise typer.Exit(1)
+            msg = f'Starting SongBeamer not supported on {sys.platform}.'
+            raise UsageError(msg)
