@@ -19,7 +19,7 @@ import polib
 import pydantic
 import requests
 
-from churchsong.utils import UsageError, expand_envvars
+from churchsong.utils import CliError, expand_envvars
 
 T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
 
@@ -134,10 +134,10 @@ class Configuration:
                 self._config = TomlConfig(**tomllib.load(fd))
         except FileNotFoundError:
             msg = f'Configuration file "{self._config_toml}" not found.'
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
         except UnicodeDecodeError as e:
             msg = f'Configuration file "{self._config_toml}" is invalid: {e}'
-            raise UsageError(msg) from None
+            raise CliError(msg) from None
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise

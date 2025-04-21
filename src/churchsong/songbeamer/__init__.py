@@ -11,7 +11,7 @@ import typing
 
 from churchsong.churchtools.events import Item
 from churchsong.configuration import Configuration, SongBeamerColorConfig
-from churchsong.utils import UsageError, expand_envvars
+from churchsong.utils import CliError, expand_envvars
 
 r"""
 SongBeamer agenda items look something like this:
@@ -303,7 +303,7 @@ Click OK to continue.
             except subprocess.CalledProcessError as e:
                 msg = f'Cannot start SongBeamer: {e}'
                 self._log.error(msg)
-                raise UsageError(msg) from None
+                raise CliError(msg) from None
         else:
             msg = f'Starting SongBeamer not supported on {sys.platform}.'
-            raise UsageError(msg)
+            raise CliError(msg)
