@@ -18,10 +18,8 @@ import platformdirs
 import polib
 import pydantic
 import requests
-import typer
-from rich import print  # noqa: A004
 
-from churchsong import utils
+from churchsong.utils import UsageError, expand_envvars
 
 T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
 
@@ -29,7 +27,7 @@ T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
 def recursive_expand_vars(data: T) -> T:
     match data:
         case str():
-            return utils.expand_envvars(data)
+            return expand_envvars(data)
         case dict():
             return {k: recursive_expand_vars(v) for k, v in data.items()}
         case list():
@@ -135,17 +133,11 @@ class Configuration:
             with self._config_toml.open('rb') as fd:
                 self._config = TomlConfig(**tomllib.load(fd))
         except FileNotFoundError:
-            print(
-                f'Error: Configuration file "{self._config_toml}" not found',
-                file=sys.stderr,
-            )
-            raise typer.Exit(1) from None
+            msg = f'Configuration file "{self._config_toml}" not found.'
+            raise UsageError(msg) from None
         except UnicodeDecodeError as e:
-            print(
-                f'Error: Configuration file "{self._config_toml}" in invalid: {e}',
-                file=sys.stderr,
-            )
-            raise typer.Exit(1) from None
+            msg = f'Configuration file "{self._config_toml}" is invalid: {e}'
+            raise UsageError(msg) from None
         except Exception as e:
             self._log.fatal(e, exc_info=True)
             raise

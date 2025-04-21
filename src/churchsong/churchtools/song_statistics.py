@@ -6,14 +6,13 @@ import abc
 import datetime
 import enum
 import pathlib
-import sys
 import typing
 from collections import defaultdict
 
 import prettytable
+import rich
 import typer
 import xlsxwriter
-from rich import print  # noqa: A004
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration
@@ -73,7 +72,7 @@ class AsciiFormatter(BaseFormatter):
             with self._filename.open('w', encoding='utf-8') as fd:
                 fd.write(f'{text}\n')
         else:
-            print(text)
+            rich.print(text)
 
 
 class ExcelFormatter(BaseFormatter):
@@ -125,11 +124,8 @@ class ChurchToolsSongStatistics:
         title = f'Song statistics for {year_range}'
         if output_format == FormatType.XLSX:
             if not output_file:
-                print(
-                    'Error: Format "xlsx" requires to specify an output file',
-                    file=sys.stderr,
-                )
-                raise typer.Exit(1)
+                msg = 'Format "xlsx" requires to specify an output file.'
+                raise typer.BadParameter(msg)
             formatter = ExcelFormatter(title=title, filename=output_file)
         else:
             formatter = AsciiFormatter(

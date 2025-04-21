@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-04-20 14:08+0200\n"
+"POT-Creation-Date: 2025-04-21 13:22+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: Stefan Bellon\n"
 "Language: de\n"
@@ -57,7 +57,7 @@ msgstr "Lade Event-Dateien aus ChurchTools herunter"
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
 
-#: src/churchsong/songbeamer/__init__.py:287
+#: src/churchsong/songbeamer/__init__.py:282
 msgid ""
 "SongBeamer is already running.\n"
 "\n"
