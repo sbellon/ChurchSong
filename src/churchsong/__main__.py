@@ -18,7 +18,7 @@ from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
-from churchsong.configuration import Configuration, package_name
+from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
@@ -36,7 +36,8 @@ cmd_songs = typer.Typer(
     no_args_is_help=True, help='Operate on the ChurchTools songs database.'
 )
 cmd_self = typer.Typer(
-    no_args_is_help=True, help=f'Operate on the {package_name()} application itself.'
+    no_args_is_help=True,
+    help=f'Operate on the {Configuration.package_name} application itself.',
 )
 app.add_typer(cmd_songs, name='songs')
 app.add_typer(cmd_self, name='self')
@@ -71,7 +72,7 @@ def callback(
             if (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
                 rich.get_console().print(
                     f'Note: Update to version {latest} possible via '
-                    f'"{ctx.obj.package_name} self update".',
+                    f'"{Configuration.package_name} self update".',
                     style='yellow',
                 )
 
@@ -148,7 +149,7 @@ def verify(  # noqa: PLR0913
     ] = False,
 ) -> None:
     ctx.obj.log.info(
-        'Starting %s song verification with DATE=%s', ctx.obj.package_name, date
+        'Starting %s song verification with DATE=%s', Configuration.package_name, date
     )
     cta = ChurchToolsAPI(ctx.obj)
     ctsv = ChurchToolsSongVerification(cta, ctx.obj)
@@ -199,7 +200,7 @@ def usage(
 ) -> None:
     ctx.obj.log.info(
         'Starting %s song usage statistics for %s-%s',
-        ctx.obj.package_name,
+        Configuration.package_name,
         year_range.from_date.year,
         year_range.to_date.year,
     )
@@ -213,12 +214,12 @@ def usage(
     )
 
 
-@cmd_self.command(help=f'Show the {package_name()} application version.')
+@cmd_self.command(help=f'Show the {Configuration.package_name} application version.')
 def version(ctx: typer.Context) -> None:
     show_version(ctx, show=True)
 
 
-@cmd_self.command(help=f'Show info about the {package_name()} application.')
+@cmd_self.command(help=f'Show info about the {Configuration.package_name} application.')
 def info(ctx: typer.Context) -> None:
     print(f'Installed version:   {ctx.obj.version}')
     if latest := ctx.obj.latest_version != ctx.obj.version:
@@ -227,9 +228,9 @@ def info(ctx: typer.Context) -> None:
     print(f'User data directory: {ctx.obj.data_dir}')
 
 
-@cmd_self.command(help=f'Update the {package_name()} application.')
+@cmd_self.command(help=f'Update the {Configuration.package_name} application.')
 def update(ctx: typer.Context) -> None:
-    ctx.obj.log.info('Starting %s update', ctx.obj.package_name)
+    ctx.obj.log.info('Starting %s update', Configuration.package_name)
     uv = shutil.which('uv')
     if not uv:
         msg = 'Cannot find "uv", aborting self update'
@@ -255,7 +256,7 @@ def update(ctx: typer.Context) -> None:
         '--no-progress',
         '--python-preference',
         'only-managed',
-        ctx.obj.package_name,
+        Configuration.package_name,
     ]
     ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
     os.execl(uv, *cmd)  # noqa: S606
@@ -265,7 +266,9 @@ def _handle_agenda(
     date: datetime.datetime, config: Configuration, selection: DownloadSelection
 ) -> None:
     sel = '' if all(dataclasses.asdict(selection).values()) else f' and {selection}'
-    config.log.info('Starting %s agenda with DATE=%s%s', config.package_name, date, sel)
+    config.log.info(
+        'Starting %s agenda with DATE=%s%s', Configuration.package_name, date, sel
+    )
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)

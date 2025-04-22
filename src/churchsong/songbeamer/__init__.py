@@ -233,7 +233,6 @@ class Agenda:
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._app_name = config.package_name
         self._temp_dir = config.temp_dir.resolve()
         self._schedule_filepath = self._temp_dir / 'Schedule.col'
         self._event_datetime_format = config.event_datetime_format
@@ -295,7 +294,9 @@ The PowerPoint slides will get updated in any case!
 Click OK to continue.
 """
                 )
-                windows.open_message_box(self._app_name, already_running_notice)
+                windows.open_message_box(
+                    Configuration.package_name, already_running_notice
+                )
                 windows.bring_songbeamer_window_to_front()
 
             try:

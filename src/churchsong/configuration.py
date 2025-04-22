@@ -19,10 +19,10 @@ import polib
 import pydantic
 import requests
 
-from churchsong.utils import CliError, expand_envvars
+from churchsong.utils import CliError, expand_envvars, staticproperty
 
 
-def package_name() -> str:
+def _package_name() -> str:
     return importlib.metadata.distribution('churchsong').name
 
 
@@ -46,7 +46,7 @@ class GeneralInteractiveConfig(pydantic.BaseModel):
 
 class GeneralConfig(pydantic.BaseModel):
     log_level: str = 'WARNING'
-    log_file: pathlib.Path = pathlib.Path(f'./Logs/{package_name()}.log')
+    log_file: pathlib.Path = pathlib.Path(f'./Logs/{_package_name()}.log')
     Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
 
 
@@ -159,7 +159,7 @@ class Configuration:
         try:
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
             with importlib.resources.open_text(
-                package_name().lower(), f'locales/{cc}.po'
+                self.package_name.lower(), f'locales/{cc}.po'
             ) as fd:
                 translations = gettext.GNUTranslations(
                     io.BytesIO(polib.pofile(fd.read()).to_binary())
@@ -168,9 +168,9 @@ class Configuration:
             translations = gettext.NullTranslations()
         translations.install()
 
-    @property
-    def package_name(self) -> str:
-        return package_name()
+    @staticproperty
+    def package_name() -> str:
+        return _package_name()
 
     @property
     def version(self) -> str:
