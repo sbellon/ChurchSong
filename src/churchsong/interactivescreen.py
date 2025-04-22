@@ -245,7 +245,7 @@ class InteractiveScreen(App[DownloadSelection]):
     def initialize(self) -> None:
         self.theme = 'textual-dark'
 
-        self.query_one('#header_label_left', Label).update(self.config.package_name)
+        self.query_one('#header_label_left', Label).update(Configuration.package_name)
         version_label = self.query_one('#header_label_right', Label)
         version = self.config.version
         latest_version = self.config.latest_version
