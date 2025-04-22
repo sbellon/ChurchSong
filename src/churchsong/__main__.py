@@ -8,7 +8,6 @@ import os
 import pathlib
 import shutil
 import subprocess
-import sys
 import typing
 
 import rich.traceback
@@ -19,7 +18,7 @@ from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
-from churchsong.configuration import Configuration
+from churchsong.configuration import Configuration, package_name
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
 from churchsong.songbeamer import SongBeamer
@@ -33,19 +32,25 @@ app = typer.Typer(
     context_settings={'help_option_names': ['-h', '--help']},
     invoke_without_command=True,  # even invoke app callback without arguments
 )
-cmd_songs = typer.Typer(no_args_is_help=True, help='Operate on the ChurchTools songs.')
-cmd_self = typer.Typer(no_args_is_help=True, help='Operate on the application itself.')
+cmd_songs = typer.Typer(
+    no_args_is_help=True, help='Operate on the ChurchTools songs database.'
+)
+cmd_self = typer.Typer(
+    no_args_is_help=True, help=f'Operate on the {package_name()} application itself.'
+)
 app.add_typer(cmd_songs, name='songs')
 app.add_typer(cmd_self, name='self')
 
 
-def show_version(ctx: typer.Context, value: bool) -> None:
-    if value:
+def show_version(ctx: typer.Context, show: bool) -> None:
+    if show:
         print(f'{ctx.obj.version}')
         raise typer.Exit
 
 
-@app.callback(help='Download ChurchTools event agenda and import into SongBeamer.')
+@app.callback(
+    help='Download event agenda from ChurchTools and create SongBeamer schedule.'
+)
 def callback(
     ctx: typer.Context,
     _version: bool = typer.Option(
@@ -62,17 +67,16 @@ def callback(
             ctx.obj.log.info('Starting interactive screen')
             if selection := InteractiveScreen(ctx.obj).run():
                 _handle_agenda(now(), ctx.obj, selection)
-        case 'version':
-            if (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
-                print(
-                    f'Note: Update to version {latest} possible via '
-                    f'"{ctx.obj.package_name} self update"'
-                )
         case _:
-            pass
+            if (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
+                rich.get_console().print(
+                    f'Note: Update to version {latest} possible via '
+                    f'"{ctx.obj.package_name} self update".',
+                    style='yellow',
+                )
 
 
-@app.command(help='Create SongBeamer agenda.')
+@app.command(help='Create SongBeamer agenda and start SongBeamer.')
 def agenda(
     ctx: typer.Context,
     date: typing.Annotated[
@@ -159,7 +163,7 @@ def verify(  # noqa: PLR0913
 
 @cmd_songs.command(
     context_settings={'ignore_unknown_options': True},  # allow -YEAR
-    help='Calculate song usage statistics.',
+    help='Calculate song usage statistics and output in various formats.',
 )
 def usage(
     ctx: typer.Context,
@@ -209,12 +213,12 @@ def usage(
     )
 
 
-@cmd_self.command(help='Show application version.')
+@cmd_self.command(help=f'Show the {package_name()} application version.')
 def version(ctx: typer.Context) -> None:
-    print(f'{ctx.obj.version}')
+    show_version(ctx, show=True)
 
 
-@cmd_self.command(help='Show info about the application.')
+@cmd_self.command(help=f'Show info about the {package_name()} application.')
 def info(ctx: typer.Context) -> None:
     print(f'Installed version:   {ctx.obj.version}')
     if latest := ctx.obj.latest_version != ctx.obj.version:
@@ -223,7 +227,7 @@ def info(ctx: typer.Context) -> None:
     print(f'User data directory: {ctx.obj.data_dir}')
 
 
-@cmd_self.command(help='Updates the application.')
+@cmd_self.command(help=f'Update the {package_name()} application.')
 def update(ctx: typer.Context) -> None:
     ctx.obj.log.info('Starting %s update', ctx.obj.package_name)
     uv = shutil.which('uv')
@@ -232,7 +236,8 @@ def update(ctx: typer.Context) -> None:
         ctx.obj.log.fatal(msg)
         raise CliError(msg)
     try:
-        # "uv self update" does not touch ChurchSong, so we can use subprocess.run().
+        # "uv self update" does not touch any files of our application,
+        # so we can use subprocess.run().
         cmd = [uv, 'self', 'update', '--no-config']
         ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
         subprocess.run(cmd, check=True)
@@ -240,8 +245,8 @@ def update(ctx: typer.Context) -> None:
         msg = f'"uv self update" failed: {e}'
         ctx.obj.log.fatal(msg)
         raise CliError(msg) from None
-    # However "uv tool upgrade ChurchSong" modifies files in use, so we have to
-    # "exec" instead of starting a subprocess.
+    # However "uv tool upgrade" modifies files of our application that are in use,
+    # so we have to "exec" instead of starting a subprocess.
     cmd = [
         uv,
         'tool',
@@ -285,7 +290,6 @@ def _handle_agenda(
 
 
 def main() -> None:
-    sys.stderr.write('\r\033[2K\r')
     config = Configuration()
     try:
         app(obj=config)
