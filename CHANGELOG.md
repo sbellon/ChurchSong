@@ -8,6 +8,7 @@
 ### Changed
 - replaced 'openpyxl' with 'xlsxwriter' to reduce dependencies
 - use 'rich.print' for console output
+- updated external dependencies (textual)
 
 ## 0.8.0 (2025-04-19)
 
