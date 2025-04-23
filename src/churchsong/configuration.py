@@ -14,6 +14,7 @@ import sys
 import tomllib
 import typing
 
+import looseversion
 import platformdirs
 import polib
 import pydantic
@@ -180,7 +181,7 @@ class Configuration:
             return 'unknown'
 
     @property
-    def latest_version(self) -> str | None:
+    def later_version_available(self) -> str | None:
         class PyPI(pydantic.BaseModel):
             version: str
 
@@ -193,7 +194,12 @@ class Configuration:
         except (requests.RequestException, pydantic.ValidationError):
             return None
         else:
-            return result.info.version
+            return (
+                result.info.version
+                if looseversion.LooseVersion(result.info.version)
+                > looseversion.LooseVersion(self.version)
+                else None
+            )
 
     @property
     def config_toml(self) -> pathlib.Path:

@@ -248,11 +248,10 @@ class InteractiveScreen(App[DownloadSelection]):
         self.query_one('#header_label_left', Label).update(Configuration.package_name)
         version_label = self.query_one('#header_label_right', Label)
         version = self.config.version
-        latest_version = self.config.latest_version
-        if latest_version and latest_version != version:
+        if later_version := self.config.later_version_available:
             version = _(
                 'Update available\nCurrent version: {}\nLatest version: {}'
-            ).format(version, latest_version)
+            ).format(version, later_version)
             version_label.styles.color = self.current_theme.accent
         version_label.update(version)
         footer_text = _(
