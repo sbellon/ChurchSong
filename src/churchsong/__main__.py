@@ -68,13 +68,15 @@ def callback(
             ctx.obj.log.info('Starting interactive screen')
             if selection := InteractiveScreen(ctx.obj).run():
                 _handle_agenda(now(), ctx.obj, selection)
-        case _:
-            if (latest := ctx.obj.latest_version) and latest != ctx.obj.version:
+        case _ if ctx.invoked_subcommand != 'self':
+            if later_version := ctx.obj.later_version_available:
                 rich.get_console().print(
-                    f'Note: Update to version {latest} possible via '
+                    f'Note: Update to version {later_version} possible via '
                     f'"{Configuration.package_name} self update".',
                     style='yellow',
                 )
+        case _:
+            pass
 
 
 @app.command(help='Create SongBeamer agenda and start SongBeamer.')
@@ -222,8 +224,8 @@ def version(ctx: typer.Context) -> None:
 @cmd_self.command(help=f'Show info about the {Configuration.package_name} application.')
 def info(ctx: typer.Context) -> None:
     print(f'Installed version:   {ctx.obj.version}')
-    if latest := ctx.obj.latest_version != ctx.obj.version:
-        print(f'Latest version:      {latest}')
+    if later_version := ctx.obj.later_version_available:
+        print(f'Latest version:      {later_version}')
     print(f'Configuration file:  {ctx.obj.config_toml}')
     print(f'User data directory: {ctx.obj.data_dir}')
 
