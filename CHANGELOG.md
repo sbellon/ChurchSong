@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.8.1 (2025-04-24)
 
 ### Fixed
 - fixed local time timezone not taking summer time into account when specifying time
@@ -8,6 +8,7 @@
 ### Changed
 - replaced 'openpyxl' with 'xlsxwriter' to reduce dependencies
 - use 'rich.print' for console output
+- use 'packaging.version' for version parsing in the "update available" check
 - updated external dependencies (textual)
 
 ## 0.8.0 (2025-04-19)
