@@ -84,8 +84,8 @@ parts to download (default is all) and then execute the agenda download.
 
 Or you can bypass the interactive menu and use the command `agenda`. To specify a
 starting date to look for the next event, you can specify additional command line
-arguments `agenda FROM_DATE` as positional parameter with `FROM_DATE` in an ISO date
-format (e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
+arguments `agenda DATE` as positional parameter with `DATE` in an ISO date format
+(e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
 If everything goes well, the agenda is downloaded into the `temp_dir`, the slide is
 created from the template, a `Schedule.col` for SongBeamer is created and finally
@@ -104,9 +104,9 @@ SongBeamer `.sng` file with the `#BackgroundImage` property set.
 Without any further argument, `songs verify` checks the songs for the next agenda that
 would appear when just using `agenda` command.
 
-With `songs verify FROM_DATE` you can select to only check the songs of the next event
-agenda after `FROM_DATE` (like `agenda FROM_DATE`, `FROM_DATE` can be an ISO date
-format, e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
+With `songs verify DATE` you can select to only check the songs of the next event
+agenda after `DATE` (like `agenda DATE`, `DATE` can be an ISO date format, e.g.,
+`YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
 You can check the whole ChurchTools songs database by using `songs verify all`.
 

@@ -253,7 +253,7 @@ class InteractiveScreen(App[DownloadSelection]):
                 'Update available\nCurrent version: {}\nLatest version: {}'
             ).format(version, later_version)
             version_label.styles.color = self.current_theme.accent
-        version_label.update(version)
+        version_label.update(str(version))
         footer_text = _(
             'Please make your desired choice. By default, all actions are activated.'
         )
