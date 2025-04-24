@@ -14,7 +14,7 @@ import sys
 import tomllib
 import typing
 
-import looseversion
+import packaging.version
 import platformdirs
 import polib
 import pydantic
@@ -174,14 +174,16 @@ class Configuration:
         return _package_name()
 
     @property
-    def version(self) -> str:
+    def version(self) -> packaging.version.Version:
         try:
-            return importlib.metadata.version(self.package_name)
+            return packaging.version.Version(
+                importlib.metadata.version(self.package_name)
+            )
         except (importlib.metadata.PackageNotFoundError, AssertionError):
-            return 'unknown'
+            return packaging.version.Version('0')
 
     @property
-    def later_version_available(self) -> str | None:
+    def later_version_available(self) -> packaging.version.Version | None:
         class PyPI(pydantic.BaseModel):
             version: str
 
@@ -190,16 +192,11 @@ class Configuration:
 
         try:
             r = requests.get(f'https://pypi.org/pypi/{self.package_name}/json')
-            result = PyPIInfo(**r.json())
+            later = packaging.version.Version(PyPIInfo(**r.json()).info.version)
         except (requests.RequestException, pydantic.ValidationError):
             return None
         else:
-            return (
-                result.info.version
-                if looseversion.LooseVersion(result.info.version)
-                > looseversion.LooseVersion(self.version)
-                else None
-            )
+            return later if later > self.version else None
 
     @property
     def config_toml(self) -> pathlib.Path:
