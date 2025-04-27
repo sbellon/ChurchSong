@@ -2,18 +2,21 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
+import typing
+
 from rich.console import Console, JustifyMethod
 from rich.highlighter import Highlighter
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
-    Progress,
     Task,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.progress import Progress as _Progress
 from rich.progress_bar import ProgressBar
 from rich.style import StyleType
 from rich.table import Column
@@ -92,34 +95,58 @@ class CustomTimeRemainingColumn(TimeRemainingColumn):
             return Text('', style=style)
 
         if task_time is None:
-            return Text('(~-s)', style=style)
+            return Text('(~?s)', style=style)
 
         return Text(f'(~{task_time}s)', style=style)
 
 
-progress = Progress(
-    CustomTextColumn('[progress.description]{task.description}', table_column=Column()),
-    CustomBarColumn(bar_width=None, table_column=Column(ratio=2)),
-    MofNCompleteColumn(),
-    TaskProgressColumn(text_format='[progress.percentage][{task.percentage:>3.0f}%]'),
-    CustomTimeElapsedColumn(),
-    CustomTimeRemainingColumn(),
-    console=Console(
-        theme=Theme(
-            {
-                'progress.description': 'white',
-                'progress.download': 'white',
-                'progress.percentage': 'white',
-                'progress.elapsed': 'white',
-                'progress.remaining': 'white',
-                #'bar.back': 'black',
-                'bar.complete': 'green',
-                #'bar.finished': 'bright_green',
-                #'bar.remaining': 'grey23',
-                'bar.pulse': 'green',
-            }
+class Progress(_Progress):
+    def __init__(self, description: str, total: int | None) -> None:
+        super().__init__(
+            CustomTextColumn(
+                '[progress.description]{task.description}', table_column=Column()
+            ),
+            CustomBarColumn(bar_width=None, table_column=Column(ratio=2)),
+            MofNCompleteColumn(),
+            TaskProgressColumn(
+                text_format='[progress.percentage][{task.percentage:>3.0f}%]'
+            ),
+            CustomTimeElapsedColumn(),
+            CustomTimeRemainingColumn(),
+            console=Console(
+                theme=Theme(
+                    {
+                        'progress.description': 'white',
+                        'progress.download': 'white',
+                        'progress.percentage': 'white',
+                        'progress.elapsed': 'white',
+                        'progress.remaining': 'white',
+                        #'bar.back': 'black',
+                        'bar.complete': 'green',
+                        #'bar.finished': 'bright_green',
+                        #'bar.remaining': 'grey23',
+                        'bar.pulse': 'green',
+                    }
+                )
+            ),
+            transient=True,
+            expand=True,
         )
-    ),
-    transient=True,
-    expand=True,
-)
+        self._task = self.add_task(description=description, total=total)
+
+    T = typing.TypeVar('T')
+
+    @contextlib.contextmanager
+    def do_progress(
+        self, item: T, description: str | None = None
+    ) -> typing.Generator[T]:
+        self.update(self._task, description=description)
+        try:
+            yield item
+        finally:
+            self.advance(self._task)
+
+    def iterate(self, items: typing.Iterable[T]) -> typing.Generator[T, None, None]:  # noqa: UP043
+        for item in items:
+            with self.do_progress(item) as i:
+                yield i
