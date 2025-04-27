@@ -79,6 +79,7 @@ inline-quotes = "single"
 
 [tool.ruff.format]
 quote-style = "single"
+line-ending = "lf"
 
 [tool.ruff.lint.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.

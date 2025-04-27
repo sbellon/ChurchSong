@@ -1,5 +1,5 @@
 @echo off
 setlocal
-<nul set /p=Starting ChurchSong ... >&2
+echo Starting ChurchSong ...
 ChurchSong.exe %*
 if errorlevel 1 pause
