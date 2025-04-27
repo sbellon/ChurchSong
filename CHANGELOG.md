@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (certifi)
+
 ## 0.8.1 (2025-04-24)
 
 ### Fixed

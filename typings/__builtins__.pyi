@@ -2,5 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 
-# __builtins__.pyi
 def _(s: str) -> str: ...

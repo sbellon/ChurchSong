@@ -2,22 +2,25 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import dataclasses
 import enum
 import os
 import re
+import typing
 from collections import defaultdict
 
 from churchsong.churchtools import (
     ChurchToolsAPI,
     EventAgendaItem,
     EventAgendaItemType,
+    EventFile,
     EventFileDomainType,
     EventShort,
     File,
 )
 from churchsong.configuration import Configuration
-from churchsong.utils.progress import progress
+from churchsong.utils.progress import Progress
 
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:
@@ -82,7 +85,7 @@ class ChurchToolsEvent:
         sng_file = None
         if item.song:
             song = self.cta.get_song(item.song.song_id)
-            item.title = song.name
+            item.title = song.name  # side-effect for download_agenda_items()
             # Take first .sng file in chosen arrangement if it exists,
             # fall back to first .sng file in default arrangement otherwise.
             sng_file = next(
@@ -111,60 +114,68 @@ class ChurchToolsEvent:
     ) -> list[Item]:
         self._log.info('Downloading agenda items and songs')
         agenda_items: list[Item] = []
-        with progress:
-            task = progress.add_task(
-                f'Downloading: Agenda for {self._event.start_date:%Y-%m-%d}',
-                total=len(self._event.event_files) + len(self._agenda.items),
-            )
 
-            def update_progress() -> None:
-                progress.update(
-                    task, description=f'Downloading: {item.title}', advance=1
-                )
+        @contextlib.contextmanager
+        def do_progress(
+            item: EventAgendaItem | EventFile,
+        ) -> typing.Generator[EventAgendaItem | EventFile]:
+            with progress.do_progress(item, description=f'Downloading: {item.title}'):
+                yield item
 
+        with Progress(
+            f'Downloading: Agenda for {self._event.start_date:%Y-%m-%d}',
+            total=len(self._event.event_files) + len(self._agenda.items),
+        ) as progress:
             for item in self._event.event_files:
-                update_progress()
                 match item.domain_type:
                     case EventFileDomainType.FILE:
-                        filename = self._download_file(
-                            item.title,
-                            item.frontend_url,
-                            Subfolder.FILES,
-                            overwrite=download_files,
-                        )
-                        event_file = Item(ItemType.FILE, item.title, filename)
+                        with do_progress(item):
+                            filename = self._download_file(
+                                item.title,
+                                item.frontend_url,
+                                Subfolder.FILES,
+                                overwrite=download_files,
+                            )
+                            event_file = Item(ItemType.FILE, item.title, filename)
                     case EventFileDomainType.LINK:
-                        event_file = Item(ItemType.LINK, item.title, item.frontend_url)
+                        with do_progress(item):
+                            event_file = Item(
+                                ItemType.LINK, item.title, item.frontend_url
+                            )
                     case _:
-                        self._log.warning(
-                            f'Unexpected event file type: {item.domain_type}'
-                        )
+                        with do_progress(item):
+                            self._log.warning(
+                                f'Unexpected event file type: {item.domain_type}'
+                            )
                         continue
                 agenda_items.append(event_file)
             for item in self._agenda.items:
                 match item.type:
                     case EventAgendaItemType.HEADER:
-                        update_progress()
-                        agenda_item = Item(ItemType.HEADER, item.title)
+                        with do_progress(item):
+                            agenda_item = Item(ItemType.HEADER, item.title)
                     case EventAgendaItemType.NORMAL:
-                        update_progress()
-                        agenda_item = Item(ItemType.NORMAL, item.title)
+                        with do_progress(item):
+                            agenda_item = Item(ItemType.NORMAL, item.title)
                     case EventAgendaItemType.SONG:
-                        sng_file = self._sng_file(item)
-                        update_progress()
-                        filename = (
-                            self._download_file(
-                                item.title,
-                                sng_file.file_url,
-                                Subfolder.SONGS,
-                                overwrite=download_songs,
+                        sng_file = self._sng_file(item)  # sets item.title to song title
+                        with do_progress(item):
+                            filename = (
+                                self._download_file(
+                                    item.title,
+                                    sng_file.file_url,
+                                    Subfolder.SONGS,
+                                    overwrite=download_songs,
+                                )
+                                if sng_file
+                                else None
                             )
-                            if sng_file
-                            else None
-                        )
-                        agenda_item = Item(ItemType.SONG, item.title, filename)
+                            agenda_item = Item(ItemType.SONG, item.title, filename)
                     case _:
-                        self._log.warning(f'Unexpected event item type: {item.type}')
+                        with do_progress():
+                            self._log.warning(
+                                f'Unexpected event item type: {item.type}'
+                            )
                         continue
                 agenda_items.append(agenda_item)
         return agenda_items

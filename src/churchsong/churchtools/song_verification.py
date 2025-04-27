@@ -14,7 +14,7 @@ import typer
 
 from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
 from churchsong.configuration import Configuration
-from churchsong.utils.progress import progress
+from churchsong.utils.progress import Progress
 
 
 def miss_if(b: bool) -> str:
@@ -218,10 +218,8 @@ class ChurchToolsSongVerification:
         # execute selected checks.
         event = self.cta.get_next_event(date, agenda_required=True) if date else None
         number_songs, songs = self.cta.get_songs(event)
-        with progress:
-            for song in progress.track(
-                songs, description='Verifying Songs', total=number_songs
-            ):
+        with Progress(description='Verifying Songs', total=number_songs) as progress:
+            for song in progress.iterate(songs):
                 # Apply include and exclude tag switches.
                 if (
                     include_tags
