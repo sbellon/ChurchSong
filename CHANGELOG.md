@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (certifi)
+- updated external dependencies (certifi, typer)
 
 ## 0.8.1 (2025-04-24)
 
