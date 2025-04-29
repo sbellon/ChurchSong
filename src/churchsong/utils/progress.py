@@ -146,7 +146,7 @@ class Progress(_Progress):
         finally:
             self.advance(self._task)
 
-    def iterate(self, items: typing.Iterable[T]) -> typing.Generator[T, None, None]:  # noqa: UP043
+    def iterate(self, items: typing.Iterable[T]) -> typing.Generator[T]:
         for item in items:
             with self.do_progress(item) as i:
                 yield i
