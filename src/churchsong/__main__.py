@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import typing
 
+import rich
 import rich.traceback
 import typer
-from rich import print  # noqa: A004
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
@@ -45,7 +45,7 @@ app.add_typer(cmd_self, name='self')
 
 def show_version(ctx: typer.Context, show: bool) -> None:
     if show:
-        print(f'{ctx.obj.version}')
+        rich.print(f'{ctx.obj.version}')
         raise typer.Exit
 
 
@@ -223,11 +223,11 @@ def version(ctx: typer.Context) -> None:
 
 @cmd_self.command(help=f'Show info about the {Configuration.package_name} application.')
 def info(ctx: typer.Context) -> None:
-    print(f'Installed version:   {ctx.obj.version}')
+    rich.print(f'Installed version:   {ctx.obj.version}')
     if later_version := ctx.obj.later_version_available:
-        print(f'Latest version:      {later_version}')
-    print(f'Configuration file:  {ctx.obj.config_toml}')
-    print(f'User data directory: {ctx.obj.data_dir}')
+        rich.print(f'Latest version:      {later_version}')
+    rich.print(f'Configuration file:  {ctx.obj.config_toml}')
+    rich.print(f'User data directory: {ctx.obj.data_dir}')
 
 
 @cmd_self.command(help=f'Update the {Configuration.package_name} application.')
