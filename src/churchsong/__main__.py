@@ -210,7 +210,7 @@ def usage(
             case_sensitive=False,
             help='Define output format.',
         ),
-    ] = FormatType.TEXT,
+    ] = FormatType.RICH,
 ) -> None:
     ctx.obj.log.info(
         'Starting %s song usage statistics for %s-%s',
