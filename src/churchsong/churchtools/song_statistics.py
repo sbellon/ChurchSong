@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import prettytable
 import rich
+import rich.box
 import rich.table
 import typer
 import xlsxwriter
@@ -47,7 +48,7 @@ class BaseFormatter(abc.ABC):
 
 class RichFormatter(BaseFormatter):
     def __init__(self, title: str) -> None:
-        self._table = rich.table.Table(title=title)
+        self._table = rich.table.Table(title=title, box=rich.box.ROUNDED)
         self._table.add_column('Id', justify='right')
         self._table.add_column('Song', justify='left')
         self._table.add_column('Performed', justify='right')
