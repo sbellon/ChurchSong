@@ -17,7 +17,10 @@ import typer
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
-from churchsong.churchtools.song_verification import ChurchToolsSongVerification
+from churchsong.churchtools.song_verification import (
+    SONG_CHECKS,
+    ChurchToolsSongVerification,
+)
 from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint import PowerPoint
@@ -96,6 +99,14 @@ def agenda(
     _handle_agenda(date, ctx.obj, selection)
 
 
+def validate_checks(value: str) -> str:
+    for val in value.split(','):
+        if val and val not in SONG_CHECKS:
+            msg = f'{val} is not a valid check'
+            raise typer.BadParameter(msg)
+    return value
+
+
 @cmd_songs.command(
     help='Check all songs for inconsistent and incomplete data and then exit.'
 )
@@ -137,7 +148,8 @@ def verify(  # noqa: PLR0913
             '--execute_checks',
             metavar='CHECK,CHECK,...',
             default_factory=list,
-            show_default='all checks',
+            show_default=','.join(SONG_CHECKS),
+            parser=validate_checks,
             help='Checks to execute (header names of result table).',
         ),
     ],
@@ -198,7 +210,7 @@ def usage(
             case_sensitive=False,
             help='Define output format.',
         ),
-    ] = FormatType.TEXT,
+    ] = FormatType.RICH,
 ) -> None:
     ctx.obj.log.info(
         'Starting %s song usage statistics for %s-%s',

@@ -8,8 +8,8 @@ import inspect
 import typing
 from collections import OrderedDict, defaultdict
 
-import prettytable
 import rich
+import rich.table
 import typer
 
 from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
@@ -205,11 +205,10 @@ class ChurchToolsSongVerification:
         )
 
         # Prepare the check result table.
-        table = prettytable.PrettyTable()
-        table.field_names = ['Id', 'Song', 'Arrangement', *active_song_checks.keys()]
-        table.align['Id'] = 'r'
-        for field_id in table.field_names[1:]:
-            table.align[field_id] = 'l'
+        table = rich.table.Table()
+        table.add_column('Id', justify='right')
+        for column_name in ['Song', 'Arrangement', *active_song_checks.keys()]:
+            table.add_column(column_name, justify='left')
 
         # Check whether there are duplicates regarding the CCLI number.
         ccli2ids: defaultdict[str | None, set[int]] = defaultdict(set)
@@ -268,12 +267,10 @@ class ChurchToolsSongVerification:
                 for arr, check_result in zip(arrangements, check_results, strict=True):
                     if any(res for res in check_result):
                         table.add_row(
-                            [
-                                f'#{song.id}',
-                                song.name if song.name else f'#{song.id}',
-                                arr.name if arr.name else f'#{arr.id}',
-                                *check_result,
-                            ]
+                            f'#{song.id}',
+                            song.name if song.name else f'#{song.id}',
+                            arr.name if arr.name else f'#{arr.id}',
+                            *check_result,
                         )
 
         output_duplicates = ''
@@ -281,12 +278,11 @@ class ChurchToolsSongVerification:
             if len(song_ids) > 1:
                 ids = ', '.join(f'#{song_id}' for song_id in sorted(song_ids))
                 output_duplicates += f'\n  CCLI {ccli_no}: {ids}'
-        if output_duplicates:
-            output_duplicates = '\nDuplicate songs:' + output_duplicates
 
         # Output nicely formatted result table.
-        table_text = table.get_string(  # pyright: ignore[reportUnknownMemberType]
-            print_empty=False,
-            sortby=None if event else 'Song',
-        )
-        rich.print('{}'.format(table_text + output_duplicates or 'No problems found.'))
+        if not table.rows and not output_duplicates:
+            rich.print('No problems found.')
+        if table.rows:
+            rich.print(table)
+        if output_duplicates:
+            rich.print('\nDuplicate songs:' + output_duplicates)

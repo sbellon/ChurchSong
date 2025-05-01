@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+### Added
+- validate input of 'songs verify --execute_checks' to be actual check names
+
 ### Changed
-- updated external dependencies (certifi, typer)
+- use 'rich.table' for console output of 'songs verify' and 'songs usage'
+- updated external dependencies (certifi, pydantic, typer)
 
 ## 0.8.1 (2025-04-24)
 

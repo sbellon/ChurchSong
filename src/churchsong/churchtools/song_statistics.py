@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import prettytable
 import rich
+import rich.table
 import typer
 import xlsxwriter
 
@@ -19,8 +20,9 @@ from churchsong.configuration import Configuration
 from churchsong.utils.progress import Progress
 
 
-# The values of FormatType are the accepted formats of prettytable and openpyxl.
+# The values of FormatType are the accepted formats of rich, prettytable and openpyxl.
 class FormatType(str, enum.Enum):
+    RICH = 'rich'
     TEXT = 'text'
     HTML = 'html'
     JSON = 'json'
@@ -41,6 +43,20 @@ class BaseFormatter(abc.ABC):
 
     @abc.abstractmethod
     def done(self) -> None: ...
+
+
+class RichFormatter(BaseFormatter):
+    def __init__(self, title: str) -> None:
+        self._table = rich.table.Table(title=title)
+        self._table.add_column('Id', justify='right')
+        self._table.add_column('Song', justify='left')
+        self._table.add_column('Performed', justify='right')
+
+    def add_row(self, row: list[str]) -> None:
+        self._table.add_row(*row)
+
+    def done(self) -> None:
+        rich.print(self._table)
 
 
 class AsciiFormatter(BaseFormatter):
@@ -122,15 +138,18 @@ class ChurchToolsSongStatistics:
             else f'{from_date.year}'
         )
         title = f'Song statistics for {year_range}'
-        if output_format == FormatType.XLSX:
-            if not output_file:
-                msg = 'Format "xlsx" requires to specify an output file.'
-                raise typer.BadParameter(msg)
-            formatter = ExcelFormatter(title=title, filename=output_file)
-        else:
-            formatter = AsciiFormatter(
-                title=title, output_format=output_format, filename=output_file
-            )
+        match output_format:
+            case FormatType.XLSX:
+                if not output_file:
+                    msg = 'Format "xlsx" requires to specify an output file.'
+                    raise typer.BadParameter(msg)
+                formatter = ExcelFormatter(title=title, filename=output_file)
+            case FormatType.RICH:
+                formatter = RichFormatter(title=title)
+            case _:
+                formatter = AsciiFormatter(
+                    title=title, output_format=output_format, filename=output_file
+                )
 
         # Iterate over events and songs and count usage.
         song_counts: dict[tuple[int, str], int] = defaultdict(int)
