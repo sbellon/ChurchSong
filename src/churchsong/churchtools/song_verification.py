@@ -9,6 +9,7 @@ import typing
 from collections import OrderedDict, defaultdict
 
 import rich
+import rich.box
 import rich.table
 import typer
 
@@ -205,7 +206,7 @@ class ChurchToolsSongVerification:
         )
 
         # Prepare the check result table.
-        table = rich.table.Table()
+        table = rich.table.Table(box=rich.box.ROUNDED)
         table.add_column('Id', justify='right')
         for column_name in ['Song', 'Arrangement', *active_song_checks.keys()]:
             table.add_column(column_name, justify='left')
