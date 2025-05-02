@@ -96,7 +96,7 @@ And the values are all single-line, which makes parsing actually simple.
 
 
 class AgendaItem:
-    _re_agenda_item = re.compile(
+    _RE_AGENDA_ITEM: typing.ClassVar = re.compile(
         r"""\s*item\r?\n
               \s*Caption\s=\s(?P<caption>.*?)\r?\n
               \s*Color\s=\s(?P<color>.*?)\r?\n
@@ -106,7 +106,7 @@ class AgendaItem:
         """,
         re.VERBOSE,
     )
-    _replacements: typing.ClassVar = {
+    _RE_URL_REPLACEMENTS: typing.ClassVar = {
         # key: regexp to match with appropriate match group names
         # val: replacement with match group names using str.format()
         re.compile(
@@ -158,7 +158,7 @@ class AgendaItem:
 
     @classmethod
     def _fixup_links(cls, url: str) -> str:
-        for regexp, replacement in cls._replacements.items():
+        for regexp, replacement in cls._RE_URL_REPLACEMENTS.items():
             if m := regexp.match(url):
                 url = replacement.format(**m.groupdict())
         return url
@@ -172,7 +172,7 @@ class AgendaItem:
                 bgcolor=match.group('bgcolor'),
                 filename=match.group('filename'),
             )
-            for match in re.finditer(cls._re_agenda_item, content)
+            for match in re.finditer(cls._RE_AGENDA_ITEM, content)
         ]
 
     def __str__(self) -> str:
