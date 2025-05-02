@@ -13,7 +13,7 @@ import pydantic
 import requests
 
 from churchsong.configuration import Configuration
-from churchsong.utils import CliError
+from churchsong.utils import CliError, date
 
 
 class DeprecationAwareModel(pydantic.BaseModel):
@@ -85,22 +85,68 @@ class PermissionsGlobalData(DeprecationAwareModel):
                 return False
 
 
+class Address(DeprecationAwareModel):
+    name: str | None
+    street: str | None
+    zip: str | None
+    city: str | None
+
+
+class RepeatId(enum.Enum):
+    NONE = 0
+    DAILY = 1
+    WEEKLY = 7
+    MONTHLY_BY_DATE = 31
+    MONTHLY_BY_WEEKDAY = 32
+    YEARLY = 365
+    MANUALLY = 999
+
+
+class Image(DeprecationAwareModel):
+    name: str | None
+    image_url: str | None = pydantic.Field(alias='imageUrl')
+
+
 class CalendarAppointmentBase(DeprecationAwareModel):
     title: str
     subtitle: str | None
     description: str | None
-    image: str | None
+    image: Image | None
     link: str | None
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
+    end_date: datetime.datetime = pydantic.Field(alias='endDate')
     all_day: bool = pydantic.Field(alias='allDay')
+    repeat_id: RepeatId | None = pydantic.Field(alias='repeatId')
+    repeat_frequency: int | None = pydantic.Field(alias='repeatFrequency')
+    address: Address | None
 
 
-class CalendarAppointment(DeprecationAwareModel):
+class CalendarAppointmentAppointment(DeprecationAwareModel):
     base: CalendarAppointmentBase
+
+    @pydantic.model_validator(mode='before')
+    @classmethod
+    def _patch_base_dates(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
+        if (base := data.get('base')) and (calculated := data.get('calculated', {})):
+            all_day = base.get('allDay', False)
+            for key, time_suffix in (
+                ('startDate', 'T00:00:00Z'),
+                ('endDate', 'T23:59:59Z'),
+            ):
+                if value := calculated.get(key):
+                    if all_day and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+                        value = f'{value}{time_suffix}'
+                    base[key] = value
+
+        return data
+
+
+class CalendarAppointmentItem(DeprecationAwareModel):
+    appointment: CalendarAppointmentAppointment
 
 
 class CalendarAppointmentsData(DeprecationAwareModel):
-    data: list[CalendarAppointment]
+    data: list[CalendarAppointmentItem]
 
 
 class Calendar(DeprecationAwareModel):
@@ -284,6 +330,11 @@ class SongData(DeprecationAwareModel):
     data: Song
 
 
+ParamsType = typing.Mapping[
+    str, str | int | float | bool | list[str] | list[int] | None
+]
+
+
 class ChurchToolsAPI:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
@@ -343,7 +394,7 @@ class ChurchToolsAPI:
         self,
         method: str,
         url: str,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         *,
         stream: bool = False,
     ) -> requests.Response:
@@ -364,7 +415,7 @@ class ChurchToolsAPI:
     def _get(
         self,
         url: str,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         *,
         stream: bool = False,
     ) -> requests.Response:
@@ -373,7 +424,7 @@ class ChurchToolsAPI:
     def _post(
         self,
         url: str,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         *,
         stream: bool = False,
     ) -> requests.Response:
@@ -453,13 +504,43 @@ class ChurchToolsAPI:
             result = PersonsData(**r.json())
             return result.data
 
-    def _get_appointments(self) -> typing.Generator[CalendarAppointment]:
-        calendar_ids = ','.join(str(calendar.id) for calendar in self._get_calendars())
+    def get_appointments(
+        self, from_date: datetime.datetime | None = None
+    ) -> tuple[
+        typing.Generator[CalendarAppointmentBase],
+        typing.Generator[CalendarAppointmentBase],
+    ]:
+        if not from_date:
+            from_date = date.now()
+        in_2hours = from_date + datetime.timedelta(hours=2)
+        in_8days = from_date + datetime.timedelta(days=8)
+        in_10weeks = from_date + datetime.timedelta(weeks=10)
         r = self._get(
-            '/api/calendars/appointments', params={'calendar_ids[]': calendar_ids}
+            '/api/calendars/appointments',
+            params={
+                'calendar_ids[]': [calendar.id for calendar in self._get_calendars()],
+                'from': f'{from_date:%Y-%m-%d}',
+                'to': f'{in_10weeks:%Y-%m-%d}',
+            },
         )
         result = CalendarAppointmentsData(**r.json())
-        yield from result.data
+        appointments_repeat = (
+            base
+            for item in result.data
+            if (base := item.appointment.base)
+            and (base.repeat_id == RepeatId.WEEKLY and base.repeat_frequency == 1)
+            and base.start_date > in_2hours  # filter out approaching event
+            and base.start_date < in_8days
+        )
+        appointments_non_repeat = (
+            base
+            for item in result.data
+            if (base := item.appointment.base)
+            and not (base.repeat_id == RepeatId.WEEKLY and base.repeat_frequency == 1)
+            and base.start_date > in_2hours  # filter out approaching event
+            and base.start_date < in_10weeks
+        )
+        return (appointments_repeat, appointments_non_repeat)
 
     def get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')
