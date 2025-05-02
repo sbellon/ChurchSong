@@ -4,8 +4,10 @@
 
 import datetime
 import enum
+import re
 import sys
 import typing
+import warnings
 
 import pydantic
 import requests
@@ -14,12 +16,40 @@ from churchsong.configuration import Configuration
 from churchsong.utils import CliError
 
 
-class PermissionsGlobalChurchCal(pydantic.BaseModel):
+class DeprecationAwareModel(pydantic.BaseModel):
+    _DEPRECATION_KEY: typing.ClassVar[typing.Final[str]] = '@deprecated'
+    _RE_STRING_DEPRECATIONS: typing.ClassVar[typing.Final] = re.compile(
+        r'(?P<old>\w+) \(now: (?P<new>\w+)\)'
+    )
+
+    @pydantic.model_validator(mode='before')
+    @classmethod
+    def _warn_deprecated_fields(
+        cls, data: dict[str, typing.Any]
+    ) -> dict[str, typing.Any]:
+        deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
+        if isinstance(deprecated_fields, str):
+            deprecated_fields = {
+                m.group('old'): m.group('new')
+                for m in cls._RE_STRING_DEPRECATIONS.finditer(deprecated_fields)
+            }
+        for old_field, new_field in deprecated_fields.items():
+            if old_field in cls.model_fields and new_field is not None:
+                warnings.warn(
+                    f"Model '{cls.__name__}' defines deprecated field '{old_field}', "
+                    f"consider using '{new_field}' instead.",
+                    DeprecationWarning,
+                    stacklevel=1,
+                )
+        return data
+
+
+class PermissionsGlobalChurchCal(DeprecationAwareModel):
     view: bool
     view_category: list[int] = pydantic.Field(alias='view category')
 
 
-class PermissionsGlobalChurchService(pydantic.BaseModel):
+class PermissionsGlobalChurchService(DeprecationAwareModel):
     view: bool
     view_servicegroup: list[int] = pydantic.Field(alias='view servicegroup')
     view_history: bool = pydantic.Field(alias='view history')
@@ -28,12 +58,12 @@ class PermissionsGlobalChurchService(pydantic.BaseModel):
     view_songcategory: list[int] = pydantic.Field(alias='view songcategory')
 
 
-class PermissionsGlobal(pydantic.BaseModel):
+class PermissionsGlobal(DeprecationAwareModel):
     churchcal: PermissionsGlobalChurchCal
     churchservice: PermissionsGlobalChurchService
 
 
-class PermissionsGlobalData(pydantic.BaseModel):
+class PermissionsGlobalData(DeprecationAwareModel):
     data: PermissionsGlobal
 
     def get_permission(self, perm: str) -> bool | list[int]:
@@ -55,7 +85,7 @@ class PermissionsGlobalData(pydantic.BaseModel):
                 return False
 
 
-class CalendarAppointmentBase(pydantic.BaseModel):
+class CalendarAppointmentBase(DeprecationAwareModel):
     title: str
     subtitle: str | None
     description: str | None
@@ -65,53 +95,53 @@ class CalendarAppointmentBase(pydantic.BaseModel):
     all_day: bool = pydantic.Field(alias='allDay')
 
 
-class CalendarAppointment(pydantic.BaseModel):
+class CalendarAppointment(DeprecationAwareModel):
     base: CalendarAppointmentBase
 
 
-class CalendarAppointmentsData(pydantic.BaseModel):
+class CalendarAppointmentsData(DeprecationAwareModel):
     data: list[CalendarAppointment]
 
 
-class Calendar(pydantic.BaseModel):
+class Calendar(DeprecationAwareModel):
     id: int
     name: str
 
 
-class CalendarsData(pydantic.BaseModel):
+class CalendarsData(DeprecationAwareModel):
     data: list[Calendar]
 
 
-class Person(pydantic.BaseModel):
+class Person(DeprecationAwareModel):
     firstname: str = pydantic.Field(alias='firstName')
     lastname: str = pydantic.Field(alias='lastName')
     nickname: str | None
 
 
-class PersonsData(pydantic.BaseModel):
+class PersonsData(DeprecationAwareModel):
     data: Person
 
 
-class Service(pydantic.BaseModel):
+class Service(DeprecationAwareModel):
     id: int
     name: str | None
 
 
-class ServicesData(pydantic.BaseModel):
+class ServicesData(DeprecationAwareModel):
     data: list[Service]
 
 
-class EventShort(pydantic.BaseModel):
+class EventShort(DeprecationAwareModel):
     id: int
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
 
 
-class EventsData(pydantic.BaseModel):
+class EventsData(DeprecationAwareModel):
     data: list[EventShort]
 
 
-class EventService(pydantic.BaseModel):
+class EventService(DeprecationAwareModel):
     person_id: int | None = pydantic.Field(alias='personId')
     name: str | None
     service_id: int = pydantic.Field(alias='serviceId')
@@ -122,7 +152,7 @@ class EventService(pydantic.BaseModel):
     # if set, over `person.title`.
     @pydantic.model_validator(mode='before')
     @classmethod
-    def flatten_person_name(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    def _flatten_person_name(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
         person: dict[str, typing.Any] | None = data.get('person')
         if isinstance(person, dict):
             attrs = person.get('domainAttributes', {})
@@ -143,13 +173,13 @@ class EventFileDomainType(enum.StrEnum):
     LINK = 'link'
 
 
-class EventFile(pydantic.BaseModel):
+class EventFile(DeprecationAwareModel):
     title: str
     domain_type: EventFileDomainType = pydantic.Field(alias='domainType')
     frontend_url: str = pydantic.Field(alias='frontendUrl')
 
 
-class EventFull(pydantic.BaseModel):
+class EventFull(DeprecationAwareModel):
     id: int
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
@@ -157,11 +187,11 @@ class EventFull(pydantic.BaseModel):
     event_services: list[EventService] = pydantic.Field(alias='eventServices')
 
 
-class EventFullData(pydantic.BaseModel):
+class EventFullData(DeprecationAwareModel):
     data: EventFull
 
 
-class EventAgendaSong(pydantic.BaseModel):
+class EventAgendaSong(DeprecationAwareModel):
     song_id: int = pydantic.Field(alias='songId')
     arrangement_id: int = pydantic.Field(alias='arrangementId')
     title: str
@@ -173,58 +203,58 @@ class EventAgendaItemType(enum.StrEnum):
     SONG = 'song'
 
 
-class EventAgendaItem(pydantic.BaseModel):
+class EventAgendaItem(DeprecationAwareModel):
     title: str
     type: EventAgendaItemType = EventAgendaItemType.NORMAL
     song: EventAgendaSong | None = None
 
 
-class EventAgenda(pydantic.BaseModel):
+class EventAgenda(DeprecationAwareModel):
     id: int
     items: list[EventAgendaItem]
 
 
-class EventAgendaData(pydantic.BaseModel):
+class EventAgendaData(DeprecationAwareModel):
     data: EventAgenda
 
 
-class AgendaExport(pydantic.BaseModel):
+class AgendaExport(DeprecationAwareModel):
     url: str
 
 
-class AgendaExportData(pydantic.BaseModel):
+class AgendaExportData(DeprecationAwareModel):
     data: AgendaExport
 
 
-class File(pydantic.BaseModel):
+class File(DeprecationAwareModel):
     name: str
     file_url: str = pydantic.Field(alias='fileUrl')
 
 
-class Arrangement(pydantic.BaseModel):
+class Arrangement(DeprecationAwareModel):
     id: int
     name: str
     is_default: bool = pydantic.Field(alias='isDefault')
     source_name: str | None = pydantic.Field(alias='sourceName')
     source_reference: str | None = pydantic.Field(alias='sourceReference')
     key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
-    bpm: str | None
     beat: str | None
+    tempo: int | None
     duration: int | None
     files: list[File]
     sng_file_content: list[str] = []  # NOT filled by ChurchTools, but internally
 
 
-class Tag(pydantic.BaseModel):
+class Tag(DeprecationAwareModel):
     id: int
     name: str
 
 
-class TagsData(pydantic.BaseModel):
+class TagsData(DeprecationAwareModel):
     data: list[Tag]
 
 
-class Song(pydantic.BaseModel):
+class Song(DeprecationAwareModel):
     id: int
     name: str
     author: str | None
@@ -233,24 +263,24 @@ class Song(pydantic.BaseModel):
     tags: list[Tag] = []
 
 
-class Pagination(pydantic.BaseModel):
+class Pagination(DeprecationAwareModel):
     total: int
     limit: int
     current: int
     last_page: int = pydantic.Field(alias='lastPage')
 
 
-class SongsMeta(pydantic.BaseModel):
+class SongsMeta(DeprecationAwareModel):
     count: int
     pagination: Pagination | None = None
 
 
-class SongsData(pydantic.BaseModel):
+class SongsData(DeprecationAwareModel):
     data: list[Song]
     meta: SongsMeta
 
 
-class SongData(pydantic.BaseModel):
+class SongData(DeprecationAwareModel):
     data: Song
 
 
