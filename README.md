@@ -67,12 +67,23 @@ If you used the simple installation method above, the template was copied there 
 you, if you did a manual install you have to copy `resources/config.toml.example`
 there for yourself.
 
-### PowerPoint template
+### PowerPoint templates
 
-You need to prepare a PowerPoint template with a slide master which contains
-placeholders for pictures and names for the team members. The ChurchTool's service
-team name has to be put at the PowerPoint base placeholder via the Select Pane
-(Alt-F10).
+Depending on configuration you can have two PowerPoint slides created. If you have
+questions regarding how to create those templates, please get in contact with me.
+
+#### Service slide
+
+You can prepare a PowerPoint template with a slide master which contains placeholders
+for pictures and names for the team members. The ChurchTool's service team name has to
+be put at the PowerPoint base placeholder via the Select Pane (Alt-F10).
+
+#### Appointment slide
+
+You can prepare a PowerPoint template with two actual slides containing a table with
+two columns each. One of the tables needs to be named "weekly" and the other needs to
+be named "irregular" (use the Select Pane with Alt-F10). Appointments will be added to
+those tables depending on whether they are weekly recurring or not.
 
 ## Usage
 
@@ -87,19 +98,20 @@ starting date to look for the next event, you can specify additional command lin
 arguments `agenda DATE` as positional parameter with `DATE` in an ISO date format
 (e.g., `YYYY-MM-DD`, `YYYY-MM-DDT10:00:00`, or `YYYY-MM-DDT10:00:00+01:00`).
 
-If everything goes well, the agenda is downloaded into the `temp_dir`, the slide is
-created from the template, a `Schedule.col` for SongBeamer is created and finally
+If everything goes well, the agenda is downloaded into the `output_dir`, the slides
+are created from the templates, a `Schedule.col` for SongBeamer is created and finally
 SongBeamer itself is launched with the prepared `Schedule.col`.
 
-You can keep the `temp_dir` as is (it is added to and overwritten in future
-invocations), but there is also no harm in deleting the `temp_dir` as it is
+You can keep the `output_dir` as is (it is added to and overwritten in future
+invocations), but there is also no harm in deleting the `output_dir` as it is
 automatically re-created.
 
 ### ChurchTools song verification
 
 With the additional command family `songs verify` you can check the songs for specific
-properties like CCLI number, song name, tags, arrangement source, duration and a
-SongBeamer `.sng` file with the `#BackgroundImage` property set.
+properties like CCLI number, song name, tags, arrangement source, duration, a
+SongBeamer `.sng` file with the `#BackgroundImage` property set, and consistency of
+`#LangCount` property and e.g. a tag `EN/DE`.
 
 Without any further argument, `songs verify` checks the songs for the next agenda that
 would appear when just using `agenda` command.
@@ -116,12 +128,14 @@ Only the default arrangements of the songs are verified, unless you also specify
 By using command options `--exclude_tags` and/or `--include_tags` you can filter out
 songs with specific tags or only include songs with specific tags in the check.
 
+With option `--execute_checks` you can define which verification checks to execute.
+
 ### Song usage statistics
 
 If you are interested in how many times what song has been performed in a specific
 year or in specific years, you can use `songs usage` to create output in various
-formats (currently supporting `text`, `html`, `json`, `csv`, `latex`, `mediawiki`, and
-`xlsx`) by specifying the format with `--format`.
+formats (currently supporting `rich`, `text`, `html`, `json`, `csv`, `latex`,
+`mediawiki`, and `xlsx`) by specifying the format with `--format`.
 
 Output format `xlsx` requires to specify an output file using `--output`. This is
 optional for all other output formats.

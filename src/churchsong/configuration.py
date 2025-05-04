@@ -48,6 +48,9 @@ class GeneralInteractiveConfig(pydantic.BaseModel):
 class GeneralConfig(pydantic.BaseModel):
     log_level: str = 'WARNING'
     log_file: pathlib.Path = pathlib.Path(f'./Logs/{_package_name()}.log')
+    dayofweek_format: str = '%a'
+    date_format: str = '%Y-%m-%d'
+    time_format: str = '%H:%M'
     Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
 
 
@@ -62,9 +65,10 @@ class ChurchToolsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
-    template_pptx: pathlib.Path
-    portraits_dir: pathlib.Path
-    temp_dir: pathlib.Path
+    services_template_pptx: pathlib.Path | None = None
+    services_portraits_dir: pathlib.Path = pathlib.Path()
+    appointments_template_pptx: pathlib.Path | None = None
+    output_dir: pathlib.Path
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
@@ -77,7 +81,6 @@ class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
 
 
 class SongBeamerSlidesConfig(pydantic.BaseModel):
-    event_datetime_format: str = '%Y-%m-%d %H:%M'
     Opening: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
     Closing: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
     Insert: list[SongBeamerSlidesDynamicConfig] = []
@@ -157,6 +160,7 @@ class Configuration:
         self._log.addHandler(log_to_file)
         self._log.removeHandler(log_to_stderr)
 
+        locale.setlocale(locale.LC_TIME, locale.getlocale()[0])
         try:
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
             with importlib.resources.open_text(
@@ -221,6 +225,18 @@ class Configuration:
         return filename
 
     @property
+    def dayofweek_format(self) -> str:
+        return self._config.General.dayofweek_format
+
+    @property
+    def date_format(self) -> str:
+        return self._config.General.date_format
+
+    @property
+    def time_format(self) -> str:
+        return self._config.General.time_format
+
+    @property
     def use_unicode_font(self) -> bool:
         return self._config.General.Interactive.use_unicode_font
 
@@ -237,22 +253,30 @@ class Configuration:
         return self._config.ChurchTools.Replacements
 
     @property
-    def template_pptx(self) -> pathlib.Path:
-        return self.data_dir / self._config.SongBeamer.Settings.template_pptx
+    def services_template_pptx(self) -> pathlib.Path | None:
+        return (
+            self.data_dir / self._config.SongBeamer.Settings.services_template_pptx
+            if self._config.SongBeamer.Settings.services_template_pptx
+            else None
+        )
 
     @property
-    def portraits_dir(self) -> pathlib.Path:
-        return self.data_dir / self._config.SongBeamer.Settings.portraits_dir
+    def services_portraits_dir(self) -> pathlib.Path:
+        return self.data_dir / self._config.SongBeamer.Settings.services_portraits_dir
 
     @property
-    def temp_dir(self) -> pathlib.Path:
-        directory = self.data_dir / self._config.SongBeamer.Settings.temp_dir
+    def appointments_template_pptx(self) -> pathlib.Path | None:
+        return (
+            self.data_dir / self._config.SongBeamer.Settings.appointments_template_pptx
+            if self._config.SongBeamer.Settings.appointments_template_pptx
+            else None
+        )
+
+    @property
+    def output_dir(self) -> pathlib.Path:
+        directory = self.data_dir / self._config.SongBeamer.Settings.output_dir
         directory.mkdir(parents=True, exist_ok=True)
         return directory
-
-    @property
-    def event_datetime_format(self) -> str:
-        return self._config.SongBeamer.Slides.event_datetime_format
 
     @property
     def opening_slides(self) -> str:
