@@ -106,6 +106,13 @@ class TableFiller:
         )
         self._current_row += 1
 
+    def fill(self) -> None:
+        if not self._table:
+            return
+        for row in range(self._current_row, self._total_rows):
+            self._set_cell_text(self._table.cell(row, 0), '')
+            self._set_cell_text(self._table.cell(row, 1), '')
+
 
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
@@ -150,3 +157,6 @@ class PowerPointAppointments(PowerPointBase):
                     pass  # ignore weekly appointments more than one week away
                 case _:
                     self._irregular_table.add(appt)
+
+        self._weekly_table.fill()
+        self._irregular_table.fill()
