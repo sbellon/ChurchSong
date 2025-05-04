@@ -9,6 +9,7 @@ import pptx.enum.dml
 import pptx.shapes.graphfrm
 import pptx.table
 import pptx.text.text
+import pptx.util
 
 from churchsong.churchtools import CalendarAppointmentBase, RepeatId
 from churchsong.configuration import Configuration
@@ -43,10 +44,13 @@ class TableFiller:
         self,
         target_font_elem: pptx.text.text.Font,
         source_font_elem: pptx.text.text.Font,
+        scale: float = 1.0,
     ) -> None:
-        for attr in ('name', 'size', 'bold', 'italic', 'underline', 'language_id'):
+        for attr in ('name', 'bold', 'italic', 'underline', 'language_id'):
             if value := getattr(source_font_elem, attr, None):
                 setattr(target_font_elem, attr, value)
+        if source_font_elem.size:
+            target_font_elem.size = pptx.util.Pt(source_font_elem.size.pt * scale)
 
         match getattr(source_font_elem.color, 'type', None):
             case pptx.enum.dml.MSO_COLOR_TYPE.RGB:
@@ -63,16 +67,20 @@ class TableFiller:
     def _set_cell_text(
         self,
         cell: pptx.table._Cell,  # pyright: ignore[reportPrivateUsage]
-        text: str,
+        line1: str,
+        line2: str | None = None,
     ) -> None:
-        font = (
-            cell.text_frame.paragraphs[0].runs[0].font
-            if cell.text_frame.paragraphs[0].runs
-            else self._font
-        )
-        cell.text_frame.paragraphs[0].text = text
-        if font:
-            self._set_font(cell.text_frame.paragraphs[0].font, font)
+        font_of_run = {
+            idx: run.font for idx, run in enumerate(cell.text_frame.paragraphs[0].runs)
+        }
+        cell.text_frame.paragraphs[0].text = f'{line1}\v{line2}' if line2 else line1
+        for idx, run in enumerate(cell.text_frame.paragraphs[0].runs):
+            if font := font_of_run.get(idx) or self._font:
+                self._set_font(
+                    run.font,
+                    font,
+                    scale=0.66 if idx > 0 and idx not in font_of_run else 1.0,
+                )
 
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
@@ -81,22 +89,21 @@ class TableFiller:
             return
         local_start = appt.start_date.astimezone()
         if appt.all_day:
-            appt_datetime = f'{local_start:{self._date_format}}'
+            date_and_time = f'{local_start:{self._date_format}}'
         elif self._weekly:
-            appt_datetime = (
+            date_and_time = (
                 f'{local_start:{self._dayofweek_format} {self._time_format}}'
                 if self._dayofweek_format
                 else f'{local_start:{self._time_format}}'
             )
         else:
-            appt_datetime = f'{local_start:{self._date_format} {self._time_format}}'
-        appt_title = (
-            f'{appt.title}\v{appt_subtitle}'
-            if (appt_subtitle := appt.subtitle or appt.description or appt.link)
-            else appt.title
+            date_and_time = f'{local_start:{self._date_format} {self._time_format}}'
+        self._set_cell_text(self._table.cell(self._current_row, 0), date_and_time)
+        self._set_cell_text(
+            self._table.cell(self._current_row, 1),
+            appt.title,
+            appt.subtitle or appt.description or appt.link,
         )
-        self._set_cell_text(self._table.cell(self._current_row, 0), appt_datetime)
-        self._set_cell_text(self._table.cell(self._current_row, 1), appt_title)
         self._current_row += 1
 
 
