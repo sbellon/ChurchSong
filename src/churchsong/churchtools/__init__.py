@@ -506,14 +506,9 @@ class ChurchToolsAPI:
 
     def get_appointments(
         self, from_date: datetime.datetime | None = None
-    ) -> tuple[
-        typing.Generator[CalendarAppointmentBase],
-        typing.Generator[CalendarAppointmentBase],
-    ]:
+    ) -> typing.Generator[CalendarAppointmentBase]:
         if not from_date:
             from_date = date.now()
-        in_2hours = from_date + datetime.timedelta(hours=2)
-        in_8days = from_date + datetime.timedelta(days=8)
         in_10weeks = from_date + datetime.timedelta(weeks=10)
         r = self._get(
             '/api/calendars/appointments',
@@ -524,23 +519,7 @@ class ChurchToolsAPI:
             },
         )
         result = CalendarAppointmentsData(**r.json())
-        appointments_repeat = (
-            base
-            for item in result.data
-            if (base := item.appointment.base)
-            and (base.repeat_id == RepeatId.WEEKLY and base.repeat_frequency == 1)
-            and base.start_date > in_2hours  # filter out approaching event
-            and base.start_date < in_8days
-        )
-        appointments_non_repeat = (
-            base
-            for item in result.data
-            if (base := item.appointment.base)
-            and not (base.repeat_id == RepeatId.WEEKLY and base.repeat_frequency == 1)
-            and base.start_date > in_2hours  # filter out approaching event
-            and base.start_date < in_10weeks
-        )
-        return (appointments_repeat, appointments_non_repeat)
+        yield from (base for item in result.data if (base := item.appointment.base))
 
     def get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')

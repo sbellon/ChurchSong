@@ -46,7 +46,7 @@ class Person:
     shortname: str
 
 
-# The values of Subfolder are the actual subfolder names created beneath temp_dir.
+# The values of Subfolder are the actual subfolder names created beneath output_dir.
 class Subfolder(enum.StrEnum):
     FILES = 'Files'
     SONGS = 'Songs'
@@ -60,7 +60,7 @@ class ChurchToolsEvent:
         self._log = config.log
         self._event = self.cta.get_full_event(event)
         self._agenda = self.cta.get_event_agenda(event)
-        self._temp_dir = config.temp_dir
+        self._output_dir = config.output_dir
         self._person_dict = config.person_dict
 
     def _download_file(
@@ -74,8 +74,8 @@ class ChurchToolsEvent:
             filename = match.group(1).encode('latin1').decode('utf-8')
         else:
             filename = name
-        (self._temp_dir / subfolder).mkdir(parents=True, exist_ok=True)
-        filename = self._temp_dir / subfolder / filename
+        (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
+        filename = self._output_dir / subfolder / filename
         if overwrite:
             with filename.open(mode='wb') as fd:
                 fd.write(r.content)

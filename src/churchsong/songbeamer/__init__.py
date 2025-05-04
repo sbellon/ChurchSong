@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
-import os
 import re
 import subprocess
 import sys
 import typing
 
-from churchsong.churchtools.events import Item
+from churchsong.churchtools.events import Item, ItemType
 from churchsong.configuration import Configuration, SongBeamerColorConfig
 from churchsong.utils import CliError, expand_envvars
 
@@ -233,9 +232,11 @@ class Agenda:
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._temp_dir = config.temp_dir.resolve()
-        self._schedule_filepath = self._temp_dir / 'Schedule.col'
-        self._event_datetime_format = config.event_datetime_format
+        self._output_dir = config.output_dir.resolve()
+        self._schedule_filepath = self._output_dir / 'Schedule.col'
+        self._datetime_format = (
+            f'{config.dayofweek_format} {config.date_format} {config.time_format}'
+        )
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
@@ -250,18 +251,17 @@ class SongBeamer:
     ) -> None:
         self._log.info('Creating SongBeamer Schedule.col')
 
-        # Set environment variable(s) for use in agenda items in configuration.
-        os.environ['CHURCHSONG_EVENT_DATETIME'] = (
-            f'{event_date.astimezone():{self._event_datetime_format}}'
-        )
-
         agenda = Agenda(colors=self._colors)
-        for agenda_item in (
-            AgendaItem.parse(self._opening_slides)
-            + agenda_items
-            + AgendaItem.parse(self._closing_slides)
-            + service_items
-        ):
+        for agenda_item in [
+            Item(
+                type=ItemType.SERVICE,
+                title=f'{event_date.astimezone():{self._datetime_format}}',
+            ),
+            *AgendaItem.parse(self._opening_slides),
+            *agenda_items,
+            *AgendaItem.parse(self._closing_slides),
+            *service_items,
+        ]:
             agenda += agenda_item
             for slide in self._insert_slides:
                 if any(keyword in agenda[-1].caption for keyword in slide.keywords):
@@ -300,7 +300,7 @@ Click OK to continue.
                 windows.bring_songbeamer_window_to_front()
 
             try:
-                windows.start_songbeamer(self._temp_dir)
+                windows.start_songbeamer(self._output_dir)
             except subprocess.CalledProcessError as e:
                 msg = f'Cannot start SongBeamer: {e}'
                 self._log.error(msg)

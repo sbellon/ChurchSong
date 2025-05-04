@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- create appointments slide from a PowerPoint template based on ChurchTools calendars,
+  divide into two slides for weekly appointments and irregular appointments
 - validate input of 'songs verify --execute_checks' to be actual check names
 
 ### Changed

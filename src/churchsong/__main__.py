@@ -23,7 +23,8 @@ from churchsong.churchtools.song_verification import (
 )
 from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
-from churchsong.powerpoint import PowerPoint
+from churchsong.powerpoint.appointments import PowerPointAppointments
+from churchsong.powerpoint.services import PowerPointServices
 from churchsong.songbeamer import SongBeamer
 from churchsong.utils import CliError, flattened_split
 from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
@@ -292,9 +293,14 @@ def _handle_agenda(
     service_items, service_leads = cte.get_service_info()
 
     if selection.slides:
-        pp = PowerPoint(config)
-        pp.create(service_leads)
-        pp.save()
+        if config.services_template_pptx:
+            pps = PowerPointServices(config)
+            pps.create(service_leads)
+            pps.save()
+        if config.appointments_template_pptx:
+            ppa = PowerPointAppointments(config)
+            ppa.create(cta.get_appointments(date), date)
+            ppa.save()
 
     if selection.schedule:
         sb = SongBeamer(config)
