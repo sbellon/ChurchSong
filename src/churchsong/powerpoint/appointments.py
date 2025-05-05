@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import abc
 import datetime
 import typing
 
@@ -16,7 +17,7 @@ from churchsong.configuration import Configuration
 from churchsong.powerpoint import PowerPointBase
 
 
-class TableFiller:
+class TableFillerBase(abc.ABC):
     def __init__(
         self, dayofweek_format: str, date_format: str, time_format: str
     ) -> None:
@@ -81,8 +82,8 @@ class TableFiller:
                     scale=0.66 if idx > 0 and idx not in font_of_run else 1.0,
                 )
 
-    def _date_and_time(self, local_start: datetime.datetime) -> str:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def _date_and_time(self, local_start: datetime.datetime) -> str: ...
 
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
@@ -113,7 +114,7 @@ class TableFiller:
             self._set_cell_text(self._table.cell(row, 1), '')
 
 
-class WeeklyTableFiller(TableFiller):
+class WeeklyTableFiller(TableFillerBase):
     type: typing.ClassVar[str] = 'weekly table'
 
     def _date_and_time(self, local_start: datetime.datetime) -> str:
@@ -124,7 +125,7 @@ class WeeklyTableFiller(TableFiller):
         )
 
 
-class IrregularTableFiller(TableFiller):
+class IrregularTableFiller(TableFillerBase):
     type: typing.ClassVar[str] = 'irregular table'
 
     def _date_and_time(self, local_start: datetime.datetime) -> str:

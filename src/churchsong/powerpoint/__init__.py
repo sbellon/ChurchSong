@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import abc
 import os
 import pathlib
 
@@ -11,7 +12,7 @@ import pptx.exc
 from churchsong.configuration import Configuration
 
 
-class PowerPointBase:
+class PowerPointBase(abc.ABC):  # noqa: B024
     def __init__(
         self,
         config: Configuration,
