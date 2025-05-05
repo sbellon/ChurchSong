@@ -20,7 +20,7 @@ class PowerPointServices(PowerPointBase):
         self._portraits_dir = config.services_portraits_dir
 
     def create(self, service_leads: dict[str, set[Person]]) -> None:
-        self._log.info('Creating PowerPoint slide')
+        self._log.info('Creating PowerPoint services slide')
         if self._prs.core_properties.revision == 1:  # pyright: ignore[reportUnknownMemberType]
             # Presentation is the fallback created one, just skip everything
             return
