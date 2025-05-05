@@ -63,7 +63,6 @@ class ChurchToolsConfig(pydantic.BaseModel):
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
     output_dir: pathlib.Path
-    dayofweek_format: str = '%a'
     date_format: str = '%Y-%m-%d'
     time_format: str = '%H:%M'
 
@@ -259,10 +258,6 @@ class Configuration:
         directory = self.data_dir / self._config.SongBeamer.Settings.output_dir
         directory.mkdir(parents=True, exist_ok=True)
         return directory
-
-    @property
-    def dayofweek_format(self) -> str:
-        return self._config.SongBeamer.Settings.dayofweek_format
 
     @property
     def date_format(self) -> str:

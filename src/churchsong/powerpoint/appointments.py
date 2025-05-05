@@ -18,14 +18,11 @@ from churchsong.powerpoint import PowerPointBase
 
 
 class TableFillerBase(abc.ABC):
-    def __init__(
-        self, dayofweek_format: str, date_format: str, time_format: str
-    ) -> None:
+    def __init__(self, date_format: str, time_format: str) -> None:
         self._table = None
         self._font = None
         self._total_rows = 0
         self._current_row = 0
-        self._dayofweek_format = dayofweek_format
         self._date_format = date_format
         self._time_format = time_format
 
@@ -83,7 +80,7 @@ class TableFillerBase(abc.ABC):
                 )
 
     @abc.abstractmethod
-    def _date_and_time(self, local_start: datetime.datetime) -> str: ...
+    def _date_and_time(self, appt: CalendarAppointmentBase) -> str: ...
 
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
@@ -92,12 +89,10 @@ class TableFillerBase(abc.ABC):
         if self._current_row >= self._total_rows:
             # All available table rows have been filled.
             return
-        local_start = appt.start_date.astimezone()
-        if appt.all_day:
-            date_and_time = f'{local_start:{self._date_format}}'
-        else:
-            date_and_time = self._date_and_time(local_start)
-        self._set_cell_text(self._table.cell(self._current_row, 0), date_and_time)
+        self._set_cell_text(
+            self._table.cell(self._current_row, 0),
+            self._date_and_time(appt),
+        )
         self._set_cell_text(
             self._table.cell(self._current_row, 1),
             appt.title,
@@ -117,33 +112,35 @@ class TableFillerBase(abc.ABC):
 class WeeklyTableFiller(TableFillerBase):
     type: typing.ClassVar[str] = 'weekly table'
 
-    def _date_and_time(self, local_start: datetime.datetime) -> str:
+    def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
+        local_start = appt.start_date.astimezone()
         return (
-            f'{local_start:{self._dayofweek_format} {self._time_format}}'
-            if self._dayofweek_format
-            else f'{local_start:{self._time_format}}'
+            f'{local_start:%A}'
+            if appt.all_day
+            else f'{local_start:%a. {self._time_format}}'
         )
 
 
 class IrregularTableFiller(TableFillerBase):
     type: typing.ClassVar[str] = 'irregular table'
 
-    def _date_and_time(self, local_start: datetime.datetime) -> str:
-        return f'{local_start:{self._date_format} {self._time_format}}'
+    def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
+        local_start = appt.start_date.astimezone()
+        return (
+            f'{local_start:%a. {self._date_format}}'
+            if appt.all_day
+            else f'{local_start:%a. {self._date_format} {self._time_format}}'
+        )
 
 
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         super().__init__(config, config.appointments_template_pptx, config.output_dir)
         self._weekly_table = WeeklyTableFiller(
-            dayofweek_format=config.dayofweek_format,
-            date_format=config.date_format,
-            time_format=config.time_format,
+            date_format=config.date_format, time_format=config.time_format
         )
         self._irregular_table = IrregularTableFiller(
-            dayofweek_format=config.dayofweek_format,
-            date_format=config.date_format,
-            time_format=config.time_format,
+            date_format=config.date_format, time_format=config.time_format
         )
 
     def create(
