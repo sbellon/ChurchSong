@@ -48,9 +48,6 @@ class GeneralInteractiveConfig(pydantic.BaseModel):
 class GeneralConfig(pydantic.BaseModel):
     log_level: str = 'WARNING'
     log_file: pathlib.Path = pathlib.Path(f'./Logs/{_package_name()}.log')
-    dayofweek_format: str = '%a'
-    date_format: str = '%Y-%m-%d'
-    time_format: str = '%H:%M'
     Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
 
 
@@ -65,10 +62,26 @@ class ChurchToolsConfig(pydantic.BaseModel):
 
 
 class SongBeamerSettingsConfig(pydantic.BaseModel):
-    services_template_pptx: pathlib.Path | None = None
-    services_portraits_dir: pathlib.Path = pathlib.Path()
-    appointments_template_pptx: pathlib.Path | None = None
     output_dir: pathlib.Path
+    dayofweek_format: str = '%a'
+    date_format: str = '%Y-%m-%d'
+    time_format: str = '%H:%M'
+
+
+class SongBeamerPowerPointServicesConfig(pydantic.BaseModel):
+    template_pptx: pathlib.Path | None = None
+    portraits_dir: pathlib.Path = pathlib.Path()
+
+
+class SongBeamerPowerPointAppointmentsConfig(pydantic.BaseModel):
+    template_pptx: pathlib.Path | None = None
+
+
+class SongBeamerPowerPointConfig(pydantic.BaseModel):
+    Services: SongBeamerPowerPointServicesConfig = SongBeamerPowerPointServicesConfig()
+    Appointments: SongBeamerPowerPointAppointmentsConfig = (
+        SongBeamerPowerPointAppointmentsConfig()
+    )
 
 
 class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
@@ -102,6 +115,7 @@ class SongBeamerColorConfig(pydantic.BaseModel):
 
 class SongBeamerConfig(pydantic.BaseModel):
     Settings: SongBeamerSettingsConfig
+    PowerPoint: SongBeamerPowerPointConfig = SongBeamerPowerPointConfig()
     Slides: SongBeamerSlidesConfig = SongBeamerSlidesConfig()
     Color: SongBeamerColorConfig = SongBeamerColorConfig()
 
@@ -225,18 +239,6 @@ class Configuration:
         return filename
 
     @property
-    def dayofweek_format(self) -> str:
-        return self._config.General.dayofweek_format
-
-    @property
-    def date_format(self) -> str:
-        return self._config.General.date_format
-
-    @property
-    def time_format(self) -> str:
-        return self._config.General.time_format
-
-    @property
     def use_unicode_font(self) -> bool:
         return self._config.General.Interactive.use_unicode_font
 
@@ -253,30 +255,43 @@ class Configuration:
         return self._config.ChurchTools.Replacements
 
     @property
+    def output_dir(self) -> pathlib.Path:
+        directory = self.data_dir / self._config.SongBeamer.Settings.output_dir
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
+    @property
+    def dayofweek_format(self) -> str:
+        return self._config.SongBeamer.Settings.dayofweek_format
+
+    @property
+    def date_format(self) -> str:
+        return self._config.SongBeamer.Settings.date_format
+
+    @property
+    def time_format(self) -> str:
+        return self._config.SongBeamer.Settings.time_format
+
+    @property
     def services_template_pptx(self) -> pathlib.Path | None:
         return (
-            self.data_dir / self._config.SongBeamer.Settings.services_template_pptx
-            if self._config.SongBeamer.Settings.services_template_pptx
+            self.data_dir / self._config.SongBeamer.PowerPoint.Services.template_pptx
+            if self._config.SongBeamer.PowerPoint.Services.template_pptx
             else None
         )
 
     @property
     def services_portraits_dir(self) -> pathlib.Path:
-        return self.data_dir / self._config.SongBeamer.Settings.services_portraits_dir
+        return self.data_dir / self._config.SongBeamer.PowerPoint.Services.portraits_dir
 
     @property
     def appointments_template_pptx(self) -> pathlib.Path | None:
         return (
-            self.data_dir / self._config.SongBeamer.Settings.appointments_template_pptx
-            if self._config.SongBeamer.Settings.appointments_template_pptx
+            self.data_dir
+            / self._config.SongBeamer.PowerPoint.Appointments.template_pptx
+            if self._config.SongBeamer.PowerPoint.Appointments.template_pptx
             else None
         )
-
-    @property
-    def output_dir(self) -> pathlib.Path:
-        directory = self.data_dir / self._config.SongBeamer.Settings.output_dir
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
 
     @property
     def opening_slides(self) -> str:

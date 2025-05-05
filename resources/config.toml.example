@@ -1,9 +1,6 @@
 [General]
 log_level = "INFO"
 log_file = "./Logs/ChurchSong.log"
-dayofweek_format = "%a."
-date_format = "%d.%m."
-time_format = "%H:%M"
 
 [General.Interactive]
 use_unicode_font = true
@@ -17,27 +14,34 @@ login_token = "YOUR_LOGIN_TOKEN"
 "Jonathan Doe" = "Jon Doe"
 
 [SongBeamer.Settings]
-services_template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/SERVICES_TEMPLATE.pptx"
-services_portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
-appointments_template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS_TEMPLATE.pptx"
 output_dir = "${USERPROFILE}/Desktop/Output"
+dayofweek_format = "%a."
+date_format = "%d.%m."
+time_format = "%H:%M"
+
+[SongBeamer.PowerPoint.Services]
+template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/SERVICES.pptx"
+portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
+
+[SongBeamer.PowerPoint.Appointments]
+template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
 
 [SongBeamer.Slides.Opening]
 content = """
     item
       Caption = 'Projector Check'
       Color = clBlack
-      FileName = '${USERPROFLE}/Desktop/Data/PowerPoint/ProjectorCheck.pptx'
+      FileName = '${USERPROFILE}/Desktop/Data/PowerPoint/ProjectorCheck.pptx'
     end
     item
       Caption = 'Service Staff'
       Color = clBlack
-      FileName = '${USERPROFILE}/Desktop/Output/SERVICES_TEMPLATE.pptx'
+      FileName = '${USERPROFILE}/Desktop/Output/SERVICES.pptx'
     end
     item
       Caption = 'Welcome'
       Color = clBlack
-      FileName = '${USERPROFLE}/Desktop/Data/PowerPoint/Welcome.pptx'
+      FileName = '${USERPROFILE}/Desktop/Data/PowerPoint/Welcome.pptx'
     end
 """
 
@@ -55,7 +59,7 @@ content = """
     item
       Caption = 'Appointments'
       Color = clBlack
-      FileName = '${USERPROFILE}/Desktop/Output/APPOINTMENTS_TEMPLATE.pptx'
+      FileName = '${USERPROFILE}/Desktop/Output/APPOINTMENTS.pptx'
     end
 """
 
