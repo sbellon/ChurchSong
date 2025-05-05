@@ -131,7 +131,9 @@ class ChurchToolsSongStatistics:
         output_file: pathlib.Path | None = None,
         output_format: FormatType,
     ) -> None:
-        self._log.info('Building song usage statistics')
+        self._log.info(
+            'Building song usage statistics FROM_DATE=%s TO_DATE=%s', from_date, to_date
+        )
 
         year_range = (
             f'{from_date.year}-{to_date.year}'

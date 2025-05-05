@@ -148,6 +148,8 @@ class PowerPointAppointments(PowerPointBase):
         appointments: typing.Iterable[CalendarAppointmentBase],
         from_date: datetime.datetime,
     ) -> None:
+        self._log.info('Creating PowerPoint appointments slide')
+
         # Walk through the slides and shapes and register the weekly table and the
         # irregular table for later filling with the appropriate appointments.
         for slide in self._prs.slides:

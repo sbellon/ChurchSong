@@ -112,7 +112,7 @@ class ChurchToolsEvent:
     def download_agenda_items(
         self, *, download_files: bool = True, download_songs: bool = True
     ) -> list[Item]:
-        self._log.info('Downloading agenda items and songs')
+        self._log.info('Downloading event files, agenda items, and songs')
         agenda_items: list[Item] = []
 
         @contextlib.contextmanager

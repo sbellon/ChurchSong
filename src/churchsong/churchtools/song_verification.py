@@ -189,7 +189,7 @@ class ChurchToolsSongVerification:
         execute_checks: list[str],
         all_arrangements: bool,
     ) -> None:
-        self._log.info('Verifying ChurchTools song database')
+        self._log.info('Verifying ChurchTools song database for DATE=%s', date)
 
         # Use activated checks from command line or all as default.
         active_song_checks = OrderedDict(
