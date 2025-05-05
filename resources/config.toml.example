@@ -15,7 +15,6 @@ login_token = "YOUR_LOGIN_TOKEN"
 
 [SongBeamer.Settings]
 output_dir = "${USERPROFILE}/Desktop/Output"
-dayofweek_format = "%a."
 date_format = "%d.%m."
 time_format = "%H:%M"
 

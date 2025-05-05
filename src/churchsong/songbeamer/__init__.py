@@ -234,9 +234,7 @@ class SongBeamer:
         self._log = config.log
         self._output_dir = config.output_dir.resolve()
         self._schedule_filepath = self._output_dir / 'Schedule.col'
-        self._datetime_format = (
-            f'{config.dayofweek_format} {config.date_format} {config.time_format}'
-        )
+        self._datetime_format = f'%a. {config.date_format} {config.time_format}'
         self._opening_slides = config.opening_slides
         self._closing_slides = config.closing_slides
         self._insert_slides = config.insert_slides
