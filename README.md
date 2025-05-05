@@ -81,9 +81,9 @@ be put at the PowerPoint base placeholder via the Select Pane (Alt-F10).
 #### Appointment slide
 
 You can prepare a PowerPoint template with two actual slides containing a table with
-two columns each. One of the tables needs to be named "weekly" and the other needs to
-be named "irregular" (use the Select Pane with Alt-F10). Appointments will be added to
-those tables depending on whether they are weekly recurring or not.
+two columns each. One of the tables needs to be named `Weekly Table` and the other
+needs to be named `Irregular Table` (use the Select Pane with Alt-F10). Appointments
+will be added to those tables depending on whether they are weekly recurring or not.
 
 ## Usage
 

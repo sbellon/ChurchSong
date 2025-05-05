@@ -18,11 +18,7 @@ from churchsong.powerpoint import PowerPointBase
 
 class TableFiller:
     def __init__(
-        self,
-        dayofweek_format: str,
-        date_format: str,
-        time_format: str,
-        weekly: bool = False,
+        self, dayofweek_format: str, date_format: str, time_format: str
     ) -> None:
         self._table = None
         self._font = None
@@ -31,35 +27,38 @@ class TableFiller:
         self._dayofweek_format = dayofweek_format
         self._date_format = date_format
         self._time_format = time_format
-        self._weekly = weekly
 
     def set_table(self, table: pptx.table.Table) -> None:
         self._table = table
         self._total_rows = len(table.rows)
         self._current_row = 0
-        if table.cell(0, 0).text_frame.paragraphs[0].runs:
-            self._font = table.cell(0, 0).text_frame.paragraphs[0].runs[0].font
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        self._font = run.font
+                        return
 
-    def _set_font(
+    def _set_font_properties(
         self,
-        target_font_elem: pptx.text.text.Font,
-        source_font_elem: pptx.text.text.Font,
+        dst_font_element: pptx.text.text.Font,
+        src_font_element: pptx.text.text.Font,
         scale: float = 1.0,
     ) -> None:
         for attr in ('name', 'bold', 'italic', 'underline', 'language_id'):
-            if value := getattr(source_font_elem, attr, None):
-                setattr(target_font_elem, attr, value)
-        if source_font_elem.size:
-            target_font_elem.size = pptx.util.Pt(source_font_elem.size.pt * scale)
+            if value := getattr(src_font_element, attr, None):
+                setattr(dst_font_element, attr, value)
+        if src_font_element.size:
+            dst_font_element.size = pptx.util.Pt(src_font_element.size.pt * scale)
 
-        match getattr(source_font_elem.color, 'type', None):
+        match getattr(src_font_element.color, 'type', None):
             case pptx.enum.dml.MSO_COLOR_TYPE.RGB:
-                target_font_elem.color.rgb = getattr(
-                    source_font_elem.color, 'rgb', None
+                dst_font_element.color.rgb = getattr(
+                    src_font_element.color, 'rgb', None
                 )
             case pptx.enum.dml.MSO_COLOR_TYPE.SCHEME:
-                target_font_elem.color.theme_color = getattr(
-                    source_font_elem.color, 'theme_color', None
+                dst_font_element.color.theme_color = getattr(
+                    src_font_element.color, 'theme_color', None
                 )
             case _:
                 pass
@@ -76,28 +75,27 @@ class TableFiller:
         cell.text_frame.paragraphs[0].text = f'{line1}\v{line2}' if line2 else line1
         for idx, run in enumerate(cell.text_frame.paragraphs[0].runs):
             if font := font_of_run.get(idx) or self._font:
-                self._set_font(
+                self._set_font_properties(
                     run.font,
                     font,
                     scale=0.66 if idx > 0 and idx not in font_of_run else 1.0,
                 )
 
+    def _date_and_time(self, local_start: datetime.datetime) -> str:
+        raise NotImplementedError
+
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
+            # Safeguard, no table registered.
             return
         if self._current_row >= self._total_rows:
+            # All available table rows have been filled.
             return
         local_start = appt.start_date.astimezone()
         if appt.all_day:
             date_and_time = f'{local_start:{self._date_format}}'
-        elif self._weekly:
-            date_and_time = (
-                f'{local_start:{self._dayofweek_format} {self._time_format}}'
-                if self._dayofweek_format
-                else f'{local_start:{self._time_format}}'
-            )
         else:
-            date_and_time = f'{local_start:{self._date_format} {self._time_format}}'
+            date_and_time = self._date_and_time(local_start)
         self._set_cell_text(self._table.cell(self._current_row, 0), date_and_time)
         self._set_cell_text(
             self._table.cell(self._current_row, 1),
@@ -108,22 +106,40 @@ class TableFiller:
 
     def fill(self) -> None:
         if not self._table:
+            # Safeguard, no table registered.
             return
         for row in range(self._current_row, self._total_rows):
             self._set_cell_text(self._table.cell(row, 0), '')
             self._set_cell_text(self._table.cell(row, 1), '')
 
 
+class WeeklyTableFiller(TableFiller):
+    type: typing.ClassVar[str] = 'weekly table'
+
+    def _date_and_time(self, local_start: datetime.datetime) -> str:
+        return (
+            f'{local_start:{self._dayofweek_format} {self._time_format}}'
+            if self._dayofweek_format
+            else f'{local_start:{self._time_format}}'
+        )
+
+
+class IrregularTableFiller(TableFiller):
+    type: typing.ClassVar[str] = 'irregular table'
+
+    def _date_and_time(self, local_start: datetime.datetime) -> str:
+        return f'{local_start:{self._date_format} {self._time_format}}'
+
+
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         super().__init__(config, config.appointments_template_pptx, config.output_dir)
-        self._weekly_table = TableFiller(
+        self._weekly_table = WeeklyTableFiller(
             dayofweek_format=config.dayofweek_format,
             date_format=config.date_format,
             time_format=config.time_format,
-            weekly=True,
         )
-        self._irregular_table = TableFiller(
+        self._irregular_table = IrregularTableFiller(
             dayofweek_format=config.dayofweek_format,
             date_format=config.date_format,
             time_format=config.time_format,
@@ -134,17 +150,23 @@ class PowerPointAppointments(PowerPointBase):
         appointments: typing.Iterable[CalendarAppointmentBase],
         from_date: datetime.datetime,
     ) -> None:
+        # Walk through the slides and shapes and register the weekly table and the
+        # irregular table for later filling with the appropriate appointments.
         for slide in self._prs.slides:
             for shape in slide.shapes:
                 if (
                     isinstance(shape, pptx.shapes.graphfrm.GraphicFrame)
                     and shape.has_table
                 ):
-                    if 'weekly' in shape.name.lower():
-                        self._weekly_table.set_table(shape.table)
-                    elif 'irregular' in shape.name.lower():
-                        self._irregular_table.set_table(shape.table)
+                    match shape.name.lower():
+                        case self._weekly_table.type:
+                            self._weekly_table.set_table(shape.table)
+                        case self._irregular_table.type:
+                            self._irregular_table.set_table(shape.table)
+                        case _:
+                            pass
 
+        # Walk through the appointments and put them in the appropriate table.
         in_2hours = from_date + datetime.timedelta(hours=2)
         in_8days = from_date + datetime.timedelta(days=8)
         for appt in appointments:
@@ -158,5 +180,6 @@ class PowerPointAppointments(PowerPointBase):
                 case _:
                     self._irregular_table.add(appt)
 
+        # Fill the tables to clean potential style templates in the cells.
         self._weekly_table.fill()
         self._irregular_table.fill()
