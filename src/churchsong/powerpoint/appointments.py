@@ -18,15 +18,23 @@ from churchsong.powerpoint import PowerPointBase
 
 
 class TableFillerBase(abc.ABC):
-    def __init__(self, date_format: str, time_format: str) -> None:
+    type: typing.ClassVar[str]
+
+    def __init__(
+        self, config: Configuration, date_format: str, time_format: str
+    ) -> None:
+        self._log = config.log
         self._table = None
         self._font = None
         self._total_rows = 0
         self._current_row = 0
         self._date_format = date_format
         self._time_format = time_format
+        self._unset_table_warning = False
 
     def set_table(self, table: pptx.table.Table) -> None:
+        if self._table:
+            self._log.warning('%s already set, not setting again', self.type)
         self._table = table
         self._total_rows = len(table.rows)
         self._current_row = 0
@@ -85,9 +93,13 @@ class TableFillerBase(abc.ABC):
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
             # Safeguard, no table registered.
+            if not self._unset_table_warning:
+                self._unset_table_warning = True
+                self._log.warning('%s unset, ignoring all appointments', self.type)
             return
         if self._current_row >= self._total_rows:
             # All available table rows have been filled.
+            self._log.warning('%s table is full, ignoring appointment', self.type)
             return
         self._set_cell_text(
             self._table.cell(self._current_row, 0),
@@ -110,7 +122,7 @@ class TableFillerBase(abc.ABC):
 
 
 class WeeklyTableFiller(TableFillerBase):
-    type: typing.ClassVar[str] = 'weekly table'
+    type: typing.ClassVar[str] = 'Weekly Table'
 
     def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
         local_start = appt.start_date.astimezone()
@@ -122,7 +134,7 @@ class WeeklyTableFiller(TableFillerBase):
 
 
 class IrregularTableFiller(TableFillerBase):
-    type: typing.ClassVar[str] = 'irregular table'
+    type: typing.ClassVar[str] = 'Irregular Table'
 
     def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
         local_start = appt.start_date.astimezone()
@@ -135,20 +147,22 @@ class IrregularTableFiller(TableFillerBase):
 
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
+        config.log.info('Creating PowerPoint appointments slides')
         super().__init__(config, config.appointments_template_pptx, config.output_dir)
         self._weekly_table = WeeklyTableFiller(
-            date_format=config.date_format, time_format=config.time_format
+            config=config,
+            date_format=config.date_format,
+            time_format=config.time_format,
         )
         self._irregular_table = IrregularTableFiller(
-            date_format=config.date_format, time_format=config.time_format
+            config=config,
+            date_format=config.date_format,
+            time_format=config.time_format,
         )
 
-    def create(
-        self,
-        appointments: typing.Iterable[CalendarAppointmentBase],
-        from_date: datetime.datetime,
-    ) -> None:
-        self._log.info('Creating PowerPoint appointments slide')
+    def _setup_tables(self) -> None:
+        if not self._prs:
+            return
 
         # Walk through the slides and shapes and register the weekly table and the
         # irregular table for later filling with the appropriate appointments.
@@ -158,13 +172,23 @@ class PowerPointAppointments(PowerPointBase):
                     isinstance(shape, pptx.shapes.graphfrm.GraphicFrame)
                     and shape.has_table
                 ):
-                    match shape.name.lower():
+                    match shape.name:
                         case self._weekly_table.type:
                             self._weekly_table.set_table(shape.table)
                         case self._irregular_table.type:
                             self._irregular_table.set_table(shape.table)
                         case _:
                             pass
+
+    def create(
+        self,
+        appointments: typing.Iterable[CalendarAppointmentBase],
+        from_date: datetime.datetime,
+    ) -> None:
+        if not self._prs:
+            return
+
+        self._setup_tables()
 
         # Walk through the appointments and put them in the appropriate table.
         in_2hours = from_date + datetime.timedelta(hours=2)
