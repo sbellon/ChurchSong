@@ -16,14 +16,14 @@ from churchsong.powerpoint import PowerPointBase
 
 class PowerPointServices(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
+        config.log.info('Creating PowerPoint services slides')
         super().__init__(config, config.services_template_pptx, config.output_dir)
         self._portraits_dir = config.services_portraits_dir
 
     def create(self, service_leads: dict[str, set[Person]]) -> None:
-        self._log.info('Creating PowerPoint services slide')
-        if self._prs.core_properties.revision == 1:  # pyright: ignore[reportUnknownMemberType]
-            # Presentation is the fallback created one, just skip everything
+        if not self._prs:
             return
+
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:

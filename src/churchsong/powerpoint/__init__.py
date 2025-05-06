@@ -26,11 +26,11 @@ class PowerPointBase(abc.ABC):  # noqa: B024
                 self._prs = pptx.Presentation(os.fspath(template_pptx))
             except pptx.exc.PackageNotFoundError as e:
                 self._log.error(f'Cannot load PowerPoint template: {e}')
-                self._prs = pptx.Presentation()
+                self._prs = None
         else:
-            self._output_pptx = None
-            self._prs = pptx.Presentation()
+            self._log.warning('No PowerPoint template configured, skipping')
+            self._prs = None
 
     def save(self) -> None:
-        if self._output_pptx:
+        if self._prs:
             self._prs.save(os.fspath(self._output_pptx))
