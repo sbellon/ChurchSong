@@ -191,13 +191,10 @@ class PowerPointAppointments(PowerPointBase):
         self._setup_tables()
 
         # Walk through the appointments and put them in the appropriate table.
-        in_2hours = from_date + datetime.timedelta(hours=2)
-        in_8days = from_date + datetime.timedelta(days=8)
+        next_8days = from_date + datetime.timedelta(days=8)
         for appt in appointments:
-            if appt.start_date < in_2hours:
-                continue  # ignore appointments less than two hours away
             match (appt.repeat_id, appt.repeat_frequency):
-                case (RepeatId.WEEKLY, 1) if appt.start_date < in_8days:
+                case (RepeatId.WEEKLY, 1) if appt.start_date < next_8days:
                     self._weekly_table.add(appt)
                 case (RepeatId.WEEKLY, 1):
                     pass  # ignore weekly appointments more than one week away

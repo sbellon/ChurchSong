@@ -299,7 +299,7 @@ def _handle_agenda(
             pps.save()
         if config.appointments_template_pptx:
             ppa = PowerPointAppointments(config)
-            ppa.create(cta.get_appointments(date), date)
+            ppa.create(cta.get_appointments(event), event.start_date)
             ppa.save()
 
     if selection.schedule:
