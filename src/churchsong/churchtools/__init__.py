@@ -13,7 +13,7 @@ import pydantic
 import requests
 
 from churchsong.configuration import Configuration
-from churchsong.utils import CliError, date
+from churchsong.utils import CliError
 
 
 class DeprecationAwareModel(pydantic.BaseModel):
@@ -179,6 +179,7 @@ class ServicesData(DeprecationAwareModel):
 
 class EventShort(DeprecationAwareModel):
     id: int
+    name: str
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
 
@@ -505,21 +506,27 @@ class ChurchToolsAPI:
             return result.data
 
     def get_appointments(
-        self, from_date: datetime.datetime | None = None
+        self, event: EventShort
     ) -> typing.Generator[CalendarAppointmentBase]:
-        if not from_date:
-            from_date = date.now()
-        in_10weeks = from_date + datetime.timedelta(weeks=10)
+        """Get appointments of the next 10 weeks *after* event."""
+        next_10weeks = event.start_date + datetime.timedelta(weeks=10)
         r = self._get(
             '/api/calendars/appointments',
             params={
                 'calendar_ids[]': [calendar.id for calendar in self._get_calendars()],
-                'from': f'{from_date:%Y-%m-%d}',
-                'to': f'{in_10weeks:%Y-%m-%d}',
+                'from': f'{event.start_date:%Y-%m-%d}',
+                'to': f'{next_10weeks:%Y-%m-%d}',
             },
         )
         result = CalendarAppointmentsData(**r.json())
-        yield from (base for item in result.data if (base := item.appointment.base))
+        yield from (
+            base
+            for item in result.data
+            if (base := item.appointment.base)
+            and not (  # filter out current event
+                base.title == event.name and base.start_date == event.start_date
+            )
+        )
 
     def get_services(self) -> typing.Generator[Service]:
         r = self._get('/api/services')
