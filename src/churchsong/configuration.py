@@ -20,90 +20,101 @@ import polib
 import pydantic
 import requests
 
-from churchsong.utils import CliError, expand_envvars, staticproperty
+from churchsong.utils import CliError, recursive_expand_envvars
+
+T = typing.TypeVar('T', pathlib.Path, pathlib.Path | None)
 
 
-def _package_name() -> str:
-    return importlib.metadata.distribution('churchsong').name
+def make_relative_to_data_dir(value: T) -> T:
+    return Configuration.data_dir / value if isinstance(value, pathlib.Path) else value
 
 
-T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
+DataDirPath = typing.Annotated[
+    pathlib.Path, pydantic.AfterValidator(make_relative_to_data_dir)
+]
+OptionalDataDirPath = typing.Annotated[
+    pathlib.Path | None, pydantic.AfterValidator(make_relative_to_data_dir)
+]
 
 
-def recursive_expand_vars(data: T) -> T:
-    match data:
-        case str():
-            return expand_envvars(data)
-        case dict():
-            return {k: recursive_expand_vars(v) for k, v in data.items()}
-        case list():
-            return [recursive_expand_vars(item) for item in data]
-    return data
+class FrozenModel(pydantic.BaseModel):
+    class Config:
+        frozen = True
 
 
-class GeneralInteractiveConfig(pydantic.BaseModel):
+class GeneralInteractiveConfig(FrozenModel):
     use_unicode_font: bool = False
 
 
-class GeneralConfig(pydantic.BaseModel):
+class GeneralConfig(FrozenModel):
     log_level: str = 'WARNING'
-    log_file: pathlib.Path = pathlib.Path(f'./Logs/{_package_name()}.log')
+    log_file: OptionalDataDirPath = None
     Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
 
 
-class ChurchToolsSettingsConfig(pydantic.BaseModel):
+class ChurchToolsSettingsConfig(FrozenModel):
     base_url: str
     login_token: str
 
 
-class ChurchToolsConfig(pydantic.BaseModel):
+class ChurchToolsConfig(FrozenModel):
     Settings: ChurchToolsSettingsConfig
     Replacements: dict[str, str] = {str(None): 'Nobody'}
 
 
-class SongBeamerSettingsConfig(pydantic.BaseModel):
-    output_dir: pathlib.Path
+class SongBeamerSettingsConfig(FrozenModel):
+    output_dir: DataDirPath
     date_format: str = '%Y-%m-%d'
     time_format: str = '%H:%M'
 
 
-class SongBeamerPowerPointServicesConfig(pydantic.BaseModel):
-    template_pptx: pathlib.Path | None = None
-    portraits_dir: pathlib.Path = pathlib.Path()
+class SongBeamerPowerPointServicesConfig(FrozenModel):
+    template_pptx: OptionalDataDirPath = None
+    portraits_dir: DataDirPath = pathlib.Path()
 
 
-class SongBeamerPowerPointAppointmentsConfig(pydantic.BaseModel):
-    template_pptx: pathlib.Path | None = None
+class SongBeamerPowerPointAppointmentsConfig(FrozenModel):
+    template_pptx: OptionalDataDirPath = None
 
 
-class SongBeamerPowerPointConfig(pydantic.BaseModel):
-    Services: SongBeamerPowerPointServicesConfig = SongBeamerPowerPointServicesConfig()
-    Appointments: SongBeamerPowerPointAppointmentsConfig = (
-        SongBeamerPowerPointAppointmentsConfig()
+class SongBeamerPowerPointConfig(FrozenModel):
+    services: SongBeamerPowerPointServicesConfig = pydantic.Field(
+        default=SongBeamerPowerPointServicesConfig(), alias='Services'
+    )
+    appointments: SongBeamerPowerPointAppointmentsConfig = pydantic.Field(
+        default=SongBeamerPowerPointAppointmentsConfig(), alias='Appointments'
     )
 
 
-class SongBeamerSlidesStaticConfig(pydantic.BaseModel):
+class SongBeamerSlidesStaticConfig(FrozenModel):
     content: str = ''
 
 
-class SongBeamerSlidesDynamicConfig(pydantic.BaseModel):
+class SongBeamerSlidesDynamicConfig(FrozenModel):
     keywords: list[str] = []
     content: str = ''
 
 
-class SongBeamerSlidesConfig(pydantic.BaseModel):
-    Opening: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
-    Closing: SongBeamerSlidesStaticConfig = SongBeamerSlidesStaticConfig()
-    Insert: list[SongBeamerSlidesDynamicConfig] = []
+class SongBeamerSlidesConfig(FrozenModel):
+    opening: SongBeamerSlidesStaticConfig = pydantic.Field(
+        default=SongBeamerSlidesStaticConfig(), alias='Opening'
+    )
+    closing: SongBeamerSlidesStaticConfig = pydantic.Field(
+        default=SongBeamerSlidesStaticConfig(), alias='Closing'
+    )
+    insert: list[SongBeamerSlidesDynamicConfig] = pydantic.Field(
+        default=[], alias='Insert'
+    )
 
 
-class SongBeamerColorItemConfig(pydantic.BaseModel):
+class SongBeamerColorItemConfig(FrozenModel):
     color: str = 'clBlack'
     bgcolor: str | None = None
 
 
-class SongBeamerColorConfig(pydantic.BaseModel):
+class SongBeamerColorConfig(FrozenModel):
+    # Items are deliberately capitalized here, as they have to match ItemType from
+    # churchsong.churchtools.events which is capitalized for consistency.
     Service: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
     Header: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
     Normal: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
@@ -112,30 +123,46 @@ class SongBeamerColorConfig(pydantic.BaseModel):
     File: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
 
 
-class SongBeamerConfig(pydantic.BaseModel):
-    Settings: SongBeamerSettingsConfig
-    PowerPoint: SongBeamerPowerPointConfig = SongBeamerPowerPointConfig()
-    Slides: SongBeamerSlidesConfig = SongBeamerSlidesConfig()
-    Color: SongBeamerColorConfig = SongBeamerColorConfig()
+class SongBeamerConfig(FrozenModel):
+    settings: SongBeamerSettingsConfig = pydantic.Field(alias='Settings')
+    powerpoint: SongBeamerPowerPointConfig = pydantic.Field(
+        default=SongBeamerPowerPointConfig(), alias='PowerPoint'
+    )
+    slides: SongBeamerSlidesConfig = pydantic.Field(
+        default=SongBeamerSlidesConfig(), alias='Slides'
+    )
+    color: SongBeamerColorConfig = pydantic.Field(
+        default=SongBeamerColorConfig(), alias='Color'
+    )
 
 
-class TomlConfig(pydantic.BaseModel):
-    General: GeneralConfig = GeneralConfig()
-    ChurchTools: ChurchToolsConfig
-    SongBeamer: SongBeamerConfig
+class TomlConfig(FrozenModel):
+    general: GeneralConfig = pydantic.Field(default=GeneralConfig(), alias='General')
+    churchtools: ChurchToolsConfig = pydantic.Field(alias='ChurchTools')
+    songbeamer: SongBeamerConfig = pydantic.Field(alias='SongBeamer')
 
     @pydantic.model_validator(mode='before')
     @classmethod
     def apply_recursive_string_processing(
         cls, values: dict[str, typing.Any]
     ) -> dict[str, typing.Any]:
-        return recursive_expand_vars(values)
+        return recursive_expand_envvars(values)
 
 
-class Configuration:
+class Configuration(TomlConfig):
+    package_name: typing.ClassVar[typing.Final[str]] = importlib.metadata.distribution(
+        'churchsong'
+    ).name
+    log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(__name__)
+    data_dir: typing.ClassVar[typing.Final[pathlib.Path]] = platformdirs.user_data_path(
+        package_name, appauthor=False
+    )
+    config_dir: typing.ClassVar[typing.Final[pathlib.Path]] = (
+        platformdirs.user_config_path(package_name, appauthor=False)
+    )
+
     def __init__(self) -> None:
-        self._log = logging.getLogger(__name__)
-        self._log.setLevel(logging.INFO)
+        self.log.setLevel(logging.INFO)
         log_formatter = logging.Formatter(
             '%(asctime)s - %(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
         )
@@ -143,36 +170,42 @@ class Configuration:
         # Log to stderr before we have the log_file name from the .ini file.
         log_to_stderr = logging.StreamHandler(sys.stderr)
         log_to_stderr.setFormatter(log_formatter)
-        self._log.addHandler(log_to_stderr)
+        self.log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
-        self._data_dir = platformdirs.user_data_path(self.package_name, appauthor=False)
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        config_dir = platformdirs.user_config_path(self.package_name, appauthor=False)
-        config_dir.mkdir(parents=True, exist_ok=True)
-        self._config_toml = config_dir / 'config.toml'
+        config_toml = self.config_dir / 'config.toml'
         try:
-            with self._config_toml.open('rb') as fd:
-                self._config = TomlConfig(**tomllib.load(fd))
+            with config_toml.open('rb') as fd:
+                super().__init__(**tomllib.load(fd))
         except FileNotFoundError:
-            msg = f'Configuration file "{self._config_toml}" not found.'
+            msg = f'Configuration file "{config_toml}" not found.'
             raise CliError(msg) from None
         except UnicodeDecodeError as e:
-            msg = f'Configuration file "{self._config_toml}" is invalid: {e}'
+            msg = f'Configuration file "{config_toml}" is invalid: {e}'
             raise CliError(msg) from None
         except Exception as e:
-            self._log.fatal(e, exc_info=True)
+            self.log.fatal(e, exc_info=True)
             raise
 
         # Switch to configured logging.
-        self._log.setLevel(self.log_level)
+        self.log.setLevel(self.general.log_level)
+        log_file = (
+            self.general.log_file
+            if self.general.log_file
+            else self.data_dir / pathlib.Path(f'./Logs/{self.package_name}.log')
+        )
+        log_file.parent.mkdir(parents=True, exist_ok=True)
         log_to_file = logging.handlers.RotatingFileHandler(
-            self.log_file, maxBytes=5 * 1024 * 1024, backupCount=7
+            log_file, maxBytes=5 * 1024 * 1024, backupCount=7
         )
         log_to_file.setFormatter(log_formatter)
-        self._log.addHandler(log_to_file)
-        self._log.removeHandler(log_to_stderr)
+        self.log.addHandler(log_to_file)
+        self.log.removeHandler(log_to_stderr)
 
+        # Ensure the configured output directory exists from now on.
+        self.songbeamer.settings.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Setup locale specific settings and translations.
         locale.setlocale(locale.LC_TIME, locale.getlocale()[0])
         try:
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
@@ -185,10 +218,6 @@ class Configuration:
         except FileNotFoundError:
             translations = gettext.NullTranslations()
         translations.install()
-
-    @staticproperty
-    def package_name() -> str:
-        return _package_name()
 
     @property
     def version(self) -> packaging.version.Version:
@@ -214,92 +243,3 @@ class Configuration:
             return None
         else:
             return later if later > self.version else None
-
-    @property
-    def config_toml(self) -> pathlib.Path:
-        return self._config_toml
-
-    @property
-    def data_dir(self) -> pathlib.Path:
-        return self._data_dir
-
-    @property
-    def log(self) -> logging.Logger:
-        return self._log
-
-    @property
-    def log_level(self) -> str:
-        return self._config.General.log_level
-
-    @property
-    def log_file(self) -> pathlib.Path:
-        filename = self.data_dir / self._config.General.log_file
-        filename.parent.mkdir(parents=True, exist_ok=True)
-        return filename
-
-    @property
-    def use_unicode_font(self) -> bool:
-        return self._config.General.Interactive.use_unicode_font
-
-    @property
-    def base_url(self) -> str:
-        return self._config.ChurchTools.Settings.base_url
-
-    @property
-    def login_token(self) -> str:
-        return self._config.ChurchTools.Settings.login_token
-
-    @property
-    def person_dict(self) -> dict[str, str]:
-        return self._config.ChurchTools.Replacements
-
-    @property
-    def output_dir(self) -> pathlib.Path:
-        directory = self.data_dir / self._config.SongBeamer.Settings.output_dir
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
-
-    @property
-    def date_format(self) -> str:
-        return self._config.SongBeamer.Settings.date_format
-
-    @property
-    def time_format(self) -> str:
-        return self._config.SongBeamer.Settings.time_format
-
-    @property
-    def services_template_pptx(self) -> pathlib.Path | None:
-        return (
-            self.data_dir / self._config.SongBeamer.PowerPoint.Services.template_pptx
-            if self._config.SongBeamer.PowerPoint.Services.template_pptx
-            else None
-        )
-
-    @property
-    def services_portraits_dir(self) -> pathlib.Path:
-        return self.data_dir / self._config.SongBeamer.PowerPoint.Services.portraits_dir
-
-    @property
-    def appointments_template_pptx(self) -> pathlib.Path | None:
-        return (
-            self.data_dir
-            / self._config.SongBeamer.PowerPoint.Appointments.template_pptx
-            if self._config.SongBeamer.PowerPoint.Appointments.template_pptx
-            else None
-        )
-
-    @property
-    def opening_slides(self) -> str:
-        return self._config.SongBeamer.Slides.Opening.content
-
-    @property
-    def closing_slides(self) -> str:
-        return self._config.SongBeamer.Slides.Closing.content
-
-    @property
-    def insert_slides(self) -> list[SongBeamerSlidesDynamicConfig]:
-        return self._config.SongBeamer.Slides.Insert
-
-    @property
-    def colors(self) -> SongBeamerColorConfig:
-        return self._config.SongBeamer.Color

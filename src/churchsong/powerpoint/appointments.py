@@ -148,16 +148,18 @@ class IrregularTableFiller(TableFillerBase):
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         config.log.info('Creating PowerPoint appointments slides')
-        super().__init__(config, config.appointments_template_pptx, config.output_dir)
+        super().__init__(
+            config, config.songbeamer.powerpoint.appointments.template_pptx
+        )
         self._weekly_table = WeeklyTableFiller(
             config=config,
-            date_format=config.date_format,
-            time_format=config.time_format,
+            date_format=config.songbeamer.settings.date_format,
+            time_format=config.songbeamer.settings.time_format,
         )
         self._irregular_table = IrregularTableFiller(
             config=config,
-            date_format=config.date_format,
-            time_format=config.time_format,
+            date_format=config.songbeamer.settings.date_format,
+            time_format=config.songbeamer.settings.time_format,
         )
 
     def _setup_tables(self) -> None:
