@@ -9,7 +9,7 @@
 
 ### Changed
 - use 'rich.table' for console output of 'songs verify' and 'songs usage'
-- updated external dependencies (certifi, pydantic, textual, typer)
+- updated external dependencies (certifi, platformdirs, pydantic, textual, typer)
 
 ## 0.8.1 (2025-04-24)
 
