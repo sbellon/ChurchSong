@@ -230,13 +230,14 @@ class InteractiveScreen(App[DownloadSelection]):
         self.config = config
 
     def compose(self) -> ComposeResult:
+        use_unicode_font = self.config.general.Interactive.use_unicode_font
         with Vertical():
             yield Header()
             with ScrollableCenterMiddle():
-                yield FocusCheckbox(id='schedule', unicode=self.config.use_unicode_font)
-                yield FocusCheckbox(id='songs', unicode=self.config.use_unicode_font)
-                yield FocusCheckbox(id='files', unicode=self.config.use_unicode_font)
-                yield FocusCheckbox(id='slides', unicode=self.config.use_unicode_font)
+                yield FocusCheckbox(id='schedule', unicode=use_unicode_font)
+                yield FocusCheckbox(id='songs', unicode=use_unicode_font)
+                yield FocusCheckbox(id='files', unicode=use_unicode_font)
+                yield FocusCheckbox(id='slides', unicode=use_unicode_font)
                 yield FocusButton(id='submit')
             yield NoticeFooter()
             yield Footer(show_command_palette=False)

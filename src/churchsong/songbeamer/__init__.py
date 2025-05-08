@@ -232,13 +232,15 @@ class Agenda:
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._output_dir = config.output_dir.resolve()
+        self._output_dir = config.songbeamer.settings.output_dir.resolve()
         self._schedule_filepath = self._output_dir / 'Schedule.col'
-        self._datetime_format = f'%a. {config.date_format} {config.time_format}'
-        self._opening_slides = config.opening_slides
-        self._closing_slides = config.closing_slides
-        self._insert_slides = config.insert_slides
-        self._colors = config.colors
+        self._datetime_format = (
+            '%a. '
+            f'{config.songbeamer.settings.date_format} '
+            f'{config.songbeamer.settings.time_format}'
+        )
+        self._slides = config.songbeamer.slides
+        self._colors = config.songbeamer.color
 
     def create_schedule(
         self,
@@ -255,13 +257,13 @@ class SongBeamer:
                 type=ItemType.SERVICE,
                 title=f'{event_date.astimezone():{self._datetime_format}}',
             ),
-            *AgendaItem.parse(self._opening_slides),
+            *AgendaItem.parse(self._slides.opening.content),
             *agenda_items,
-            *AgendaItem.parse(self._closing_slides),
+            *AgendaItem.parse(self._slides.closing.content),
             *service_items,
         ]:
             agenda += agenda_item
-            for slide in self._insert_slides:
+            for slide in self._slides.insert:
                 if any(keyword in agenda[-1].caption for keyword in slide.keywords):
                     for insert_item in AgendaItem.parse(slide.content):
                         agenda += insert_item

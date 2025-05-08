@@ -14,14 +14,13 @@ from churchsong.configuration import Configuration
 
 class PowerPointBase(abc.ABC):  # noqa: B024
     def __init__(
-        self,
-        config: Configuration,
-        template_pptx: pathlib.Path | None,
-        output_dir: pathlib.Path,
+        self, config: Configuration, template_pptx: pathlib.Path | None
     ) -> None:
         self._log = config.log
         if template_pptx:
-            self._output_pptx = output_dir / template_pptx.name
+            self._output_pptx = (
+                config.songbeamer.settings.output_dir / template_pptx.name
+            )
             try:
                 self._prs = pptx.Presentation(os.fspath(template_pptx))
             except pptx.exc.PackageNotFoundError as e:

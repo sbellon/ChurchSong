@@ -17,8 +17,8 @@ from churchsong.powerpoint import PowerPointBase
 class PowerPointServices(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         config.log.info('Creating PowerPoint services slides')
-        super().__init__(config, config.services_template_pptx, config.output_dir)
-        self._portraits_dir = config.services_portraits_dir
+        super().__init__(config, config.songbeamer.powerpoint.services.template_pptx)
+        self._portraits_dir = config.songbeamer.powerpoint.services.portraits_dir
 
     def create(self, service_leads: dict[str, set[Person]]) -> None:
         if not self._prs:

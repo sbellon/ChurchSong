@@ -293,11 +293,11 @@ def _handle_agenda(
     service_items, service_leads = cte.get_service_info()
 
     if selection.slides:
-        if config.services_template_pptx:
+        if config.songbeamer.powerpoint.services.template_pptx:
             pps = PowerPointServices(config)
             pps.create(service_leads)
             pps.save()
-        if config.appointments_template_pptx:
+        if config.songbeamer.powerpoint.appointments.template_pptx:
             ppa = PowerPointAppointments(config)
             ppa.create(cta.get_appointments(event), event.start_date)
             ppa.save()

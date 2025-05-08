@@ -11,23 +11,26 @@ from click import ClickException
 CliError = ClickException
 
 
-T = typing.TypeVar('T')
-
-
-class staticproperty(typing.Generic[T]):  # noqa: N801
-    def __init__(self, f: typing.Callable[[], T]) -> None:
-        self.f = f
-
-    def __get__(self, instance: object, owner: type[object]) -> T:
-        return self.f()
-
-
 def expand_envvars(text: str) -> str:
     return re.sub(
         r'\${([^${]+)}',
         lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
         text,
     )
+
+
+T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
+
+
+def recursive_expand_envvars(data: T) -> T:
+    match data:
+        case str():
+            return expand_envvars(data)
+        case dict():
+            return {k: recursive_expand_envvars(v) for k, v in data.items()}
+        case list():
+            return [recursive_expand_envvars(item) for item in data]
+    return data
 
 
 def flattened_split(the_list: list[str], *, sep: str = ',') -> list[str]:
