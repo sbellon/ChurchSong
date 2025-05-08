@@ -38,8 +38,7 @@ OptionalDataDirPath = typing.Annotated[
 
 
 class FrozenModel(pydantic.BaseModel):
-    class Config:
-        frozen = True
+    model_config = pydantic.ConfigDict(frozen=True)
 
 
 class GeneralInteractiveConfig(FrozenModel):
