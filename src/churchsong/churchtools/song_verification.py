@@ -159,6 +159,20 @@ class ChurchToolsSongVerification:
         self.cta = cta
         self._log = config.log
 
+    @staticmethod
+    def available_checks() -> typing.OrderedDict[
+        str, typing.Callable[[Song, list[Arrangement]], list[str]]
+    ]:
+        return SONG_CHECKS
+
+    @staticmethod
+    def validate_checks(value: str) -> str:
+        for val in value.split(','):
+            if val and val not in SONG_CHECKS:
+                msg = f'{val} is not a valid check'
+                raise typer.BadParameter(msg)
+        return value
+
     class MemberAccessChecker(ast.NodeVisitor):
         def __init__(self, member_name: str) -> None:
             self._member_name = member_name
