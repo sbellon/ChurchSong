@@ -18,140 +18,154 @@ from churchsong.configuration import Configuration
 from churchsong.utils.progress import Progress
 
 
-def miss_if(b: bool) -> str:
-    return 'miss' if b else ''
+class SongChecks:
+    type CheckFunc = typing.Callable[[Song, list[Arrangement]], list[str]]
+
+    _song_checks: typing.ClassVar[typing.OrderedDict[str, CheckFunc]] = OrderedDict()
+
+    @classmethod
+    def register(cls, key: str) -> typing.Callable[[CheckFunc], CheckFunc]:
+        def decorator(func: SongChecks.CheckFunc) -> SongChecks.CheckFunc:
+            if key in cls._song_checks:
+                msg = f'Song check {key} is already registered'
+                raise RuntimeError(msg)
+            cls._song_checks[key] = func
+            return func
+
+        return decorator
+
+    @classmethod
+    def get(cls, key: str) -> CheckFunc | None:
+        return cls._song_checks.get(key)
+
+    @classmethod
+    def available_checks(cls) -> typing.OrderedDict[str, CheckFunc]:
+        return cls._song_checks
+
+    @staticmethod
+    def miss_if(b: bool) -> str:
+        return 'miss' if b else ''
+
+    @staticmethod
+    def contains(tag: str, tags: list[Tag]) -> bool:
+        return any(t.name == tag for t in tags)
 
 
-def contains(tag: str, tags: list[Tag]) -> bool:
-    return any(t.name == tag for t in tags)
+@SongChecks.register('CCLI')
+def check_ccli(song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [SongChecks.miss_if(not song.author or not song.ccli) for _ in arrangements]
 
 
-SONG_CHECKS: typing.Final[
-    typing.OrderedDict[str, typing.Callable[[Song, list[Arrangement]], list[str]]]
-] = OrderedDict(
-    [  # now the list of checks for each song ...
-        (
-            'CCLI',
-            lambda song, arrangements: [
-                miss_if(not song.author or not song.ccli) for _ in arrangements
-            ],
-        ),
-        (
-            'Tags',
-            lambda song, arrangements: [
-                ', '.join(
-                    filter(
-                        None,  # remove all falsy elements to not join them
-                        [  # now the list of individual tag checks ...
-                            (
-                                f'miss "{tag}"'
-                                if arr.source_name
-                                and arr.source_reference
-                                and not contains(
-                                    (
-                                        tag
-                                        := f'{arr.source_name} {arr.source_reference}'
-                                    ),
-                                    song.tags,
-                                )
-                                else ''
-                            ),
-                            (
-                                'miss "EN/DE"'
-                                if any(
-                                    line.startswith(
-                                        ('#LangCount=2', '#LangCount=3', '#LangCount=4')
-                                    )
-                                    for line in arr.sng_file_content
-                                )
-                                and not contains('EN/DE', song.tags)
-                                else ''
-                            ),
-                            # ... add further tag checks here ...
-                        ],
-                    )
-                )
-                for arr in arrangements
-            ]
-            or [miss_if(not song.tags)],
-        ),
-        (
-            'Src.',
-            lambda _song, arrangements: [
-                miss_if(not arr.source_name or not arr.source_reference)
-                for arr in arrangements
-            ],
-        ),
-        (
-            'Dur.',
-            lambda _song, arrangements: [
-                miss_if(not arr.duration) for arr in arrangements
-            ],
-        ),
-        (
-            '.sng',
-            lambda _song, arrangements: [
-                miss_if(
-                    arr.is_default
-                    and not any(file.name.endswith('.sng') for file in arr.files)
-                )
-                for arr in arrangements
-            ],
-        ),
-        (
-            'BGImg',
-            lambda _song, arrangements: [
-                miss_if(
-                    not any(
-                        line.startswith('#BackgroundImage=')
-                        for line in arr.sng_file_content
-                    )
-                    if arr.sng_file_content
-                    else False
-                )
-                for arr in arrangements
-            ],
-        ),
-        (
-            '#Lang',
-            lambda song, arrangements: [
-                ', '.join(
-                    filter(
-                        None,  # remove all falsy elements to not join them
-                        [  # now the list of individual tag checks ...
-                            (
-                                'miss #LangCount'
-                                if contains('EN/DE', song.tags)
-                                and arr.sng_file_content
-                                and not any(
-                                    line.startswith(
-                                        ('#LangCount=2', '#LangCount=3', '#LangCount=4')
-                                    )
-                                    for line in arr.sng_file_content
-                                )
-                                else ''
-                            ),
-                            (
-                                'miss #TitleLang'
-                                if contains('EN/DE', song.tags)
-                                and arr.sng_file_content
-                                and not any(
-                                    line.startswith(
-                                        ('#TitleLang2', '#TitleLang3', '#TitleLang4')
-                                    )
-                                    for line in arr.sng_file_content
-                                )
-                                else ''
-                            ),
-                            # ... add further tag checks here ...
-                        ],
-                    )
-                )
-                for arr in arrangements
-            ],
-        ),
+@SongChecks.register('Tags')
+def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [
+        ', '.join(
+            filter(
+                None,  # remove all falsy elements to not join them
+                [  # now the list of individual tag checks ...
+                    (
+                        f'miss "{tag}"'
+                        if arr.source_name
+                        and arr.source_reference
+                        and not SongChecks.contains(
+                            (tag := f'{arr.source_name} {arr.source_reference}'),
+                            song.tags,
+                        )
+                        else ''
+                    ),
+                    (
+                        'miss "EN/DE"'
+                        if any(
+                            line.startswith(
+                                ('#LangCount=2', '#LangCount=3', '#LangCount=4')
+                            )
+                            for line in arr.sng_file_content
+                        )
+                        and not SongChecks.contains('EN/DE', song.tags)
+                        else ''
+                    ),
+                    # ... add further tag checks here ...
+                ],
+            )
+        )
+        for arr in arrangements
+    ] or [SongChecks.miss_if(not song.tags)]
+
+
+@SongChecks.register('Src.')
+def check_source(_song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [
+        SongChecks.miss_if(not arr.source_name or not arr.source_reference)
+        for arr in arrangements
     ]
-)
+
+
+@SongChecks.register('Dur.')
+def check_duration(_song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [SongChecks.miss_if(not arr.duration) for arr in arrangements]
+
+
+@SongChecks.register('.sng')
+def check_sng_file(_song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [
+        SongChecks.miss_if(
+            arr.is_default and not any(file.name.endswith('.sng') for file in arr.files)
+        )
+        for arr in arrangements
+    ]
+
+
+@SongChecks.register('BGImg')
+def check_bgimage(_song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [
+        SongChecks.miss_if(
+            not any(
+                line.startswith('#BackgroundImage=') for line in arr.sng_file_content
+            )
+            if arr.sng_file_content
+            else False
+        )
+        for arr in arrangements
+    ]
+
+
+@SongChecks.register('#Lang')
+def check_languages(song: Song, arrangements: list[Arrangement]) -> list[str]:
+    return [
+        ', '.join(
+            filter(
+                None,  # remove all falsy elements to not join them
+                [  # now the list of individual tag checks ...
+                    (
+                        'miss #LangCount'
+                        if SongChecks.contains('EN/DE', song.tags)
+                        and arr.sng_file_content
+                        and not any(
+                            line.startswith(
+                                ('#LangCount=2', '#LangCount=3', '#LangCount=4')
+                            )
+                            for line in arr.sng_file_content
+                        )
+                        else ''
+                    ),
+                    (
+                        'miss #TitleLang'
+                        if SongChecks.contains('EN/DE', song.tags)
+                        and arr.sng_file_content
+                        and not any(
+                            line.startswith(
+                                ('#TitleLang2', '#TitleLang3', '#TitleLang4')
+                            )
+                            for line in arr.sng_file_content
+                        )
+                        else ''
+                    ),
+                    # ... add further tag checks here ...
+                ],
+            )
+        )
+        for arr in arrangements
+    ]
 
 
 class ChurchToolsSongVerification:
@@ -160,15 +174,13 @@ class ChurchToolsSongVerification:
         self._log = config.log
 
     @staticmethod
-    def available_checks() -> typing.OrderedDict[
-        str, typing.Callable[[Song, list[Arrangement]], list[str]]
-    ]:
-        return SONG_CHECKS
+    def available_checks() -> typing.OrderedDict[str, SongChecks.CheckFunc]:
+        return SongChecks.available_checks()
 
     @staticmethod
     def validate_checks(value: str) -> str:
         for val in value.split(','):
-            if val and val not in SONG_CHECKS:
+            if val and val not in SongChecks.available_checks():
                 msg = f'{val} is not a valid check'
                 raise typer.BadParameter(msg)
         return value
@@ -187,9 +199,7 @@ class ChurchToolsSongVerification:
             return self._accessed
 
     @staticmethod
-    def _is_sng_file_content_required(
-        func: typing.Callable[[Song, list[Arrangement]], list[str]],
-    ) -> bool:
+    def _is_sng_file_content_required(func: SongChecks.CheckFunc) -> bool:
         checker = ChurchToolsSongVerification.MemberAccessChecker('sng_file_content')
         checker.visit(ast.parse(inspect.getsource(func).strip(), mode='exec'))
         return checker.accessed()
@@ -207,9 +217,9 @@ class ChurchToolsSongVerification:
 
         # Use activated checks from command line or all as default.
         active_song_checks = OrderedDict(
-            (name, SONG_CHECKS[name])
-            for name in (execute_checks if execute_checks else SONG_CHECKS.keys())
-            if name in SONG_CHECKS
+            (name, check)
+            for name in (execute_checks or SongChecks.available_checks().keys())
+            if (check := SongChecks.get(name))
         )
         if not active_song_checks:
             msg = 'No valid check to execute selected.'
@@ -237,10 +247,12 @@ class ChurchToolsSongVerification:
                 # Apply include and exclude tag switches.
                 if (
                     include_tags
-                    and not any(contains(tag, song.tags) for tag in include_tags)
+                    and not any(
+                        SongChecks.contains(tag, song.tags) for tag in include_tags
+                    )
                 ) or (
                     exclude_tags
-                    and any(contains(tag, song.tags) for tag in exclude_tags)
+                    and any(SongChecks.contains(tag, song.tags) for tag in exclude_tags)
                 ):
                     continue
 
