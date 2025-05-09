@@ -339,8 +339,8 @@ ParamsType = typing.Mapping[
 class ChurchToolsAPI:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._base_url = config.churchtools.Settings.base_url
-        self._login_token = config.churchtools.Settings.login_token
+        self._base_url = config.churchtools.settings.base_url
+        self._login_token = config.churchtools.settings.login_token
         self._assert_permissions(
             'churchservice:view',
             'churchservice:view agenda',

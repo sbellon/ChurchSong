@@ -10,7 +10,6 @@ base_url = "https://YOUR-DOMAIN.church.tools"
 login_token = "YOUR_LOGIN_TOKEN"
 
 [ChurchTools.Replacements]
-"None" = "Nobody"
 "Jonathan Doe" = "Jon Doe"
 
 [SongBeamer.Settings]

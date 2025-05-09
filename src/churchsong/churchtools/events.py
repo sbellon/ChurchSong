@@ -61,7 +61,7 @@ class ChurchToolsEvent:
         self._event = self.cta.get_full_event(event)
         self._agenda = self.cta.get_event_agenda(event)
         self._output_dir = config.songbeamer.settings.output_dir
-        self._person_dict = config.churchtools.Replacements
+        self._person_dict = config.churchtools.replacements
 
     def _download_file(
         self, name: str, url: str, subfolder: Subfolder, *, overwrite: bool = True
@@ -185,14 +185,11 @@ class ChurchToolsEvent:
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
         }
-        service_leads: defaultdict[str, set[Person]] = defaultdict(
-            lambda: {
-                Person(
-                    fullname=self._person_dict.get(str(None), str(None)),
-                    shortname=fullname.split(' ')[0],
-                )
-            }
+        nobody = Person(
+            fullname=self._person_dict.get(str(None), _('Nobody')),
+            shortname=self._person_dict.get(str(None), _('Nobody')),
         )
+        service_leads: defaultdict[str, set[Person]] = defaultdict(lambda: {nobody})
         for event_service in self._event.event_services:
             service_name = str(service_id2name.get(event_service.service_id, None))
             # If we have access to the churchdb, we can query the person there and
@@ -203,11 +200,13 @@ class ChurchToolsEvent:
                 fullname = f'{person.firstname} {person.lastname}'
                 nickname = person.nickname
             else:
-                fullname = str(event_service.name)
+                fullname = event_service.name
                 nickname = None
-            # Still fall back to our configuration mapping.
-            fullname = self._person_dict.get(fullname, fullname)
-            person = Person(fullname, nickname or fullname.split(' ')[0])
+            if fullname:
+                fullname = self._person_dict.get(fullname, fullname)
+                person = Person(fullname, nickname or fullname.split(' ')[0])
+            else:
+                person = nobody
             if service_name not in service_leads:
                 service_leads[service_name] = {person}
             else:
