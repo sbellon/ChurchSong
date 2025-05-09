@@ -31,26 +31,22 @@ class BaseModel(pydantic.BaseModel):
         'churchsong'
     ).name
 
-    # Define the logger instance to be used by the whole application.
-    log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(__name__)
-
     # Platform-dependent data directory to use.
     data_dir: typing.ClassVar[typing.Final[pathlib.Path]] = platformdirs.user_data_path(
         package_name, appauthor=False
     )
 
-    # Platform-dependent config directory to use.
-    config_dir: typing.ClassVar[typing.Final[pathlib.Path]] = (
-        platformdirs.user_config_path(package_name, appauthor=False)
+    config_toml: typing.ClassVar[typing.Final[pathlib.Path]] = (
+        platformdirs.user_config_path(package_name, appauthor=False) / 'config.toml'
     )
 
     # Define specific types DataDirPath and OptionalDataDirPath that both will be
     # made relative to the `data_dir` above in case they are specified relative in
     # the configuration file.
-    _T = typing.TypeVar('_T', pathlib.Path, pathlib.Path | None)
+    T: typing.ClassVar = typing.TypeVar('T', pathlib.Path, pathlib.Path | None)
 
     @staticmethod
-    def make_relative_to_data_dir(value: _T) -> _T:
+    def make_relative_to_data_dir(value: T) -> T:
         return BaseModel.data_dir / value if isinstance(value, pathlib.Path) else value
 
     type DataDirPath = typing.Annotated[
@@ -169,6 +165,8 @@ class TomlConfig(BaseModel):
 
 
 class Configuration(TomlConfig):
+    log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(__name__)
+
     def __init__(self) -> None:
         self.log.setLevel(logging.INFO)
         log_formatter = logging.Formatter(
@@ -181,15 +179,14 @@ class Configuration(TomlConfig):
         self.log.addHandler(log_to_stderr)
 
         # Read the configuration .toml file.
-        config_toml = self.config_dir / 'config.toml'
         try:
-            with config_toml.open('rb') as fd:
+            with self.config_toml.open('rb') as fd:
                 super().__init__(**tomllib.load(fd))
         except FileNotFoundError:
-            msg = f'Configuration file "{config_toml}" not found.'
+            msg = f'Configuration file "{self.config_toml}" not found.'
             raise CliError(msg) from None
         except UnicodeDecodeError as e:
-            msg = f'Configuration file "{config_toml}" is invalid: {e}'
+            msg = f'Configuration file "{self.config_toml}" is invalid: {e}'
             raise CliError(msg) from None
         except Exception as e:
             self.log.fatal(e, exc_info=True)
