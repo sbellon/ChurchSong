@@ -21,18 +21,6 @@ from churchsong.configuration import Configuration
 from churchsong.utils.progress import Progress
 
 
-# The values of FormatType are the accepted formats of rich, prettytable and openpyxl.
-class FormatType(str, enum.Enum):
-    RICH = 'rich'
-    TEXT = 'text'
-    HTML = 'html'
-    JSON = 'json'
-    CSV = 'csv'
-    LATEX = 'latex'
-    MEDIAWIKI = 'mediawiki'
-    XLSX = 'xlsx'
-
-
 class BaseFormatter(abc.ABC):
     _columns: typing.ClassVar = ['Id', 'Song', 'Performed']
 
@@ -65,12 +53,16 @@ class AsciiFormatter(BaseFormatter):
         self,
         title: str,
         *,
-        output_format: FormatType,
+        output_format: 'ChurchToolsSongStatistics.FormatType',
         filename: pathlib.Path | None = None,
     ) -> None:
         self._filename = filename
         self._output_format = output_format
-        self._title = f'{title}\n' if output_format == FormatType.TEXT else ''
+        self._title = (
+            f'{title}\n'
+            if output_format == ChurchToolsSongStatistics.FormatType.TEXT
+            else ''
+        )
         self._table = prettytable.PrettyTable()
         self._table.field_names = self._columns
         self._table.align['Id'] = 'r'
@@ -119,6 +111,17 @@ class ExcelFormatter(BaseFormatter):
 
 
 class ChurchToolsSongStatistics:
+    # The values are the accepted formats of rich, prettytable and openpyxl.
+    class FormatType(str, enum.Enum):
+        RICH = 'rich'
+        TEXT = 'text'
+        HTML = 'html'
+        JSON = 'json'
+        CSV = 'csv'
+        LATEX = 'latex'
+        MEDIAWIKI = 'mediawiki'
+        XLSX = 'xlsx'
+
     def __init__(self, cta: ChurchToolsAPI, config: Configuration) -> None:
         self.cta = cta
         self._log = config.log
@@ -142,12 +145,12 @@ class ChurchToolsSongStatistics:
         )
         title = f'Song statistics for {year_range}'
         match output_format:
-            case FormatType.XLSX:
+            case self.FormatType.XLSX:
                 if not output_file:
                     msg = 'Format "xlsx" requires to specify an output file.'
                     raise typer.BadParameter(msg)
                 formatter = ExcelFormatter(title=title, filename=output_file)
-            case FormatType.RICH:
+            case self.FormatType.RICH:
                 formatter = RichFormatter(title=title)
             case _:
                 formatter = AsciiFormatter(

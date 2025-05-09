@@ -16,7 +16,7 @@ import typer
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
-from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics, FormatType
+from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
 from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
@@ -194,13 +194,13 @@ def usage(
         ),
     ] = None,
     output_format: typing.Annotated[
-        FormatType,
+        ChurchToolsSongStatistics.FormatType,
         typer.Option(
             '--format',
             case_sensitive=False,
             help='Define output format.',
         ),
-    ] = FormatType.RICH,
+    ] = ChurchToolsSongStatistics.FormatType.RICH,
 ) -> None:
     ctx.obj.log.info(
         'Starting %s song usage statistics for %s-%s',
