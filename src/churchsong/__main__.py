@@ -11,7 +11,6 @@ import subprocess
 import typing
 
 import rich
-import rich.traceback
 import typer
 
 from churchsong.churchtools import ChurchToolsAPI
@@ -25,8 +24,6 @@ from churchsong.powerpoint.services import PowerPointServices
 from churchsong.songbeamer import SongBeamer
 from churchsong.utils import CliError, flattened_split
 from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
-
-rich.traceback.install(show_locals=True)
 
 app = typer.Typer(
     add_completion=False,  # disable tab completion
