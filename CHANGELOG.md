@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.9.0 (2025-05-09)
 
 ### Added
 - create appointments slide from a PowerPoint template based on ChurchTools calendars,
