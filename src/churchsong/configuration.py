@@ -64,7 +64,9 @@ class GeneralInteractiveConfig(BaseModel):
 class GeneralConfig(BaseModel):
     log_level: str = 'WARNING'
     log_file: BaseModel.OptionalDataDirPath = None
-    Interactive: GeneralInteractiveConfig = GeneralInteractiveConfig()
+    interactive: GeneralInteractiveConfig = pydantic.Field(
+        default=GeneralInteractiveConfig(), alias='Interactive'
+    )
 
 
 class ChurchToolsSettingsConfig(BaseModel):
@@ -73,8 +75,8 @@ class ChurchToolsSettingsConfig(BaseModel):
 
 
 class ChurchToolsConfig(BaseModel):
-    Settings: ChurchToolsSettingsConfig
-    Replacements: dict[str, str] = {str(None): 'Nobody'}
+    settings: ChurchToolsSettingsConfig = pydantic.Field(alias='Settings')
+    replacements: dict[str, str] = {}
 
 
 class SongBeamerSettingsConfig(BaseModel):

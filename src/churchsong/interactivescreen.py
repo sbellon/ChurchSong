@@ -230,7 +230,7 @@ class InteractiveScreen(App[DownloadSelection]):
         self.config = config
 
     def compose(self) -> ComposeResult:
-        use_unicode_font = self.config.general.Interactive.use_unicode_font
+        use_unicode_font = self.config.general.interactive.use_unicode_font
         with Vertical():
             yield Header()
             with ScrollableCenterMiddle():
