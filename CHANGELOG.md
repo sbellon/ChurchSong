@@ -1,5 +1,11 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+
+- updated external dependencies
+
 ## 0.9.0 (2025-05-09)
 
 ### Added
