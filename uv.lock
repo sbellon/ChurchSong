@@ -2,9 +2,6 @@ version = 1
 revision = 2
 requires-python = ">=3.13"
 
-[manifest]
-constraints = [{ name = "click", specifier = "<8.2.0" }]
-
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -59,6 +56,7 @@ name = "churchsong"
 version = "0.9.1"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "packaging" },
     { name = "platformdirs" },
     { name = "polib" },
@@ -85,6 +83,7 @@ lint = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = "<8.2.0" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "polib", specifier = ">=1.2.0" },
