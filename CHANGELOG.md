@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.9.2 (2025-05-12)
 
 ### Fixed
 - hopefully fix pinning click<8.2.0
