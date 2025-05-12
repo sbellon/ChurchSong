@@ -1,8 +1,13 @@
 # ChangeLog
 
+## 0.9.2 (2025-05-12)
+
+### Fixed
+- hopefully fix pinning click<8.2.0
+
 ## 0.9.1 (2025-05-12)
 
-### Changed
+### Fixed
 - pin transitive external dependency click<8.2.0 as typer 0.15.3 does not support it
 
 ## 0.9.0 (2025-05-09)
