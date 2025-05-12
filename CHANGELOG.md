@@ -1,5 +1,10 @@
 # ChangeLog
 
+## 0.9.1 (2025-05-12)
+
+### Changed
+- pin transitive external dependency click<8.2.0 as typer 0.15.3 does not support it
+
 ## 0.9.0 (2025-05-09)
 
 ### Added
