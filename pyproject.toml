@@ -42,6 +42,7 @@ lint = ["pyright>=1.1.400", "ruff>=0.11.9"]
 
 [tool.uv]
 package = true
+constraint-dependencies = ["click<8.2.0"]
 
 [tool.setuptools]
 license-files = []
