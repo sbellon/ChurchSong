@@ -284,9 +284,13 @@ def _handle_agenda(
             pps.create(service_leads)
             pps.save()
         if config.songbeamer.powerpoint.appointments.template_pptx:
-            ppa = PowerPointAppointments(config)
-            ppa.create(cta.get_appointments(event), event.start_date)
-            ppa.save()
+            with cta.permissions(
+                'creation of appointment slides',
+                ['churchcal:view', 'churchcal:view category'],
+            ):
+                ppa = PowerPointAppointments(config)
+                ppa.create(cta.get_appointments(event), event.start_date)
+                ppa.save()
 
     if selection.schedule:
         sb = SongBeamer(config)
