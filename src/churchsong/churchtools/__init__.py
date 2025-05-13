@@ -347,6 +347,8 @@ class ChurchToolsAPI:
             'churchservice:view events',
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
+            'churchcal:view',
+            'churchcal:view category',
         )
         # Querying a person's nickname requires additional permissions, but they are
         # optional and if not present, the nickname will just not be considered:
@@ -580,4 +582,7 @@ class ChurchToolsAPI:
 
     def download_url(self, full_url: str) -> requests.Response:
         self._log.debug('Request GET %s', full_url)
+        # We do need the authentication headers even for "public" URLs, as otherwise
+        # we get back status code 200 OK but a HTML page telling us that we do not
+        # have sufficient permissions.
         return requests.get(full_url, headers=self._headers(), stream=True)
