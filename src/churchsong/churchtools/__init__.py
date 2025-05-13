@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import datetime
 import enum
 import re
@@ -44,6 +45,12 @@ class DeprecationAwareModel(pydantic.BaseModel):
         return data
 
 
+class PermissionsGlobalChurchDb(DeprecationAwareModel):
+    view: bool
+    view_alldata: list[int] = pydantic.Field(alias='view alldata')
+    security_level_person: list[int] = pydantic.Field(alias='security level person')
+
+
 class PermissionsGlobalChurchCal(DeprecationAwareModel):
     view: bool
     view_category: list[int] = pydantic.Field(alias='view category')
@@ -59,6 +66,7 @@ class PermissionsGlobalChurchService(DeprecationAwareModel):
 
 
 class PermissionsGlobal(DeprecationAwareModel):
+    churchdb: PermissionsGlobalChurchDb
     churchcal: PermissionsGlobalChurchCal
     churchservice: PermissionsGlobalChurchService
 
@@ -161,7 +169,7 @@ class CalendarsData(DeprecationAwareModel):
 class Person(DeprecationAwareModel):
     firstname: str = pydantic.Field(alias='firstName')
     lastname: str = pydantic.Field(alias='lastName')
-    nickname: str | None
+    nickname: str | None = None
 
 
 class PersonsData(DeprecationAwareModel):
@@ -341,21 +349,21 @@ class ChurchToolsAPI:
         self._log = config.log
         self._base_url = config.churchtools.settings.base_url
         self._login_token = config.churchtools.settings.login_token
+        self._permissions = self._fetch_permissions()
+
+        # Assert permissions that are required for basic functionality of the app.
+        # Additional permissions are queried on-demand and other functionality
+        # may be disabled if permissions are missing (like nicknames or appointment
+        # slides).
         self._assert_permissions(
             'churchservice:view',
             'churchservice:view agenda',
             'churchservice:view events',
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
-            'churchcal:view',
-            'churchcal:view category',
         )
-        # Querying a person's nickname requires additional permissions, but they are
-        # optional and if not present, the nickname will just not be considered:
-        # - churchdb:view alldata(-1)
-        # - churchdb:security level person(1)
 
-    def _assert_permissions(self, *required_perms: str) -> None:
+    def _fetch_permissions(self) -> PermissionsGlobalData:
         try:
             r = self._get('/api/permissions/global')
         except (
@@ -377,15 +385,38 @@ class ChurchToolsAPI:
             ):
                 msg += '\n\nDid you configure your ChurchTools API token correctly?'
             raise CliError(msg) from None
-        permissions = PermissionsGlobalData(**r.json())
-        if missing_perms := {
-            perm for perm in required_perms if not permissions.get_permission(perm)
-        }:
+        return PermissionsGlobalData(**r.json())
+
+    def _get_missing_permissions(self, *required_perms: str) -> list[str]:
+        return [
+            perm
+            for perm in required_perms
+            if not self._permissions.get_permission(perm)
+        ]
+
+    def _assert_permissions(self, *required_perms: str) -> None:
+        if missing_perms := self._get_missing_permissions(*required_perms):
             msg = 'Missing required permissions for token user: {}'.format(
                 ', '.join(f'"{perm}"' for perm in missing_perms)
             )
             self._log.error(msg)
             raise CliError(msg) from None
+
+    @contextlib.contextmanager
+    def permissions(
+        self, reason: str, required_perms: list[str]
+    ) -> typing.Generator[None]:
+        if missing_perms := self._get_missing_permissions(*required_perms):
+            self._log.warning(
+                f'Skipping {reason} due to missing permissions: {{}}'.format(
+                    ', '.join(f'"{perm}"' for perm in missing_perms)
+                )
+            )
+
+        try:
+            yield
+        finally:
+            pass
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -494,17 +525,20 @@ class ChurchToolsAPI:
         yield from result.data
 
     def get_person(self, person_id: int) -> Person | None:
-        # This requires additional permissions in ChurchTools:
-        # - churchdb:view alldata(-1)
-        # - churchdb:security level person(1)
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == requests.codes.forbidden:
-                return None
+                with self.permissions('nickname', ['churchdb:view alldata']):
+                    return None
             raise
         else:
             result = PersonsData(**r.json())
+            if result.data.nickname is None:
+                self._log.warning(
+                    'Skipping nickname due to missing permission: '
+                    '"churchdb:security level person"'
+                )
             return result.data
 
     def get_appointments(
