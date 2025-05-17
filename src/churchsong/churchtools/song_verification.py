@@ -53,7 +53,10 @@ class SongChecks:
 
 @SongChecks.register('CCLI')
 def check_ccli(song: Song, arrangements: list[Arrangement]) -> list[str]:
-    return [SongChecks.miss_if(not song.author or not song.ccli) for _ in arrangements]
+    return [
+        SongChecks.miss_if(not song.author.unwrap_or('') or not song.ccli.unwrap_or(''))
+        for _ in arrangements
+    ]
 
 
 @SongChecks.register('Tags')
@@ -65,10 +68,13 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
                 [  # now the list of individual tag checks ...
                     (
                         f'miss "{tag}"'
-                        if arr.source_name
-                        and arr.source_reference
+                        if arr.source_name.is_some()
+                        and arr.source_reference.is_some()
                         and not SongChecks.contains(
-                            (tag := f'{arr.source_name} {arr.source_reference}'),
+                            tag := (
+                                f'{arr.source_name.unwrap()} '
+                                f'{arr.source_reference.unwrap()}'
+                            ),
                             song.tags,
                         )
                         else ''
@@ -95,14 +101,16 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
 @SongChecks.register('Src.')
 def check_source(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
-        SongChecks.miss_if(not arr.source_name or not arr.source_reference)
+        SongChecks.miss_if(
+            not arr.source_name.unwrap_or('') or not arr.source_reference.unwrap_or('')
+        )
         for arr in arrangements
     ]
 
 
 @SongChecks.register('Dur.')
 def check_duration(_song: Song, arrangements: list[Arrangement]) -> list[str]:
-    return [SongChecks.miss_if(not arr.duration) for arr in arrangements]
+    return [SongChecks.miss_if(not arr.duration.unwrap_or('')) for arr in arrangements]
 
 
 @SongChecks.register('.sng')
@@ -256,8 +264,11 @@ class ChurchToolsSongVerification:
                 ):
                     continue
 
-                if song.ccli:
-                    ccli2ids[song.ccli].add(song.id)
+                song.ccli.map(
+                    lambda ccli, song=song: ccli2ids[ccli].add(song.id)
+                    if ccli
+                    else None
+                )
 
                 arrangements = (
                     song.arrangements

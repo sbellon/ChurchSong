@@ -15,6 +15,7 @@ import pptx.util
 from churchsong.churchtools import CalendarAppointmentBase, RepeatId
 from churchsong.configuration import Configuration
 from churchsong.powerpoint import PowerPointBase
+from churchsong.utils.rust import Some
 
 
 class TableFillerBase(abc.ABC):
@@ -108,7 +109,9 @@ class TableFillerBase(abc.ABC):
         self._set_cell_text(
             self._table.cell(self._current_row, 1),
             appt.title,
-            appt.subtitle or appt.description or appt.link,
+            appt.subtitle.unwrap_or(
+                appt.description.unwrap_or(appt.link.unwrap_or(None))
+            ),
         )
         self._current_row += 1
 
@@ -196,9 +199,9 @@ class PowerPointAppointments(PowerPointBase):
         next_8days = from_date + datetime.timedelta(days=8)
         for appt in appointments:
             match (appt.repeat_id, appt.repeat_frequency):
-                case (RepeatId.WEEKLY, 1) if appt.start_date < next_8days:
+                case (Some(RepeatId.WEEKLY), Some(1)) if appt.start_date < next_8days:
                     self._weekly_table.add(appt)
-                case (RepeatId.WEEKLY, 1):
+                case (Some(RepeatId.WEEKLY), Some(1)):
                     pass  # ignore weekly appointments more than one week away
                 case _:
                     self._irregular_table.add(appt)

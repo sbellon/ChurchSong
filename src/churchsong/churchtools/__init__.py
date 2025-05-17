@@ -11,15 +11,59 @@ import typing
 import warnings
 
 import pydantic
+import pydantic._internal._model_construction  # for ModelMetaclass
 import requests
 
 from churchsong.configuration import Configuration
 from churchsong.utils import CliError
+from churchsong.utils.rust import Null, NullType, Option, Some
+
+T = typing.TypeVar('T')
 
 
-class DeprecationAwareModel(pydantic.BaseModel):
-    _DEPRECATION_KEY: typing.ClassVar[typing.Final[str]] = '@deprecated'
-    _RE_STRING_DEPRECATIONS: typing.ClassVar[typing.Final] = re.compile(
+class OptionModelMeta(pydantic._internal._model_construction.ModelMetaclass):  # noqa: SLF001
+    @staticmethod
+    def option_validator(value: typing.Any, optional_type: type[T]) -> Option[T]:  # noqa: ANN401
+        if isinstance(value, dict) and issubclass(optional_type, pydantic.BaseModel):
+            value = optional_type(**value)
+        return Null if value is None else Some(typing.cast('T', value))
+
+    def __new__(
+        cls,
+        name: str,
+        bases: tuple[type[pydantic.BaseModel], ...],
+        namespace: dict[str, typing.Any],
+    ) -> 'OptionModelMeta':
+        # Look for fields with type structure "type Option[T] = Some[T] | NullType"
+        for field_name, field_type in namespace.get('__annotations__', {}).items():
+            if typing.get_origin(field_type) is typing.Union:
+                try:
+                    some_type, null_type = sorted(
+                        typing.get_args(field_type), key=lambda t: t is NullType
+                    )
+                except ValueError:
+                    continue
+                if typing.get_origin(some_type) is Some and null_type is NullType:
+                    arg_type = typing.get_args(some_type)[0]
+
+                    # Use nested function with explicit typing to make pyright happy,
+                    # otherwise this could be a lambda in the `field_validator` below.
+                    def _validator(
+                        v: typing.Any,  # noqa: ANN401
+                        arg_type: type[T] = arg_type,
+                    ) -> Option[T]:
+                        return cls.option_validator(v, arg_type)
+
+                    namespace[f'validate_{field_name}'] = pydantic.field_validator(
+                        field_name, mode='before'
+                    )(_validator)
+
+        return super().__new__(cls, name, bases, namespace)
+
+
+class DeprecationAwareModel(pydantic.BaseModel, metaclass=OptionModelMeta):
+    _DEPRECATION_KEY: typing.ClassVar = '@deprecated'
+    _RE_STRING_DEPRECATIONS: typing.ClassVar = re.compile(
         r'(?P<old>\w+) \(now: (?P<new>\w+)\)'
     )
 
@@ -94,10 +138,10 @@ class PermissionsGlobalData(DeprecationAwareModel):
 
 
 class Address(DeprecationAwareModel):
-    name: str | None
-    street: str | None
-    zip: str | None
-    city: str | None
+    name: Option[str]
+    street: Option[str]
+    zip: Option[str]
+    city: Option[str]
 
 
 class RepeatId(enum.Enum):
@@ -111,22 +155,22 @@ class RepeatId(enum.Enum):
 
 
 class Image(DeprecationAwareModel):
-    name: str | None
-    image_url: str | None = pydantic.Field(alias='imageUrl')
+    name: Option[str]
+    image_url: Option[str] = pydantic.Field(alias='imageUrl')
 
 
 class CalendarAppointmentBase(DeprecationAwareModel):
     title: str
-    subtitle: str | None
-    description: str | None
-    image: Image | None
-    link: str | None
+    subtitle: Option[str]
+    description: Option[str]
+    image: Option[Image]
+    link: Option[str]
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
     all_day: bool = pydantic.Field(alias='allDay')
-    repeat_id: RepeatId | None = pydantic.Field(alias='repeatId')
-    repeat_frequency: int | None = pydantic.Field(alias='repeatFrequency')
-    address: Address | None
+    repeat_id: Option[RepeatId] = pydantic.Field(alias='repeatId')
+    repeat_frequency: Option[int] = pydantic.Field(alias='repeatFrequency')
+    address: Option[Address]
 
 
 class CalendarAppointmentAppointment(DeprecationAwareModel):
@@ -169,7 +213,7 @@ class CalendarsData(DeprecationAwareModel):
 class Person(DeprecationAwareModel):
     firstname: str = pydantic.Field(alias='firstName')
     lastname: str = pydantic.Field(alias='lastName')
-    nickname: str | None = None
+    nickname: Option[str] = Null
 
 
 class PersonsData(DeprecationAwareModel):
@@ -178,7 +222,7 @@ class PersonsData(DeprecationAwareModel):
 
 class Service(DeprecationAwareModel):
     id: int
-    name: str | None
+    name: Option[str]
 
 
 class ServicesData(DeprecationAwareModel):
@@ -197,8 +241,8 @@ class EventsData(DeprecationAwareModel):
 
 
 class EventService(DeprecationAwareModel):
-    person_id: int | None = pydantic.Field(alias='personId')
-    name: str | None
+    person_id: Option[int] = pydantic.Field(alias='personId')
+    name: Option[str]
     service_id: int = pydantic.Field(alias='serviceId')
 
     # If a `person` element is present in the `eventService`, prefer it over the
@@ -261,7 +305,7 @@ class EventAgendaItemType(enum.StrEnum):
 class EventAgendaItem(DeprecationAwareModel):
     title: str
     type: EventAgendaItemType = EventAgendaItemType.NORMAL
-    song: EventAgendaSong | None = None
+    song: Option[EventAgendaSong] = Null
 
 
 class EventAgenda(DeprecationAwareModel):
@@ -290,12 +334,12 @@ class Arrangement(DeprecationAwareModel):
     id: int
     name: str
     is_default: bool = pydantic.Field(alias='isDefault')
-    source_name: str | None = pydantic.Field(alias='sourceName')
-    source_reference: str | None = pydantic.Field(alias='sourceReference')
-    key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
-    beat: str | None
-    tempo: int | None
-    duration: int | None
+    source_name: Option[str] = pydantic.Field(alias='sourceName')
+    source_reference: Option[str] = pydantic.Field(alias='sourceReference')
+    key_of_arrangement: Option[str] = pydantic.Field(alias='keyOfArrangement')
+    beat: Option[str]
+    tempo: Option[int]
+    duration: Option[int]
     files: list[File]
 
     # NOT filled by ChurchTools, but filled and used internally:
@@ -324,8 +368,8 @@ class TagsData(DeprecationAwareModel):
 class Song(DeprecationAwareModel):
     id: int
     name: str
-    author: str | None
-    ccli: str | None
+    author: Option[str]
+    ccli: Option[str]
     arrangements: list[Arrangement]
     tags: list[Tag] = []
 
@@ -339,7 +383,7 @@ class Pagination(DeprecationAwareModel):
 
 class SongsMeta(DeprecationAwareModel):
     count: int
-    pagination: Pagination | None = None
+    pagination: Option[Pagination] = Null
 
 
 class SongsData(DeprecationAwareModel):
@@ -503,9 +547,9 @@ class ChurchToolsAPI:
             while current_page < last_page:
                 r = self._get(api_url, params={'page': str(current_page + 1), **params})
                 tmp = SongsData(**r.json())
-                if tmp.meta.pagination:
-                    current_page = tmp.meta.pagination.current
-                    last_page = tmp.meta.pagination.last_page
+                if pagination := tmp.meta.pagination.unwrap_or(None):
+                    current_page = pagination.current
+                    last_page = pagination.last_page
                 else:
                     current_page = last_page
                 for song in tmp.data:
@@ -520,9 +564,7 @@ class ChurchToolsAPI:
             return (0, empty_generator())
 
         return (
-            result.meta.pagination.total
-            if result.meta.pagination
-            else result.meta.count,
+            result.meta.pagination.map(lambda p: p.total).unwrap_or(result.meta.count),
             inner_generator(),
         )
 
@@ -536,22 +578,22 @@ class ChurchToolsAPI:
         result = CalendarsData(**r.json())
         yield from result.data
 
-    def get_person(self, person_id: int) -> Person | None:
+    def get_person(self, person_id: int) -> Option[Person]:
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == requests.codes.forbidden:
                 with self.permissions('nickname', ['churchdb:view alldata']):
-                    return None
+                    return Null
             raise
         else:
             result = PersonsData(**r.json())
-            if result.data.nickname is None:
+            if result.data.nickname.is_null():
                 self._log.warning(
                     'Skipping nickname due to missing permission: '
                     '"churchdb:security level person"'
                 )
-            return result.data
+            return Some(result.data)
 
     def get_appointments(
         self, event: EventShort

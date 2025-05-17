@@ -66,6 +66,7 @@ dependencies = [
     { name = "python-pptx" },
     { name = "requests" },
     { name = "rich" },
+    { name = "rustshed" },
     { name = "textual" },
     { name = "typer" },
     { name = "tzlocal" },
@@ -93,6 +94,7 @@ requires-dist = [
     { name = "python-pptx", specifier = ">=1.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "rich", specifier = ">=14.0.0" },
+    { name = "rustshed", specifier = ">=0.5.0" },
     { name = "textual", specifier = ">=3.0.1" },
     { name = "typer", specifier = ">=0.15.4" },
     { name = "tzlocal", specifier = ">=5.3.1" },
@@ -433,6 +435,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/2b/162fa86d2639076667c9aa59196c020dc6d7023ac8f342416c2f5ec4bda0/ruff-0.11.10-py3-none-win32.whl", hash = "sha256:dc061a98d32a97211af7e7f3fa1d4ca2fcf919fb96c28f39551f35fc55bdbc19", size = 10494958, upload-time = "2025-05-15T14:08:49.601Z" },
     { url = "https://files.pythonhosted.org/packages/24/f3/66643d8f32f50a4b0d09a4832b7d919145ee2b944d43e604fbd7c144d175/ruff-0.11.10-py3-none-win_amd64.whl", hash = "sha256:5cc725fbb4d25b0f185cb42df07ab6b76c4489b4bfb740a175f3a59c70e8a224", size = 11650285, upload-time = "2025-05-15T14:08:52.392Z" },
     { url = "https://files.pythonhosted.org/packages/95/3a/2e8704d19f376c799748ff9cb041225c1d59f3e7711bc5596c8cfdc24925/ruff-0.11.10-py3-none-win_arm64.whl", hash = "sha256:ef69637b35fb8b210743926778d0e45e1bffa850a7c61e428c6b971549b5f5d1", size = 10765278, upload-time = "2025-05-15T14:08:54.56Z" },
+]
+
+[[package]]
+name = "rustshed"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/63/b262eb6219e6a175c55a4e56c13a056d0d1397e4546c34206ac3104667d1/rustshed-0.5.0.tar.gz", hash = "sha256:27bf1da6ee635864e94cdea83b2d514562585c28b5a94b3829e45952b6de4bf9", size = 10251, upload-time = "2022-12-22T18:37:55.677Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/44/97759d5a1d604aab464f4f90f0f21cc9c801f66fda175616505a14ce50dd/rustshed-0.5.0-py3-none-any.whl", hash = "sha256:90545bc8a32fc46cbe93cdddc659c1b51cca0eba65863c90dbc31e0fdd1012c6", size = 10955, upload-time = "2022-12-22T18:37:54.105Z" },
 ]
 
 [[package]]

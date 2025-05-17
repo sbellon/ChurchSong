@@ -83,8 +83,8 @@ class ChurchToolsEvent:
 
     def _sng_file(self, item: EventAgendaItem) -> File | None:
         sng_file = None
-        if item.song:
-            song = self.cta.get_song(item.song.song_id)
+        if item_song := item.song.unwrap_or(None):
+            song = self.cta.get_song(item_song.song_id)
             item.title = song.name  # side-effect for download_agenda_items()
             # Take first .sng file in chosen arrangement if it exists,
             # fall back to first .sng file in default arrangement otherwise.
@@ -92,7 +92,7 @@ class ChurchToolsEvent:
                 (
                     file
                     for arr in song.arrangements
-                    if arr.id == item.song.arrangement_id
+                    if arr.id == item_song.arrangement_id
                     for file in arr.files
                     if file.name.endswith('.sng')
                 ),
@@ -182,25 +182,27 @@ class ChurchToolsEvent:
 
     def get_service_info(self) -> tuple[list[Item], defaultdict[str, set[Person]]]:
         self._log.info('Fetching service team information')
+        none = str(None)
         service_id2name = {
-            service.id: service.name for service in self.cta.get_services()
+            service.id: service.name.unwrap_or(none)
+            for service in self.cta.get_services()
         }
         nobody = Person(
-            fullname=self._person_dict.get(str(None), _('Nobody')),
-            shortname=self._person_dict.get(str(None), _('Nobody')),
+            fullname=self._person_dict.get(none, _('Nobody')),
+            shortname=self._person_dict.get(none, _('Nobody')),
         )
         service_leads: defaultdict[str, set[Person]] = defaultdict(lambda: {nobody})
         for event_service in self._event.event_services:
-            service_name = str(service_id2name.get(event_service.service_id, None))
+            service_name = service_id2name.get(event_service.service_id, none)
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
-            if event_service.person_id is not None and (
-                person := self.cta.get_person(event_service.person_id)
-            ):
+            if person := event_service.person_id.and_then(
+                self.cta.get_person
+            ).unwrap_or(None):
                 fullname = f'{person.firstname} {person.lastname}'
-                nickname = person.nickname
+                nickname = person.nickname.unwrap_or(None)
             else:
-                fullname = event_service.name
+                fullname = event_service.name.unwrap_or(None)
                 nickname = None
             if fullname:
                 fullname = self._person_dict.get(fullname, fullname)
