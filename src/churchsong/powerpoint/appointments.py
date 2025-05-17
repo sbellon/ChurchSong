@@ -99,7 +99,7 @@ class TableFillerBase(abc.ABC):
             return
         if self._current_row >= self._total_rows:
             # All available table rows have been filled.
-            self._log.warning('%s table is full, ignoring appointment', self.type)
+            self._log.info('%s is full, dropping "%s"', self.type, appt.title)
             return
         self._set_cell_text(
             self._table.cell(self._current_row, 0),
