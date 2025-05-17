@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (typer)
+
 ## 0.9.2 (2025-05-12)
 
 ### Fixed
