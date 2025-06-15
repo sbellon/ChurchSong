@@ -60,7 +60,7 @@ class ChurchToolsEvent:
         self._log = config.log
         self._event = self.cta.get_full_event(event)
         self._agenda = self.cta.get_event_agenda(event)
-        self._output_dir = config.songbeamer.settings.output_dir
+        self._output_dir = config.songbeamer.output_dir
         self._person_dict = config.churchtools.replacements
 
     def _download_file(

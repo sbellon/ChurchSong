@@ -77,20 +77,10 @@ class GeneralConfig(BaseModel):
     )
 
 
-class ChurchToolsSettingsConfig(BaseModel):
+class ChurchToolsConfig(BaseModel):
     base_url: str
     login_token: str
-
-
-class ChurchToolsConfig(BaseModel):
-    settings: ChurchToolsSettingsConfig = pydantic.Field(alias='Settings')
-    replacements: dict[str, str] = {}
-
-
-class SongBeamerSettingsConfig(BaseModel):
-    output_dir: BaseModel.DataDirPath
-    date_format: str = '%Y-%m-%d'
-    time_format: str = '%H:%M'
+    replacements: dict[str, str] = pydantic.Field(default={}, alias='Replacements')
 
 
 class SongBeamerPowerPointServicesConfig(BaseModel):
@@ -98,20 +88,25 @@ class SongBeamerPowerPointServicesConfig(BaseModel):
     portraits_dir: BaseModel.DataDirPath = pathlib.Path()
 
 
+class SongBeamerPowerPointAppointmentsTableConfig(BaseModel):
+    regular_datetime_format: str = '%a. %d.%m. %H:%M'
+    allday_datetime_format: str = '%a. %d.%m.'
+    subtitle_priority: list[CalendarSubtitleField] = [
+        CalendarSubtitleField.SUBTITLE,
+        CalendarSubtitleField.DESCRIPTION,
+        CalendarSubtitleField.LINK,
+        CalendarSubtitleField.ADDRESS,
+    ]
+
+
 class SongBeamerPowerPointAppointmentsConfig(BaseModel):
     template_pptx: BaseModel.OptionalDataDirPath = None
-    weekly_subtitle_priority: list[CalendarSubtitleField] = [
-        CalendarSubtitleField.SUBTITLE,
-        CalendarSubtitleField.DESCRIPTION,
-        CalendarSubtitleField.LINK,
-        CalendarSubtitleField.ADDRESS,
-    ]
-    irregular_subtitle_priority: list[CalendarSubtitleField] = [
-        CalendarSubtitleField.SUBTITLE,
-        CalendarSubtitleField.DESCRIPTION,
-        CalendarSubtitleField.LINK,
-        CalendarSubtitleField.ADDRESS,
-    ]
+    weekly: SongBeamerPowerPointAppointmentsTableConfig = pydantic.Field(
+        default=SongBeamerPowerPointAppointmentsTableConfig(), alias='Weekly'
+    )
+    irregular: SongBeamerPowerPointAppointmentsTableConfig = pydantic.Field(
+        default=SongBeamerPowerPointAppointmentsTableConfig(), alias='Irregular'
+    )
 
 
 class SongBeamerPowerPointConfig(BaseModel):
@@ -133,6 +128,7 @@ class SongBeamerSlidesDynamicConfig(BaseModel):
 
 
 class SongBeamerSlidesConfig(BaseModel):
+    datetime_format: str = '%a. %d.%m.%Y %H:%M'
     opening: SongBeamerSlidesStaticConfig = pydantic.Field(
         default=SongBeamerSlidesStaticConfig(), alias='Opening'
     )
@@ -161,7 +157,7 @@ class SongBeamerColorConfig(BaseModel):
 
 
 class SongBeamerConfig(BaseModel):
-    settings: SongBeamerSettingsConfig = pydantic.Field(alias='Settings')
+    output_dir: BaseModel.DataDirPath
     powerpoint: SongBeamerPowerPointConfig = pydantic.Field(
         default=SongBeamerPowerPointConfig(), alias='PowerPoint'
     )
@@ -230,7 +226,7 @@ class Configuration(TomlConfig):
         self.log.removeHandler(log_to_stderr)
 
         # Ensure the configured output directory exists from now on.
-        self.songbeamer.settings.output_dir.mkdir(parents=True, exist_ok=True)
+        self.songbeamer.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Setup locale specific settings and translations.
         locale.setlocale(locale.LC_TIME, locale.getlocale()[0])

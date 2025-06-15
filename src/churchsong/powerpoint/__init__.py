@@ -18,9 +18,7 @@ class PowerPointBase(abc.ABC):  # noqa: B024
     ) -> None:
         self._log = config.log
         if template_pptx:
-            self._output_pptx = (
-                config.songbeamer.settings.output_dir / template_pptx.name
-            )
+            self._output_pptx = config.songbeamer.output_dir / template_pptx.name
             try:
                 self._prs = pptx.Presentation(os.fspath(template_pptx))
             except pptx.exc.PackageNotFoundError as e:

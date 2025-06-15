@@ -1,5 +1,14 @@
 # ChangeLog
 
+## Unreleased
+
+### Added
+- introduced configuration of datetime formats for weekly and irregular appointments
+
+### Changed
+- renamed configuration sections [ChurchTools.Settings] to [ChurchTools] and
+  [SongBeamer.Settings] to [SongBeamer]
+
 ## 0.9.3 (2025-06-15)
 
 ### Added
