@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.0 (2025-06-15)
 
 ### Added
 - introduced configuration of datetime formats for weekly and irregular appointments
