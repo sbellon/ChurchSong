@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-import abc
 import datetime
+import enum
 import typing
 
 import pptx.enum.dml
@@ -17,14 +17,20 @@ from churchsong.configuration import CalendarSubtitleField, Configuration
 from churchsong.powerpoint import PowerPointBase
 
 
-class TableFillerBase(abc.ABC):
+class TableType(enum.StrEnum):
+    WEEKLY = 'Weekly Table'
+    IRREGULAR = 'Irregular Table'
+
+
+class TableFiller:
     type: typing.ClassVar[str]
 
     def __init__(
         self,
         config: Configuration,
-        date_format: str,
-        time_format: str,
+        table_type: TableType,
+        regular_datetime_format: str,
+        allday_datetime_format: str,
         subtitle_prio: list[CalendarSubtitleField],
     ) -> None:
         self._log = config.log
@@ -32,14 +38,19 @@ class TableFillerBase(abc.ABC):
         self._font = None
         self._total_rows = 0
         self._current_row = 0
-        self._date_format = date_format
-        self._time_format = time_format
+        self._table_type = table_type
+        self._regular_datetime_format = regular_datetime_format
+        self._allday_datetime_format = allday_datetime_format
         self._subtitle_prio = subtitle_prio
         self._unset_table_warning = False
 
+    @property
+    def table_type(self) -> str:
+        return self._table_type
+
     def set_table(self, table: pptx.table.Table) -> None:
         if self._table:
-            self._log.warning('%s already set, not setting again', self.type)
+            self._log.warning('%s already set, not setting again', self._table_type)
         self._table = table
         self._total_rows = len(table.rows)
         self._current_row = 0
@@ -92,8 +103,13 @@ class TableFillerBase(abc.ABC):
                     scale=0.66 if idx > 0 and idx not in font_of_run else 1.0,
                 )
 
-    @abc.abstractmethod
-    def _date_and_time(self, appt: CalendarAppointmentBase) -> str: ...
+    def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
+        local_start = appt.start_date.astimezone()
+        return (
+            f'{local_start:{self._allday_datetime_format}}'
+            if appt.all_day
+            else f'{local_start:{self._regular_datetime_format}}'
+        )
 
     def _subtitle(self, appt: CalendarAppointmentBase) -> str:
         for subtitle in self._subtitle_prio:
@@ -123,11 +139,13 @@ class TableFillerBase(abc.ABC):
             # Safeguard, no table registered.
             if not self._unset_table_warning:
                 self._unset_table_warning = True
-                self._log.warning('%s unset, ignoring all appointments', self.type)
+                self._log.warning(
+                    '%s unset, ignoring all appointments', self._table_type
+                )
             return
         if self._current_row >= self._total_rows:
             # All available table rows have been filled.
-            self._log.info('%s is full, dropping "%s"', self.type, appt.title)
+            self._log.info('%s is full, dropping "%s"', self._table_type, appt.title)
             return
         self._set_cell_text(
             self._table.cell(self._current_row, 0),
@@ -149,47 +167,25 @@ class TableFillerBase(abc.ABC):
             self._set_cell_text(self._table.cell(row, 1), '')
 
 
-class WeeklyTableFiller(TableFillerBase):
-    type: typing.ClassVar[str] = 'Weekly Table'
-
-    def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
-        local_start = appt.start_date.astimezone()
-        return (
-            f'{local_start:%A}'
-            if appt.all_day
-            else f'{local_start:%a. {self._time_format}}'
-        )
-
-
-class IrregularTableFiller(TableFillerBase):
-    type: typing.ClassVar[str] = 'Irregular Table'
-
-    def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
-        local_start = appt.start_date.astimezone()
-        return (
-            f'{local_start:%a. {self._date_format}}'
-            if appt.all_day
-            else f'{local_start:%a. {self._date_format} {self._time_format}}'
-        )
-
-
 class PowerPointAppointments(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         config.log.info('Creating PowerPoint appointments slides')
         super().__init__(
             config, config.songbeamer.powerpoint.appointments.template_pptx
         )
-        self._weekly_table = WeeklyTableFiller(
+        self._weekly_table = TableFiller(
             config=config,
-            date_format=config.songbeamer.settings.date_format,
-            time_format=config.songbeamer.settings.time_format,
-            subtitle_prio=config.songbeamer.powerpoint.appointments.weekly_subtitle_priority,
+            table_type=TableType.WEEKLY,
+            regular_datetime_format=config.songbeamer.powerpoint.appointments.weekly.allday_datetime_format,
+            allday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.regular_datetime_format,
+            subtitle_prio=config.songbeamer.powerpoint.appointments.weekly.subtitle_priority,
         )
-        self._irregular_table = IrregularTableFiller(
+        self._irregular_table = TableFiller(
             config=config,
-            date_format=config.songbeamer.settings.date_format,
-            time_format=config.songbeamer.settings.time_format,
-            subtitle_prio=config.songbeamer.powerpoint.appointments.irregular_subtitle_priority,
+            table_type=TableType.IRREGULAR,
+            regular_datetime_format=config.songbeamer.powerpoint.appointments.irregular.allday_datetime_format,
+            allday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.regular_datetime_format,
+            subtitle_prio=config.songbeamer.powerpoint.appointments.irregular.subtitle_priority,
         )
 
     def _setup_tables(self) -> None:
@@ -205,9 +201,9 @@ class PowerPointAppointments(PowerPointBase):
                     and shape.has_table
                 ):
                     match shape.name:
-                        case self._weekly_table.type:
+                        case self._weekly_table.table_type:
                             self._weekly_table.set_table(shape.table)
-                        case self._irregular_table.type:
+                        case self._irregular_table.table_type:
                             self._irregular_table.set_table(shape.table)
                         case _:
                             pass

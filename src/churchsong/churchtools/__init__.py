@@ -359,8 +359,8 @@ ParamsType = typing.Mapping[
 class ChurchToolsAPI:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._base_url = config.churchtools.settings.base_url
-        self._login_token = config.churchtools.settings.login_token
+        self._base_url = config.churchtools.base_url
+        self._login_token = config.churchtools.login_token
         self._permissions = self._fetch_permissions()
 
         # Assert permissions that are required for basic functionality of the app.

@@ -5,17 +5,15 @@ log_file = "./Logs/ChurchSong.log"
 [General.Interactive]
 use_unicode_font = true
 
-[ChurchTools.Settings]
+[ChurchTools]
 base_url = "https://YOUR-DOMAIN.church.tools"
 login_token = "YOUR_LOGIN_TOKEN"
 
 [ChurchTools.Replacements]
 "Jonathan Doe" = "Jon Doe"
 
-[SongBeamer.Settings]
+[SongBeamer]
 output_dir = "${USERPROFILE}/Desktop/Output"
-date_format = "%d.%m."
-time_format = "%H:%M"
 
 [SongBeamer.PowerPoint.Services]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/SERVICES.pptx"
@@ -23,8 +21,19 @@ portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 
 [SongBeamer.PowerPoint.Appointments]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
-weekly_subtitle_priority = ["subtitle", "description", "link", "address"]
-irregular_subtitle_priority = ["address", "link", "description", "subtitle"]
+
+[SongBeamer.PowerPoint.Appointments.Weekly]
+regular_datetime_format = "%a. %H:%M"
+allday_datetime_format = "%A"
+subtitle_priority = ["subtitle", "description", "link", "address"]
+
+[SongBeamer.PowerPoint.Appointments.Irregular]
+regular_datetime_format = "%a. %d.%m. %H:%M"
+allday_datetime_format = "%a. %d.%m."
+subtitle_priority = ["address", "link", "description", "subtitle"]
+
+[SongBeamer.Slides]
+datetime_format = "%a. %d.%m.%Y %H:%M"
 
 [SongBeamer.Slides.Opening]
 content = """

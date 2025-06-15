@@ -232,13 +232,9 @@ class Agenda:
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
-        self._output_dir = config.songbeamer.settings.output_dir.resolve()
+        self._output_dir = config.songbeamer.output_dir.resolve()
         self._schedule_filepath = self._output_dir / 'Schedule.col'
-        self._datetime_format = (
-            '%a. '
-            f'{config.songbeamer.settings.date_format} '
-            f'{config.songbeamer.settings.time_format}'
-        )
+        self._datetime_format = config.songbeamer.slides.datetime_format
         self._slides = config.songbeamer.slides
         self._colors = config.songbeamer.color
 
