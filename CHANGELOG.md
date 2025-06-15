@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.9.3 (2025-06-15)
 
 ### Added
 - introduced configurable subtitle priorities for weekly and irregular appointments
