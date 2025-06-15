@@ -13,7 +13,7 @@ import pptx.text.text
 import pptx.util
 
 from churchsong.churchtools import CalendarAppointmentBase, RepeatId
-from churchsong.configuration import Configuration
+from churchsong.configuration import CalendarSubtitleField, Configuration
 from churchsong.powerpoint import PowerPointBase
 
 
@@ -21,7 +21,11 @@ class TableFillerBase(abc.ABC):
     type: typing.ClassVar[str]
 
     def __init__(
-        self, config: Configuration, date_format: str, time_format: str
+        self,
+        config: Configuration,
+        date_format: str,
+        time_format: str,
+        subtitle_prio: list[CalendarSubtitleField],
     ) -> None:
         self._log = config.log
         self._table = None
@@ -30,6 +34,7 @@ class TableFillerBase(abc.ABC):
         self._current_row = 0
         self._date_format = date_format
         self._time_format = time_format
+        self._subtitle_prio = subtitle_prio
         self._unset_table_warning = False
 
     def set_table(self, table: pptx.table.Table) -> None:
@@ -90,6 +95,29 @@ class TableFillerBase(abc.ABC):
     @abc.abstractmethod
     def _date_and_time(self, appt: CalendarAppointmentBase) -> str: ...
 
+    def _subtitle(self, appt: CalendarAppointmentBase) -> str:
+        for subtitle in self._subtitle_prio:
+            match subtitle:
+                case CalendarSubtitleField.SUBTITLE if appt.subtitle:
+                    return appt.subtitle
+                case CalendarSubtitleField.DESCRIPTION if appt.description:
+                    return appt.description
+                case CalendarSubtitleField.LINK if appt.link:
+                    return appt.link
+                case CalendarSubtitleField.ADDRESS if appt.address:
+                    city = f'{appt.address.zip or ""} {appt.address.city or ""}'.strip()
+                    if address := (
+                        ', '.join(
+                            part
+                            for part in [appt.address.name, appt.address.street, city]
+                            if part
+                        )
+                    ):
+                        return address
+                case _:
+                    pass
+        return ''
+
     def add(self, appt: CalendarAppointmentBase) -> None:
         if not self._table:
             # Safeguard, no table registered.
@@ -108,7 +136,7 @@ class TableFillerBase(abc.ABC):
         self._set_cell_text(
             self._table.cell(self._current_row, 1),
             appt.title,
-            appt.subtitle or appt.description or appt.link,
+            self._subtitle(appt),
         )
         self._current_row += 1
 
@@ -155,11 +183,13 @@ class PowerPointAppointments(PowerPointBase):
             config=config,
             date_format=config.songbeamer.settings.date_format,
             time_format=config.songbeamer.settings.time_format,
+            subtitle_prio=config.songbeamer.powerpoint.appointments.weekly_subtitle_priority,
         )
         self._irregular_table = IrregularTableFiller(
             config=config,
             date_format=config.songbeamer.settings.date_format,
             time_format=config.songbeamer.settings.time_format,
+            subtitle_prio=config.songbeamer.powerpoint.appointments.irregular_subtitle_priority,
         )
 
     def _setup_tables(self) -> None:

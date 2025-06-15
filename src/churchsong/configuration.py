@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import enum
 import gettext
 import importlib.metadata
 import importlib.resources
@@ -20,6 +21,13 @@ import pydantic
 import requests
 
 from churchsong.utils import CliError, recursive_expand_envvars
+
+
+class CalendarSubtitleField(enum.StrEnum):
+    SUBTITLE = 'subtitle'
+    DESCRIPTION = 'description'
+    LINK = 'link'
+    ADDRESS = 'address'
 
 
 class BaseModel(pydantic.BaseModel):
@@ -92,6 +100,18 @@ class SongBeamerPowerPointServicesConfig(BaseModel):
 
 class SongBeamerPowerPointAppointmentsConfig(BaseModel):
     template_pptx: BaseModel.OptionalDataDirPath = None
+    weekly_subtitle_priority: list[CalendarSubtitleField] = [
+        CalendarSubtitleField.SUBTITLE,
+        CalendarSubtitleField.DESCRIPTION,
+        CalendarSubtitleField.LINK,
+        CalendarSubtitleField.ADDRESS,
+    ]
+    irregular_subtitle_priority: list[CalendarSubtitleField] = [
+        CalendarSubtitleField.SUBTITLE,
+        CalendarSubtitleField.DESCRIPTION,
+        CalendarSubtitleField.LINK,
+        CalendarSubtitleField.ADDRESS,
+    ]
 
 
 class SongBeamerPowerPointConfig(BaseModel):
