@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+### Added
+- introduced configurable subtitle priorities for weekly and irregular appointments
+
 ### Changed
-- release pin on click<8.2.0 as typer 0.16.0 now supports typer >=8.2.0
+- released pin on click<8.2.0 as typer 0.16.0 now supports typer >=8.2.0
 - updated external dependencies (pydantic, requests, textual, typer)
 
 ## 0.9.2 (2025-05-12)

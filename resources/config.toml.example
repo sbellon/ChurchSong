@@ -23,6 +23,8 @@ portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 
 [SongBeamer.PowerPoint.Appointments]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
+weekly_subtitle_priority = ["subtitle", "description", "link", "address"]
+irregular_subtitle_priority = ["address", "link", "description", "subtitle"]
 
 [SongBeamer.Slides.Opening]
 content = """
