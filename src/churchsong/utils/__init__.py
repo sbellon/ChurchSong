@@ -22,7 +22,7 @@ def expand_envvars(text: str) -> str:
 T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
 
 
-def recursive_expand_envvars(data: T) -> T:
+def recursive_expand_envvars(data: T) -> T:  # noqa: UP047
     match data:
         case str():
             return expand_envvars(data)
