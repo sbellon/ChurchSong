@@ -20,7 +20,7 @@ Write-Output "Installing ChurchSong with uv ..."
 & uv tool install --no-config --force --reinstall --python-preference only-managed ChurchSong
 
 Write-Output "Installing Desktop shortcut to ChurchSong ..."
-New-Item -ItemType Directory -Path "$Env:LOCALAPPDATA\ChurchSong" -Force
+New-Item -ItemType Directory -Path "$Env:LOCALAPPDATA\ChurchSong" -Force | Out-Null
 $webClient = New-Object System.Net.WebClient
 $batchPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.bat"
 $iconPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.ico"
@@ -37,7 +37,7 @@ $configPath="$Env:LOCALAPPDATA\ChurchSong\config.toml"
 $configUrl="https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/config.toml.example"
 $webClient.DownloadFile($configUrl, $configPath)
 
-New-Item -ItemType Directory -Path "$Env:USERPROFILE\Desktop\Data\Portraits" -Force
+New-Item -ItemType Directory -Path "$Env:USERPROFILE\Desktop\Data\Portraits" -Force | Out-Null
 $webClient.DownloadFile("https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/Nobody.jpeg", "$Env:USERPROFILE\Desktop\Data\Portraits\Nobody.jpeg")
 
 Write-Output "You have to adjust $configPath to make it work for you."
