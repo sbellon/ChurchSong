@@ -20,19 +20,14 @@ Write-Output "Installing ChurchSong with uv ..."
 & uv tool install --no-config --force --reinstall --python-preference only-managed ChurchSong
 
 Write-Output "Installing Desktop shortcut to ChurchSong ..."
-if (-not (Test-Path "$Env:LOCALAPPDATA\ChurchSong")) {
-    New-Item -ItemType Directory -Path "$Env:LOCALAPPDATA\ChurchSong"
-}
-$shortcutPath="$Env:USERPROFILE\Desktop\ChurchSong.lnk"
-$batchUrl="https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/ChurchSong.bat"
-$batchPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.bat"
-$iconUrl="https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/ChurchSong.ico"
-$iconPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.ico"
+New-Item -ItemType Directory -Path "$Env:LOCALAPPDATA\ChurchSong" -Force
 $webClient = New-Object System.Net.WebClient
-$webClient.DownloadFile($batchUrl, $batchPath)
-$webClient.DownloadFile($iconUrl, $iconPath)
+$batchPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.bat"
+$iconPath="$Env:LOCALAPPDATA\ChurchSong\ChurchSong.ico"
+$webClient.DownloadFile("https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/ChurchSong.bat", $batchPath)
+$webClient.DownloadFile("https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/ChurchSong.ico", $iconPath)
 $WScriptShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WScriptShell.CreateShortcut($shortcutPath)
+$Shortcut = $WScriptShell.CreateShortcut("$Env:USERPROFILE\Desktop\ChurchSong.lnk")
 $Shortcut.TargetPath = $batchPath
 $Shortcut.IconLocation = $iconPath
 $Shortcut.Save()
@@ -41,6 +36,10 @@ Write-Output "Installing configuration template ..."
 $configPath="$Env:LOCALAPPDATA\ChurchSong\config.toml"
 $configUrl="https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/config.toml.example"
 $webClient.DownloadFile($configUrl, $configPath)
+
+New-Item -ItemType Directory -Path "$Env:USERPROFILE\Desktop\Data\Portraits" -Force
+$webClient.DownloadFile("https://raw.githubusercontent.com/sbellon/ChurchSong/refs/heads/main/resources/Nobody.jpeg", "$Env:USERPROFILE\Desktop\Data\Portraits\Nobody.jpeg")
+
 Write-Output "You have to adjust $configPath to make it work for you."
 
 Read-Host "Done. Press Enter to exit"
