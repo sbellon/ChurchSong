@@ -270,7 +270,7 @@ class SongBeamer:
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')
         if sys.platform == 'win32':
-            from churchsong.songbeamer import windows
+            from churchsong.songbeamer import windows  # noqa: PLC0415
 
             if windows.is_songbeamer_running():
                 already_running_notice = _(
