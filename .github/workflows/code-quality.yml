@@ -33,7 +33,7 @@ jobs:
       - name: Run ruff format
         run: uvx ruff format --check .
   typing:
-    runs-on: ubuntu-latest # currently does not sucessfully run on windows-latest
+    runs-on: windows-latest
     needs: [lockfile]
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Run pyright
         run: uvx pyright --project .
   typos:
-    runs-on: ubuntu-latest # currently does not sucessfully run on windows-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - name: Run typos check
