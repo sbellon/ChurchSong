@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (textual, xlsxwriter)
+
 ## 0.10.0 (2025-06-15)
 
 ### Added
