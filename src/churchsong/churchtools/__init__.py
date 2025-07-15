@@ -121,6 +121,7 @@ class CalendarAppointmentBase(DeprecationAwareModel):
     description: str | None
     image: Image | None
     link: str | None
+    is_internal: bool = pydantic.Field(alias='isInternal')
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
     all_day: bool = pydantic.Field(alias='allDay')
@@ -556,7 +557,7 @@ class ChurchToolsAPI:
     def get_appointments(
         self, event: EventShort
     ) -> typing.Generator[CalendarAppointmentBase]:
-        """Get appointments of the next 10 weeks *after* event."""
+        """Get non-internal appointments of the next 10 weeks *after* event."""
         next_10weeks = event.start_date + datetime.timedelta(weeks=10)
         r = self._get(
             '/api/calendars/appointments',
@@ -571,6 +572,7 @@ class ChurchToolsAPI:
             base
             for item in result.data
             if (base := item.appointment.base)
+            and not base.is_internal
             and not (  # filter out current event
                 base.title == event.name and base.start_date == event.start_date
             )

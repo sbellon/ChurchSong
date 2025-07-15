@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- put only appointments on slides that are not marked as internal appointment
 - updated external dependencies (textual, xlsxwriter)
 
 ## 0.10.0 (2025-06-15)
