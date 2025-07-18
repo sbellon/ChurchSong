@@ -190,7 +190,7 @@ class ChurchToolsSongVerification:
             self._member_name = member_name
             self._accessed = False
 
-        def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
+        def visit_Attribute(self, node: ast.Attribute) -> None:
             if node.attr == self._member_name:
                 self._accessed = True
                 self.generic_visit(node)
