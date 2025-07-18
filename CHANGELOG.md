@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (textual, xlsxwriter)
+- updated external dependencies (certifi, textual, xlsxwriter)
 
 ## 0.10.0 (2025-06-15)
 
