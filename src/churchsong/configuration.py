@@ -34,10 +34,9 @@ class BaseModel(pydantic.BaseModel):
     # Configure config model to treat all fields as read-only.
     model_config = pydantic.ConfigDict(frozen=True)
 
-    # Define a consistent package name by reading it from metadata package.
-    package_name: typing.ClassVar[typing.Final[str]] = importlib.metadata.distribution(
-        'churchsong'
-    ).name
+    # Define a consistent package name. Reading from package metadata does not work
+    # because it does not retain casing.
+    package_name: typing.ClassVar[typing.Final[str]] = 'ChurchSong'
 
     # Platform-dependent data directory to use.
     data_dir: typing.ClassVar[typing.Final[pathlib.Path]] = platformdirs.user_data_path(
