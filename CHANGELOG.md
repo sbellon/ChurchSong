@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.1 (2025-07-19)
 
 ### Changed
 - put only appointments on slides that are not marked as internal appointment
