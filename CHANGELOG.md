@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.2 (2025-07-26)
 
 ### Fixed
 - fixed casing of config file path being incorrect for case-sensitive file systems
