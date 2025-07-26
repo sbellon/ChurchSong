@@ -1,9 +1,13 @@
 runs:
   using: composite
   steps:
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: "pyproject.toml"
+
     - name: "Install uv"
       uses: astral-sh/setup-uv@v6
       with:
-        version: "latest"
         enable-cache: true
         cache-dependency-glob: uv.lock
