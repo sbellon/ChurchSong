@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import enum
 import gettext
 import importlib.metadata
@@ -243,12 +244,22 @@ class Configuration(TomlConfig):
 
     @property
     def version(self) -> packaging.version.Version:
-        try:
+        # If we have access to the pyproject.toml, we are in development mode.
+        with (
+            contextlib.suppress(FileNotFoundError, KeyError),
+            (pathlib.Path(__file__).parent.parent.parent / 'pyproject.toml').open(
+                'rb'
+            ) as f,
+        ):
+            return packaging.version.Version(tomllib.load(f)['project']['version'])
+        # Otherwise we are in Distribution Package mode.
+        with contextlib.suppress(
+            importlib.metadata.PackageNotFoundError, AssertionError
+        ):
             return packaging.version.Version(
                 importlib.metadata.version(self.package_name)
             )
-        except (importlib.metadata.PackageNotFoundError, AssertionError):
-            return packaging.version.Version('0')
+        return packaging.version.Version('0')
 
     @property
     def later_version_available(self) -> packaging.version.Version | None:
