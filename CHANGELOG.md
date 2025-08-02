@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+### Added
+- separate format string for multi-day events (in addition to all-day and regular)
+
 ### Fixed
-- fixed swapped time format for allday and regular events (introduced with 0.10.0)
+- fixed swapped time format for all-day and regular events (introduced with 0.10.0)
 
 ## 0.10.2 (2025-07-26)
 

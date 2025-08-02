@@ -91,6 +91,7 @@ class SongBeamerPowerPointServicesConfig(BaseModel):
 class SongBeamerPowerPointAppointmentsTableConfig(BaseModel):
     regular_datetime_format: str = '%a. %d.%m. %H:%M'
     allday_datetime_format: str = '%a. %d.%m.'
+    multiday_datetime_format: str = '%d.%m.'
     subtitle_priority: list[CalendarSubtitleField] = [
         CalendarSubtitleField.SUBTITLE,
         CalendarSubtitleField.DESCRIPTION,
