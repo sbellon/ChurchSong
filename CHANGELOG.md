@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed swapped time format for allday and regular events (introduced with 0.10.0)
+
 ## 0.10.2 (2025-07-26)
 
 ### Fixed
