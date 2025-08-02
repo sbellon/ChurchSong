@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.3 (2025-08-02)
 
 ### Added
 - separate format string for multi-day events (in addition to all-day and regular)
