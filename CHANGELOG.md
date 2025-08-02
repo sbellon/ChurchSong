@@ -8,6 +8,9 @@
 ### Fixed
 - fixed swapped time format for all-day and regular events (introduced with 0.10.0)
 
+### Changed
+- updated external dependencies (click, rich, textual)
+
 ## 0.10.2 (2025-07-26)
 
 ### Fixed
