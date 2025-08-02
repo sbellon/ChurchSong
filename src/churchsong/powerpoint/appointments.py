@@ -176,15 +176,15 @@ class PowerPointAppointments(PowerPointBase):
         self._weekly_table = TableFiller(
             config=config,
             table_type=TableType.WEEKLY,
-            regular_datetime_format=config.songbeamer.powerpoint.appointments.weekly.allday_datetime_format,
-            allday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.regular_datetime_format,
+            regular_datetime_format=config.songbeamer.powerpoint.appointments.weekly.regular_datetime_format,
+            allday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.allday_datetime_format,
             subtitle_prio=config.songbeamer.powerpoint.appointments.weekly.subtitle_priority,
         )
         self._irregular_table = TableFiller(
             config=config,
             table_type=TableType.IRREGULAR,
-            regular_datetime_format=config.songbeamer.powerpoint.appointments.irregular.allday_datetime_format,
-            allday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.regular_datetime_format,
+            regular_datetime_format=config.songbeamer.powerpoint.appointments.irregular.regular_datetime_format,
+            allday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.allday_datetime_format,
             subtitle_prio=config.songbeamer.powerpoint.appointments.irregular.subtitle_priority,
         )
 
