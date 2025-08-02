@@ -25,11 +25,13 @@ template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
 [SongBeamer.PowerPoint.Appointments.Weekly]
 regular_datetime_format = "%a. %H:%M"
 allday_datetime_format = "%A"
+multiday_datetime_format = "%A"
 subtitle_priority = ["subtitle", "description", "link", "address"]
 
 [SongBeamer.PowerPoint.Appointments.Irregular]
 regular_datetime_format = "%a. %d.%m. %H:%M"
 allday_datetime_format = "%a. %d.%m."
+multiday_datetime_format = "%d.%m."
 subtitle_priority = ["address", "link", "description", "subtitle"]
 
 [SongBeamer.Slides]

@@ -25,12 +25,13 @@ class TableType(enum.StrEnum):
 class TableFiller:
     type: typing.ClassVar[str]
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         config: Configuration,
         table_type: TableType,
         regular_datetime_format: str,
         allday_datetime_format: str,
+        multiday_datetime_format: str,
         subtitle_prio: list[CalendarSubtitleField],
     ) -> None:
         self._log = config.log
@@ -39,8 +40,9 @@ class TableFiller:
         self._total_rows = 0
         self._current_row = 0
         self._table_type = table_type
-        self._regular_datetime_format = regular_datetime_format
-        self._allday_datetime_format = allday_datetime_format
+        self._regular_fmt = regular_datetime_format
+        self._allday_fmt = allday_datetime_format
+        self._multiday_fmt = multiday_datetime_format
         self._subtitle_prio = subtitle_prio
         self._unset_table_warning = False
 
@@ -105,10 +107,13 @@ class TableFiller:
 
     def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
         local_start = appt.start_date.astimezone()
+        local_end = appt.end_date.astimezone()
         return (
-            f'{local_start:{self._allday_datetime_format}}'
+            f'{local_start:{self._multiday_fmt}} - {local_end:{self._multiday_fmt}}'
+            if (local_start.month, local_start.day) != (local_end.month, local_end.day)
+            else f'{local_start:{self._allday_fmt}}'
             if appt.all_day
-            else f'{local_start:{self._regular_datetime_format}}'
+            else f'{local_start:{self._regular_fmt}}'
         )
 
     def _subtitle(self, appt: CalendarAppointmentBase) -> str:
@@ -178,6 +183,7 @@ class PowerPointAppointments(PowerPointBase):
             table_type=TableType.WEEKLY,
             regular_datetime_format=config.songbeamer.powerpoint.appointments.weekly.regular_datetime_format,
             allday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.allday_datetime_format,
+            multiday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.multiday_datetime_format,
             subtitle_prio=config.songbeamer.powerpoint.appointments.weekly.subtitle_priority,
         )
         self._irregular_table = TableFiller(
@@ -185,6 +191,7 @@ class PowerPointAppointments(PowerPointBase):
             table_type=TableType.IRREGULAR,
             regular_datetime_format=config.songbeamer.powerpoint.appointments.irregular.regular_datetime_format,
             allday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.allday_datetime_format,
+            multiday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.multiday_datetime_format,
             subtitle_prio=config.songbeamer.powerpoint.appointments.irregular.subtitle_priority,
         )
 
