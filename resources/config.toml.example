@@ -21,7 +21,7 @@ portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 
 [SongBeamer.PowerPoint.Appointments]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
-look_ahead_weeks = 10
+look_ahead_weeks = 13
 
 [SongBeamer.PowerPoint.Appointments.Weekly]
 regular_datetime_format = "%a. %H:%M"
