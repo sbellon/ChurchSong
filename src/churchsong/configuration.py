@@ -102,6 +102,7 @@ class SongBeamerPowerPointAppointmentsTableConfig(BaseModel):
 
 class SongBeamerPowerPointAppointmentsConfig(BaseModel):
     template_pptx: BaseModel.OptionalDataDirPath = None
+    look_ahead_weeks: int = 10
     weekly: SongBeamerPowerPointAppointmentsTableConfig = pydantic.Field(
         default=SongBeamerPowerPointAppointmentsTableConfig(), alias='Weekly'
     )
