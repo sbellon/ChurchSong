@@ -21,11 +21,12 @@ portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 
 [SongBeamer.PowerPoint.Appointments]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
+look_ahead_weeks = 10
 
 [SongBeamer.PowerPoint.Appointments.Weekly]
 regular_datetime_format = "%a. %H:%M"
 allday_datetime_format = "%A"
-multiday_datetime_format = "%A"
+multiday_datetime_format = "%a."
 subtitle_priority = ["subtitle", "description", "link", "address"]
 
 [SongBeamer.PowerPoint.Appointments.Irregular]

@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+## Added
+- option how many weeks ahead to put onto appointment slides (space permitting)
+
 ## 0.10.3 (2025-08-02)
 
 ### Added

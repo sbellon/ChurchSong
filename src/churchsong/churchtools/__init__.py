@@ -362,6 +362,9 @@ class ChurchToolsAPI:
         self._log = config.log
         self._base_url = config.churchtools.base_url
         self._login_token = config.churchtools.login_token
+        self._look_ahead_weeks = (
+            config.songbeamer.powerpoint.appointments.look_ahead_weeks
+        )
         self._permissions = self._fetch_permissions()
 
         # Assert permissions that are required for basic functionality of the app.
@@ -557,14 +560,16 @@ class ChurchToolsAPI:
     def get_appointments(
         self, event: EventShort
     ) -> typing.Generator[CalendarAppointmentBase]:
-        """Get non-internal appointments of the next 10 weeks *after* event."""
-        next_10weeks = event.start_date + datetime.timedelta(weeks=10)
+        """Get non-internal appointments of the next N weeks *after* event."""
+        next_n_weeks = event.start_date + datetime.timedelta(
+            weeks=self._look_ahead_weeks
+        )
         r = self._get(
             '/api/calendars/appointments',
             params={
                 'calendar_ids[]': [calendar.id for calendar in self._get_calendars()],
                 'from': f'{event.start_date:%Y-%m-%d}',
-                'to': f'{next_10weeks:%Y-%m-%d}',
+                'to': f'{next_n_weeks:%Y-%m-%d}',
             },
         )
         result = CalendarAppointmentsData(**r.json())
