@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (certifi, click, platformdirs, requests, textual, typer)
+
 ## 0.10.4 (2025-08-03)
 
 ## Added
