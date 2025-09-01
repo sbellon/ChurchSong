@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.5 (2025-09-01)
 
 ### Fixed
 - fixed broken SongBeamer encode/decode for multiple non-ascii characters in a row
