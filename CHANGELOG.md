@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- fixed broken SongBeamer encode/decode for multiple non-ascii characters in a row
+
 ### Changed
 - updated external dependencies (certifi, click, platformdirs, requests, textual, typer)
 
