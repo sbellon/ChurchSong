@@ -141,19 +141,49 @@ class AgendaItem:
         self.filename = self._fixup_links(self._decode(filename)) if filename else None
 
     @staticmethod
-    def _toggle_quotes(text: str) -> str:
-        text = text[1:] if text.startswith("'") else f"'{text}"
-        return text[:-1] if text.endswith("'") else f"{text}'"
+    def _test_encode_decode() -> None:
+        import random  # noqa: PLC0415
+
+        for _ in range(100):
+            random_text = ''.join(
+                chr(i)
+                for i in random.randbytes(random.randrange(10, 32))  # noqa: S311
+            )
+            assert AgendaItem._decode(AgendaItem._encode(random_text)) == random_text  # noqa: S101
 
     @staticmethod
     def _decode(text: str) -> str:
-        text = AgendaItem._toggle_quotes(text)
-        return re.sub(r"'#(\d+)'", lambda x: chr(int(x.group(1))), text)
+        re_encoded = re.compile(r'#(\d+)')
+        parts = text.split("'")
+        for i in range(0, len(parts), 2):  # only even, aka outside-quote segments
+            parts[i] = re_encoded.sub(lambda m: chr(int(m[1])), parts[i])
+        return ''.join(parts)
 
     @staticmethod
     def _encode(text: str) -> str:
-        text = re.sub(r"[^\x00-\x7F]|'", lambda x: f"'#{ord(x.group(0))}'", text)
-        return result if (result := AgendaItem._toggle_quotes(text)) else "''"
+        if not text:
+            return "''"
+
+        result = []
+        in_quotes = False
+
+        def toggle_quotes() -> None:
+            nonlocal in_quotes
+            result.append("'")
+            in_quotes = not in_quotes
+
+        for c in text:
+            if _needs_escape := c == "'" or c > '\x7f':
+                if in_quotes:
+                    toggle_quotes()
+                result.append(f'#{ord(c)}')
+            else:
+                if not in_quotes:
+                    toggle_quotes()
+                result.append(c)
+        if in_quotes:
+            toggle_quotes()
+        return ''.join(result)
 
     @classmethod
     def _fixup_links(cls, url: str) -> str:
