@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed broken handling of single quotes in SongBeamer agenda items
+
 ## 0.10.5 (2025-09-01)
 
 ### Fixed

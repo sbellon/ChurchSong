@@ -135,10 +135,10 @@ class AgendaItem:
         bgcolor: str | None = None,
         filename: str | None = None,
     ) -> None:
-        self.caption = self._decode(caption)
+        self.caption = caption
         self.color = color
         self.bgcolor = bgcolor
-        self.filename = self._fixup_links(self._decode(filename)) if filename else None
+        self.filename = self._fixup_links(filename) if filename else None
 
     @staticmethod
     def _test_encode_decode() -> None:
@@ -196,10 +196,10 @@ class AgendaItem:
     def parse(cls, content: str) -> list[typing.Self]:
         return [
             cls(
-                caption=match.group('caption'),
+                caption=cls._decode(match.group('caption')),
                 color=match.group('color'),
                 bgcolor=match.group('bgcolor'),
-                filename=match.group('filename'),
+                filename=cls._decode(fn) if (fn := match.group('filename')) else None,
             )
             for match in re.finditer(cls._RE_AGENDA_ITEM, content)
         ]
@@ -227,14 +227,12 @@ class Agenda:
                 self._agenda_items.append(other)
             case Item():
                 color_attr = getattr(self._colors, other.type.value)
-                color = color_attr.color
-                bgcolor = color_attr.bgcolor
                 self._agenda_items.append(
                     AgendaItem(
-                        caption=f"'{other.title}'",
-                        color=color,
-                        bgcolor=bgcolor,
-                        filename=f"'{other.filename}'" if other.filename else None,
+                        caption=other.title,
+                        color=color_attr.color,
+                        bgcolor=color_attr.bgcolor,
+                        filename=other.filename,
                     )
                 )
             case _:
