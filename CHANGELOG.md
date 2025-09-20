@@ -1,9 +1,9 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.7 (2025-09-20)
 
 ### Changed
-- pin textual<6.1.0 for now due to some change in hover handling
+- pin textual<6.1.0 for now due to some change in hover handling (regression in 0.10.6)
 - updated external dependencies (click, pydantic, typer, xlsxwriter)
 
 ## 0.10.6 (2025-09-05)
