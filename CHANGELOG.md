@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (click, pydantic, typer, xlsxwriter)
+
 ## 0.10.6 (2025-09-05)
 
 ### Fixed
