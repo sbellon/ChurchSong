@@ -62,7 +62,7 @@ wheels = [
 
 [[package]]
 name = "churchsong"
-version = "0.10.7"
+version = "0.10.8"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
