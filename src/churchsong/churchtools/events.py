@@ -78,20 +78,15 @@ class PdfSongSheets:
         self._event = event
         self._chords = pypdf.PdfWriter()
         self._leads = pypdf.PdfWriter()
-        self._chords.add_page(
-            self._create_title_page(
-                event.name, f'{event.start_date:{datetime_format}}', 'Chords'
-            )
-        )
-        self._leads.add_page(
-            self._create_title_page(
-                event.name, f'{event.start_date:{datetime_format}}', 'Leads'
-            )
-        )
+        self._chords.add_page(self._title_page(event, datetime_format, 'Chords'))
+        self._leads.add_page(self._title_page(event, datetime_format, 'Leads'))
 
-    def _create_title_page(
-        self, title: str, subtitle: str, subsubtitle: str
+    def _title_page(
+        self, event: EventFull, datetime_format: str, kind: str
     ) -> pypdf.PageObject:
+        title = event.name
+        subtitle = f'{event.start_date.astimezone():{datetime_format}}'
+        subsubtitle = kind
         data = io.BytesIO()
         pagesize = reportlab.lib.pagesizes.A4
         canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
