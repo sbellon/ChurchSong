@@ -57,6 +57,7 @@ class PermissionsGlobalChurchCal(DeprecationAwareModel):
 
 
 class PermissionsGlobalChurchService(DeprecationAwareModel):
+    edit_events: list[int] = pydantic.Field(alias='edit events')
     view: bool
     view_servicegroup: list[int] = pydantic.Field(alias='view servicegroup')
     view_history: bool = pydantic.Field(alias='view history')
@@ -232,11 +233,13 @@ class EventFileDomainType(enum.StrEnum):
 class EventFile(DeprecationAwareModel):
     title: str
     domain_type: EventFileDomainType = pydantic.Field(alias='domainType')
+    domain_identifier: int = pydantic.Field(alias='domainIdentifier')
     frontend_url: str = pydantic.Field(alias='frontendUrl')
 
 
 class EventFull(DeprecationAwareModel):
     id: int
+    name: str
     start_date: datetime.datetime = pydantic.Field(alias='startDate')
     end_date: datetime.datetime = pydantic.Field(alias='endDate')
     event_files: list[EventFile] = pydantic.Field(alias='eventFiles')
@@ -428,7 +431,6 @@ class ChurchToolsAPI:
                     ', '.join(f'"{perm}"' for perm in missing_perms)
                 )
             )
-
         try:
             yield
         finally:
@@ -447,6 +449,7 @@ class ChurchToolsAPI:
         params: ParamsType | None = None,
         *,
         stream: bool = False,
+        files: list[tuple] | None = None,
     ) -> requests.Response:
         self._log.debug(
             'Request %s %s%s with params=%s', method, self._base_url, url, params
@@ -457,6 +460,7 @@ class ChurchToolsAPI:
             headers=self._headers(),
             params=params,
             stream=stream,
+            files=files,
         )
         self._log.debug('Response is %s %s', r.status_code, r.reason)
         r.raise_for_status()
@@ -477,8 +481,18 @@ class ChurchToolsAPI:
         params: ParamsType | None = None,
         *,
         stream: bool = False,
+        files: list[tuple] | None = None,
     ) -> requests.Response:
-        return self._request('POST', url, params, stream=stream)
+        return self._request('POST', url, params, stream=stream, files=files)
+
+    def _delete(
+        self,
+        url: str,
+        params: ParamsType | None = None,
+        *,
+        stream: bool = False,
+    ) -> requests.Response:
+        return self._request('DELETE', url, params, stream=stream)
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
@@ -639,3 +653,22 @@ class ChurchToolsAPI:
         # we get back status code 200 OK but a HTML page telling us that we do not
         # have sufficient permissions.
         return requests.get(full_url, headers=self._headers(), stream=True)
+
+    def delete_event_file(self, event: EventFull, file: EventFile) -> None:
+        msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'
+        with self.permissions('delete song sheet', ['churchservice:edit events']):
+            self._log.debug(msg)
+            r = self._delete(f'/api/files/{file.domain_identifier}')
+            if not r.ok:
+                self._log.warning(f'{msg} failed')
+
+    def upload_event_file(
+        self, event: EventFull, filename: str, content: bytes
+    ) -> None:
+        msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
+        with self.permissions('upload song sheet', ['churchservice:edit events']):
+            self._log.debug(msg)
+            files = [('files[]', (filename, content, 'application/pdf'))]
+            r = self._post(f'/api/files/service/{event.id}', files=files)
+            if not r.ok:
+                self._log.warning(f'{msg} failed')
