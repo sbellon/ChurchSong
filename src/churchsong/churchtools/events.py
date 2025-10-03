@@ -5,10 +5,15 @@
 import contextlib
 import dataclasses
 import enum
+import io
 import os
 import re
 import typing
 from collections import defaultdict
+
+import pypdf
+import reportlab.lib.pagesizes
+import reportlab.pdfgen.canvas
 
 from churchsong.churchtools import (
     ChurchToolsAPI,
@@ -16,6 +21,7 @@ from churchsong.churchtools import (
     EventAgendaItemType,
     EventFile,
     EventFileDomainType,
+    EventFull,
     EventShort,
     File,
 )
@@ -52,6 +58,73 @@ class Subfolder(enum.StrEnum):
     SONGS = 'Songs'
 
 
+@dataclasses.dataclass
+class SongFiles:
+    title: str
+    sng_file: File | None
+    chords_file: File | None
+    leads_file: File | None
+
+
+class PdfSongSheets:
+    CHORDS_FILE: typing.ClassVar = 'SongSheets-Chords.pdf'
+    LEADS_FILE: typing.ClassVar = 'SongSheets-Leads.pdf'
+    FILES: typing.ClassVar = (CHORDS_FILE, LEADS_FILE)
+
+    def __init__(
+        self, cta: ChurchToolsAPI, event: EventFull, datetime_format: str
+    ) -> None:
+        self.cta = cta
+        self._event = event
+        self._chords = pypdf.PdfWriter()
+        self._leads = pypdf.PdfWriter()
+        self._chords.add_page(
+            self._create_title_page(
+                event.name, f'{event.start_date:{datetime_format}}', 'Chords'
+            )
+        )
+        self._leads.add_page(
+            self._create_title_page(
+                event.name, f'{event.start_date:{datetime_format}}', 'Leads'
+            )
+        )
+
+    def _create_title_page(
+        self, title: str, subtitle: str, subsubtitle: str
+    ) -> pypdf.PageObject:
+        data = io.BytesIO()
+        pagesize = reportlab.lib.pagesizes.A4
+        canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
+        width, height = pagesize
+        canvas.setFont('Helvetica-Bold', 36)
+        canvas.drawCentredString(width / 2, height / 2 + 50, title)
+        canvas.setFont('Helvetica', 24)
+        canvas.drawCentredString(width / 2, height / 2 - 10, subtitle)
+        canvas.setFont('Helvetica', 24)
+        canvas.drawCentredString(width / 2, height / 2 - 50, subsubtitle)
+        canvas.save()
+        data.seek(0)
+        return pypdf.PdfReader(data).pages[0]
+
+    def _download_stream(self, url: str) -> io.BytesIO:
+        r = self.cta.download_url(url)
+        return io.BytesIO(r.content)
+
+    def append(self, song_files: SongFiles) -> None:
+        if f := song_files.chords_file:
+            self._chords.append(self._download_stream(f.file_url))
+        if f := song_files.leads_file:
+            self._leads.append(self._download_stream(f.file_url))
+
+    def upload(self) -> None:
+        chords_b = io.BytesIO()
+        leads_b = io.BytesIO()
+        self._chords.write(chords_b)
+        self._leads.write(leads_b)
+        self.cta.upload_event_file(self._event, self.CHORDS_FILE, chords_b.getvalue())
+        self.cta.upload_event_file(self._event, self.LEADS_FILE, leads_b.getvalue())
+
+
 class ChurchToolsEvent:
     def __init__(
         self, cta: ChurchToolsAPI, event: EventShort, config: Configuration
@@ -62,6 +135,7 @@ class ChurchToolsEvent:
         self._agenda = self.cta.get_event_agenda(event)
         self._output_dir = config.songbeamer.output_dir
         self._person_dict = config.churchtools.replacements
+        self._datetime_format = config.songbeamer.slides.datetime_format
 
     def _download_file(
         self, name: str, url: str, subfolder: Subfolder, *, overwrite: bool = True
@@ -81,39 +155,38 @@ class ChurchToolsEvent:
                 fd.write(r.content)
         return os.fspath(filename)
 
-    def _sng_file(self, item: EventAgendaItem) -> File | None:
+    def _song_files(self, item: EventAgendaItem) -> SongFiles:
+        assert item.song is not None  # noqa: S101
         sng_file = None
-        if item.song:
-            song = self.cta.get_song(item.song.song_id)
-            item.title = song.name  # side-effect for download_agenda_items()
-            # Take first .sng file in chosen arrangement if it exists,
-            # fall back to first .sng file in default arrangement otherwise.
-            sng_file = next(
-                (
-                    file
-                    for arr in song.arrangements
-                    if arr.id == item.song.arrangement_id
-                    for file in arr.files
-                    if file.name.endswith('.sng')
-                ),
-                None,
-            ) or next(
-                (
-                    file
-                    for arr in song.arrangements
-                    if arr.is_default
-                    for file in arr.files
-                    if file.name.endswith('.sng')
-                ),
-                None,
-            )
-        return sng_file
+        default_sng_file = None
+        chords_file = None
+        leads_file = None
+        song = self.cta.get_song(item.song.song_id)
+        for arr in song.arrangements:
+            for file in arr.files:
+                if file.name.endswith('.sng'):
+                    if arr.id == item.song.arrangement_id:
+                        sng_file = file
+                    if arr.is_default:
+                        default_sng_file = file
+                if file.name.endswith('.pdf') and arr.id == item.song.arrangement_id:
+                    if '-lead-' in file.name.lower():
+                        leads_file = file
+                    else:
+                        chords_file = file
+        return SongFiles(
+            title=song.name,
+            sng_file=sng_file or default_sng_file,
+            chords_file=chords_file,
+            leads_file=leads_file or chords_file,
+        )
 
-    def download_agenda_items(
+    def download_agenda_items(  # noqa: C901
         self, *, download_files: bool = True, download_songs: bool = True
     ) -> list[Item]:
         self._log.info('Downloading event files, agenda items, and songs')
         agenda_items: list[Item] = []
+        pdf_song_sheets = PdfSongSheets(self.cta, self._event, self._datetime_format)
 
         @contextlib.contextmanager
         def do_progress(
@@ -130,6 +203,9 @@ class ChurchToolsEvent:
                 match item.domain_type:
                     case EventFileDomainType.FILE:
                         with do_progress(item):
+                            if item.title in PdfSongSheets.FILES:
+                                self.cta.delete_event_file(self._event, item)
+                                continue
                             filename = self._download_file(
                                 item.title,
                                 item.frontend_url,
@@ -158,19 +234,24 @@ class ChurchToolsEvent:
                         with do_progress(item):
                             agenda_item = Item(ItemType.NORMAL, item.title)
                     case EventAgendaItemType.SONG:
-                        sng_file = self._sng_file(item)  # sets item.title to song title
+                        if not item.song:
+                            self._log.warning('Song event item without song data')
+                            continue
+                        files = self._song_files(item)
+                        item.title = files.title
                         with do_progress(item):
                             filename = (
                                 self._download_file(
                                     item.title,
-                                    sng_file.file_url,
+                                    files.sng_file.file_url,
                                     Subfolder.SONGS,
                                     overwrite=download_songs,
                                 )
-                                if sng_file
+                                if files.sng_file
                                 else None
                             )
                             agenda_item = Item(ItemType.SONG, item.title, filename)
+                            pdf_song_sheets.append(files)
                     case _:
                         with do_progress():
                             self._log.warning(
@@ -178,6 +259,7 @@ class ChurchToolsEvent:
                             )
                         continue
                 agenda_items.append(agenda_item)
+        pdf_song_sheets.upload()
         return agenda_items
 
     def get_service_info(self) -> tuple[list[Item], defaultdict[str, set[Person]]]:

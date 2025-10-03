@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Added
+- download PDF song sheets (chords and leads) and upload complete song sheets to event
+
 ## 0.10.7 (2025-09-20)
 
 ### Changed
