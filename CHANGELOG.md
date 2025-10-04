@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.10 (2025-10-04)
 
 ### Added
 - put last updated timestamp onto the PDF song sheets
