@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- song sheets can be disabled from interactive start menu (enabled by default)
+
 ### Changed
 - implement own focus button styling (allows for unpinning textual again)
 - updated external dependencies (textual, typer)

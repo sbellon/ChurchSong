@@ -436,6 +436,9 @@ class ChurchToolsAPI:
         finally:
             pass
 
+    def has_permissions(self, required_perms: list[str]) -> bool:
+        return not self._get_missing_permissions(*required_perms)
+
     def _headers(self) -> dict[str, str]:
         return {
             'Accept': 'application/json',
