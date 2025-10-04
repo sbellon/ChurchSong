@@ -53,6 +53,11 @@ class FocusCheckbox(Checkbox):
                 background: $foreground;
             }
         }
+        &:blur:hover {
+            & > .toggle--label {
+                background: $background;
+            }
+        }
         & > .toggle--button {
             background: $background;
         }

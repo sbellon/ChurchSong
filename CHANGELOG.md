@@ -1,5 +1,11 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- implement own focus button styling (allows for unpinning textual again)
+- updated external dependencies (textual, typer)
+
 ## 0.10.8 (2025-10-03)
 
 ### Added
