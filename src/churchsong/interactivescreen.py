@@ -11,7 +11,8 @@ from textual.binding import BindingType
 from textual.color import Color
 from textual.containers import Center, Container, Horizontal, Vertical, VerticalScroll
 from textual.content import Content
-from textual.events import Key, Mount
+from textual.events import Blur, Enter, Focus, Key, Leave, Mount
+from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.style import Style
 from textual.widget import Widget
@@ -102,21 +103,52 @@ class FocusCheckbox(Checkbox):
 
 
 class FocusButton(Button):
-    DEFAULT_CSS = """
-    FocusButton {
-        background: $background;
-        border: $background;
-        &:focus {
-            color: $foreground;
-            background: $background;
-            border: round $primary;
+    is_hovered = reactive(default=False)
+
+    def __init__(self, **kwargs: typing.Any) -> None:  # noqa: ANN401
+        super().__init__(**kwargs)
+        self.styles_map = {
+            'default': {
+                'color': self.styles.color,
+                'background': self.styles.background,
+                'border': ('round', self.styles.background),
+            },
+            'hover': {
+                'color': self.styles.color,
+                'background': self.styles.background,
+                'border': ('round', self.app.current_theme.primary),
+            },
+            'focus': {
+                'color': self.styles.color,
+                'background': self.styles.background,
+                'border': ('round', self.app.current_theme.primary),
+            },
         }
-        &:hover {
-            background: $background;
-            border: round $primary;
-        }
-    }
-    """
+        self.apply_style('default')
+
+    def apply_style(self, style_name: str) -> None:
+        if style := self.styles_map.get(style_name):
+            self.styles.color = style.get('color')
+            self.styles.background = style.get('background')
+            self.styles.border = style.get('border')
+
+    @on(Enter)
+    def hover_enter(self, _event: Enter) -> None:
+        self.is_hovered = True
+        self.apply_style('hover')
+
+    @on(Leave)
+    def hover_leave(self, _event: Leave) -> None:
+        self.is_hovered = False
+        self.apply_style('focus' if self.has_focus else 'default')
+
+    @on(Focus)
+    def focus_enter(self, _event: Focus) -> None:
+        self.apply_style('focus')
+
+    @on(Blur)
+    def focus_leave(self, _event: Blur) -> None:
+        self.apply_style('hover' if self.is_hovered else 'default')
 
     # The key binding does *not* activate space, therefore we need the @on(Key) below.
     # But it makes for a consistent appearance w.r.t. the FocusCheckbox key bindings.
