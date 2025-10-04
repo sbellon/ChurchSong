@@ -27,6 +27,7 @@ class DownloadSelection:
     songs: bool
     files: bool
     slides: bool
+    songsheets: bool
 
 
 class ScrollableCenterMiddle(Widget):
@@ -275,6 +276,7 @@ class InteractiveScreen(App[DownloadSelection]):
                 yield FocusCheckbox(id='songs', unicode=use_unicode_font)
                 yield FocusCheckbox(id='files', unicode=use_unicode_font)
                 yield FocusCheckbox(id='slides', unicode=use_unicode_font)
+                yield FocusCheckbox(id='songsheets', unicode=use_unicode_font)
                 yield FocusButton(id='submit')
             yield NoticeFooter()
             yield Footer(show_command_palette=False)
@@ -310,6 +312,9 @@ class InteractiveScreen(App[DownloadSelection]):
         )
         self.query_one('#slides', Checkbox).label = _(
             'Create PointPoint slides from ChurchTools data'
+        )
+        self.query_one('#songsheets', Checkbox).label = _(
+            'Create and upload PDF song sheets to ChurchTools'
         )
 
         # Trigger Changed event on first Checkbox to initialize Button label.

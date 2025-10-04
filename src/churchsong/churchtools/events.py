@@ -66,27 +66,27 @@ class SongFiles:
     leads_file: File | None
 
 
-class PdfSongSheets:
-    CHORDS_FILE: typing.ClassVar = 'SongSheets-Chords.pdf'
-    LEADS_FILE: typing.ClassVar = 'SongSheets-Leads.pdf'
-    FILES: typing.ClassVar = (CHORDS_FILE, LEADS_FILE)
-
+class SongSheets:
     def __init__(
-        self, cta: ChurchToolsAPI, event: EventFull, datetime_format: str
+        self, cta: ChurchToolsAPI, event: EventFull, datetime_format: str, enabled: bool
     ) -> None:
         self.cta = cta
+        self._enabled = enabled and cta.has_permissions(['churchservice:edit events'])
         self._event = event
-        self._chords = pypdf.PdfWriter()
-        self._leads = pypdf.PdfWriter()
-        self._chords.add_page(self._title_page(event, datetime_format, 'Chords'))
-        self._leads.add_page(self._title_page(event, datetime_format, 'Leads'))
+        chords_name = _('Song Sheets Chords')
+        leads_name = _('Song Sheets Leads')
+        self._chords_pdf = pypdf.PdfWriter()
+        self._leads_pdf = pypdf.PdfWriter()
+        self._chords_pdf.add_page(self._title_page(event, datetime_format, chords_name))
+        self._leads_pdf.add_page(self._title_page(event, datetime_format, leads_name))
+        self.chords_file = f'{chords_name}.pdf'
+        self.leads_file = f'{leads_name}.pdf'
 
     def _title_page(
-        self, event: EventFull, datetime_format: str, kind: str
+        self, event: EventFull, datetime_format: str, title: str
     ) -> pypdf.PageObject:
-        title = event.name
-        subtitle = f'{event.start_date.astimezone():{datetime_format}}'
-        subsubtitle = kind
+        subtitle = event.name
+        subsubtitle = f'{event.start_date.astimezone():{datetime_format}}'
         data = io.BytesIO()
         pagesize = reportlab.lib.pagesizes.A4
         canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
@@ -105,19 +105,30 @@ class PdfSongSheets:
         r = self.cta.download_url(url)
         return io.BytesIO(r.content)
 
-    def append(self, song_files: SongFiles) -> None:
+    def delete_event_file(self, event_file: EventFile) -> bool:
+        if event_file.title in (self.chords_file, self.leads_file):
+            if self._enabled:
+                self.cta.delete_event_file(self._event, event_file)
+            return True
+        return False
+
+    def download_and_append(self, song_files: SongFiles) -> None:
+        if not self._enabled:
+            return
         if f := song_files.chords_file:
-            self._chords.append(self._download_stream(f.file_url))
+            self._chords_pdf.append(self._download_stream(f.file_url))
         if f := song_files.leads_file:
-            self._leads.append(self._download_stream(f.file_url))
+            self._leads_pdf.append(self._download_stream(f.file_url))
 
     def upload(self) -> None:
+        if not self._enabled:
+            return
         chords_b = io.BytesIO()
         leads_b = io.BytesIO()
-        self._chords.write(chords_b)
-        self._leads.write(leads_b)
-        self.cta.upload_event_file(self._event, self.CHORDS_FILE, chords_b.getvalue())
-        self.cta.upload_event_file(self._event, self.LEADS_FILE, leads_b.getvalue())
+        self._chords_pdf.write(chords_b)
+        self._leads_pdf.write(leads_b)
+        self.cta.upload_event_file(self._event, self.chords_file, chords_b.getvalue())
+        self.cta.upload_event_file(self._event, self.leads_file, leads_b.getvalue())
 
 
 class ChurchToolsEvent:
@@ -177,11 +188,17 @@ class ChurchToolsEvent:
         )
 
     def download_agenda_items(  # noqa: C901
-        self, *, download_files: bool = True, download_songs: bool = True
+        self,
+        *,
+        download_files: bool = True,
+        download_songs: bool = True,
+        upload_songsheets: bool = True,
     ) -> list[Item]:
         self._log.info('Downloading event files, agenda items, and songs')
         agenda_items: list[Item] = []
-        pdf_song_sheets = PdfSongSheets(self.cta, self._event, self._datetime_format)
+        song_sheets = SongSheets(
+            self.cta, self._event, self._datetime_format, enabled=upload_songsheets
+        )
 
         @contextlib.contextmanager
         def do_progress(
@@ -198,8 +215,7 @@ class ChurchToolsEvent:
                 match item.domain_type:
                     case EventFileDomainType.FILE:
                         with do_progress(item):
-                            if item.title in PdfSongSheets.FILES:
-                                self.cta.delete_event_file(self._event, item)
+                            if song_sheets.delete_event_file(item):
                                 continue
                             filename = self._download_file(
                                 item.title,
@@ -246,7 +262,7 @@ class ChurchToolsEvent:
                                 else None
                             )
                             agenda_item = Item(ItemType.SONG, item.title, filename)
-                            pdf_song_sheets.append(files)
+                            song_sheets.download_and_append(files)
                     case _:
                         with do_progress():
                             self._log.warning(
@@ -254,7 +270,7 @@ class ChurchToolsEvent:
                             )
                         continue
                 agenda_items.append(agenda_item)
-        pdf_song_sheets.upload()
+        song_sheets.upload()
         return agenda_items
 
     def get_service_info(self) -> tuple[list[Item], defaultdict[str, set[Person]]]:

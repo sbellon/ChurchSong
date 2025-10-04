@@ -90,7 +90,9 @@ def agenda(
         ),
     ],
 ) -> None:
-    selection = DownloadSelection(schedule=True, songs=True, files=True, slides=True)
+    selection = DownloadSelection(
+        schedule=True, songs=True, files=True, slides=True, songsheets=True
+    )
     _handle_agenda(date, ctx.obj, selection)
 
 
@@ -274,7 +276,9 @@ def _handle_agenda(
     event = cta.get_next_event(date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
     agenda_items = cte.download_agenda_items(
-        download_files=selection.files, download_songs=selection.songs
+        download_files=selection.files,
+        download_songs=selection.songs,
+        upload_songsheets=selection.songsheets,
     )
     service_items, service_leads = cte.get_service_info()
 
