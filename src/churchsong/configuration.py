@@ -231,7 +231,7 @@ class Configuration(TomlConfig):
         self.songbeamer.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Setup locale specific settings and translations.
-        locale.setlocale(locale.LC_TIME, locale.getlocale()[0])
+        locale.setlocale(locale.LC_TIME, (locale.getlocale()[0], 'utf-8'))
         try:
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
             with importlib.resources.open_text(
