@@ -4,6 +4,7 @@
 
 import contextlib
 import dataclasses
+import datetime
 import enum
 import io
 import os
@@ -85,8 +86,11 @@ class SongSheets:
     def _title_page(
         self, event: EventFull, datetime_format: str, title: str
     ) -> pypdf.PageObject:
-        subtitle = event.name
-        subsubtitle = f'{event.start_date.astimezone():{datetime_format}}'
+        event_startdate = f'{event.start_date.astimezone():{datetime_format}}'
+        last_updated = _('Last update')
+        last_updated_date = f'{datetime.datetime.now().astimezone():{datetime_format}}'
+        subtitle = f'{event.name} - {event_startdate}'
+        subsubtitle = f'{last_updated}: {last_updated_date}'
         data = io.BytesIO()
         pagesize = reportlab.lib.pagesizes.A4
         canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
@@ -95,7 +99,7 @@ class SongSheets:
         canvas.drawCentredString(width / 2, height / 2 + 50, title)
         canvas.setFont('Helvetica', 24)
         canvas.drawCentredString(width / 2, height / 2 - 10, subtitle)
-        canvas.setFont('Helvetica', 24)
+        canvas.setFont('Helvetica', 18)
         canvas.drawCentredString(width / 2, height / 2 - 50, subsubtitle)
         canvas.save()
         data.seek(0)

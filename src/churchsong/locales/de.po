@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-10-04 10:31+0200\n"
+"POT-Creation-Date: 2025-10-04 11:29+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: Stefan Bellon\n"
 "Language: de\n"
@@ -61,16 +61,20 @@ msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
 msgid "Create and upload PDF song sheets to ChurchTools"
 msgstr "Erzeuge PDF Liedblätter und lade sie zu ChurchTools hoch"
 
-#: src/churchsong/churchtools/events.py:76
+#: src/churchsong/churchtools/events.py:77
 msgid "Song Sheets Chords"
 msgstr "Liedblatt Akkorde"
 
-#: src/churchsong/churchtools/events.py:77
+#: src/churchsong/churchtools/events.py:78
 msgid "Song Sheets Leads"
 msgstr "Liedblatt Noten"
 
-#: src/churchsong/churchtools/events.py:282
-#: src/churchsong/churchtools/events.py:283
+#: src/churchsong/churchtools/events.py:90
+msgid "Last update"
+msgstr "Stand"
+
+#: src/churchsong/churchtools/events.py:286
+#: src/churchsong/churchtools/events.py:287
 msgid "Nobody"
 msgstr "Niemand"
 

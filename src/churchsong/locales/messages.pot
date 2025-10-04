@@ -6,10 +6,10 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: ChurchSong 0.10.8\n"
+"Project-Id-Version: ChurchSong 0.10.9\n"
 "\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-10-04 10:31+0200\n"
+"POT-Creation-Date: 2025-10-04 11:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Stefan Bellon\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -58,16 +58,20 @@ msgstr ""
 msgid "Create and upload PDF song sheets to ChurchTools"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:76
+#: src/churchsong/churchtools/events.py:77
 msgid "Song Sheets Chords"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:77
+#: src/churchsong/churchtools/events.py:78
 msgid "Song Sheets Leads"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:282
-#: src/churchsong/churchtools/events.py:283
+#: src/churchsong/churchtools/events.py:90
+msgid "Last update"
+msgstr ""
+
+#: src/churchsong/churchtools/events.py:286
+#: src/churchsong/churchtools/events.py:287
 msgid "Nobody"
 msgstr ""
 
