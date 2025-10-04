@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.9 (2025-10-04)
 
 ### Added
 - song sheets can be disabled from interactive start menu (enabled by default)
