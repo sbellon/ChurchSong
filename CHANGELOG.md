@@ -5,6 +5,9 @@
 ### Added
 - added table of contents with songs title and arrangement to song sheets
 
+### Changed
+- updated external dependencies (certifi, pydantic)
+
 ## 0.10.10 (2025-10-04)
 
 ### Added
