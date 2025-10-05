@@ -65,10 +65,11 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
                 [  # now the list of individual tag checks ...
                     (
                         f'miss "{tag}"'
-                        if arr.source_name
+                        if arr.source
+                        and arr.source.shorty
                         and arr.source_reference
                         and not SongChecks.contains(
-                            (tag := f'{arr.source_name} {arr.source_reference}'),
+                            (tag := f'{arr.source.shorty} {arr.source_reference}'),
                             song.tags,
                         )
                         else ''
@@ -95,7 +96,7 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
 @SongChecks.register('Src.')
 def check_source(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
-        SongChecks.miss_if(not arr.source_name or not arr.source_reference)
+        SongChecks.miss_if(not arr.source or not arr.source_reference)
         for arr in arrangements
     ]
 
