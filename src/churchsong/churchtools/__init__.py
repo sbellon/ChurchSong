@@ -28,6 +28,10 @@ class DeprecationAwareModel(pydantic.BaseModel):
     def _warn_deprecated_fields(
         cls, data: dict[str, typing.Any]
     ) -> dict[str, typing.Any]:
+        model_fields = [
+            field.alias if field.alias else name
+            for name, field in cls.model_fields.items()
+        ]
         deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
         if isinstance(deprecated_fields, str):
             deprecated_fields = {
@@ -35,7 +39,7 @@ class DeprecationAwareModel(pydantic.BaseModel):
                 for m in cls._RE_STRING_DEPRECATIONS.finditer(deprecated_fields)
             }
         for old_field, new_field in deprecated_fields.items():
-            if old_field in cls.model_fields and new_field is not None:
+            if old_field in model_fields and new_field is not None:
                 warnings.warn(
                     f"Model '{cls.__name__}' defines deprecated field '{old_field}', "
                     f"consider using '{new_field}' instead.",
@@ -254,6 +258,9 @@ class EventAgendaSong(DeprecationAwareModel):
     song_id: int = pydantic.Field(alias='songId')
     arrangement_id: int = pydantic.Field(alias='arrangementId')
     title: str
+    arrangement: str
+    key: str | None
+    is_default: bool = pydantic.Field(alias='isDefault')
 
 
 class EventAgendaItemType(enum.StrEnum):
@@ -290,13 +297,18 @@ class File(DeprecationAwareModel):
     file_url: str = pydantic.Field(alias='fileUrl')
 
 
+class Source(DeprecationAwareModel):
+    name: str | None
+    shorty: str | None
+
+
 class Arrangement(DeprecationAwareModel):
     id: int
     name: str
     is_default: bool = pydantic.Field(alias='isDefault')
-    source_name: str | None = pydantic.Field(alias='sourceName')
+    source: Source | None
     source_reference: str | None = pydantic.Field(alias='sourceReference')
-    key_of_arrangement: str | None = pydantic.Field(alias='keyOfArrangement')
+    key: str | None
     beat: str | None
     tempo: int | None
     duration: int | None

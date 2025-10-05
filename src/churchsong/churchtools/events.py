@@ -62,9 +62,73 @@ class Subfolder(enum.StrEnum):
 @dataclasses.dataclass
 class SongFiles:
     title: str
+    arrangement: str
     sng_file: File | None
     chords_file: File | None
     leads_file: File | None
+
+
+class PdfSheet:
+    def __init__(self, title: str, subtitle: str, subsubtitle: str) -> None:
+        self._title = title
+        self._subtitle = subtitle
+        self._subsubtitle = subsubtitle
+        self._pdf = pypdf.PdfWriter()
+        self._toc = []
+
+    def _create_title_page(self) -> pypdf.PageObject:
+        data = io.BytesIO()
+        pagesize = reportlab.lib.pagesizes.A4
+        canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
+        width, height = pagesize
+
+        # Font settings
+        font = 'Helvetica'
+        font_h1 = f'{font}-Bold'
+        size_h1 = 36
+        size_h2 = 24
+        size_h3 = 18
+        size_b = 12
+        margin = 72
+        line_spacing = 1.66
+
+        # Page header
+        y = height * 2 / 3
+        canvas.setFont(font_h1, size_h1)
+        canvas.drawCentredString(width / 2, y, self._title)
+        y -= int(size_h1 * line_spacing)
+        canvas.setFont(font, size_h2)
+        canvas.drawCentredString(width / 2, y, self._subtitle)
+        y -= int(size_h2 * line_spacing)
+        canvas.setFont(font, size_h3)
+        canvas.drawCentredString(width / 2, y, self._subsubtitle)
+        y -= int(size_h3 * line_spacing)
+
+        # Table of Contents
+        y -= margin
+        canvas.setFont(font, size_b)
+        for idx, (title, arrangement) in enumerate(self._toc, start=1):
+            canvas.drawString(margin, y, f'{idx}.')
+            canvas.drawString(margin + 30, y, title)
+            canvas.drawRightString(width - margin, y, arrangement)
+            y -= int(size_b * line_spacing)
+            if y < margin:  # continue on new page if list is too long
+                canvas.showPage()
+                y = height - margin
+
+        canvas.save()
+        data.seek(0)
+        return pypdf.PdfReader(data).pages[0]
+
+    def append(self, title: str, arrangement: str, content: io.BytesIO) -> None:
+        self._pdf.append(content)
+        self._toc.append((title, arrangement))
+
+    def getbytes(self) -> bytes:
+        self._pdf.insert_page(self._create_title_page(), index=0)
+        content = io.BytesIO()
+        self._pdf.write(content)
+        return content.getvalue()
 
 
 class SongSheets:
@@ -72,45 +136,29 @@ class SongSheets:
         self, cta: ChurchToolsAPI, event: EventFull, datetime_format: str, enabled: bool
     ) -> None:
         self.cta = cta
-        self._enabled = enabled and cta.has_permissions(['churchservice:edit events'])
         self._event = event
+        self._enabled = enabled and cta.has_permissions(['churchservice:edit events'])
         chords_name = _('Song Sheets Chords')
         leads_name = _('Song Sheets Leads')
-        self._chords_pdf = pypdf.PdfWriter()
-        self._leads_pdf = pypdf.PdfWriter()
-        self._chords_pdf.add_page(self._title_page(event, datetime_format, chords_name))
-        self._leads_pdf.add_page(self._title_page(event, datetime_format, leads_name))
-        self.chords_file = f'{chords_name}.pdf'
-        self.leads_file = f'{leads_name}.pdf'
-
-    def _title_page(
-        self, event: EventFull, datetime_format: str, title: str
-    ) -> pypdf.PageObject:
-        event_startdate = f'{event.start_date.astimezone():{datetime_format}}'
-        last_updated = _('Last update')
-        last_updated_date = f'{datetime.datetime.now().astimezone():{datetime_format}}'
-        subtitle = f'{event.name} - {event_startdate}'
-        subsubtitle = f'{last_updated}: {last_updated_date}'
-        data = io.BytesIO()
-        pagesize = reportlab.lib.pagesizes.A4
-        canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
-        width, height = pagesize
-        canvas.setFont('Helvetica-Bold', 36)
-        canvas.drawCentredString(width / 2, height / 2 + 50, title)
-        canvas.setFont('Helvetica', 24)
-        canvas.drawCentredString(width / 2, height / 2 - 10, subtitle)
-        canvas.setFont('Helvetica', 18)
-        canvas.drawCentredString(width / 2, height / 2 - 50, subsubtitle)
-        canvas.save()
-        data.seek(0)
-        return pypdf.PdfReader(data).pages[0]
+        self._chords_file = f'{chords_name}.pdf'
+        self._leads_file = f'{leads_name}.pdf'
+        if self._enabled:
+            event_startdate = f'{self._event.start_date.astimezone():{datetime_format}}'
+            last_updated = _('Last update')
+            last_updated_date = (
+                f'{datetime.datetime.now().astimezone():{datetime_format}}'
+            )
+            subtitle = f'{self._event.name} - {event_startdate}'
+            subsubtitle = f'{last_updated}: {last_updated_date}'
+            self._chords_pdf = PdfSheet(chords_name, subtitle, subsubtitle)
+            self._leads_pdf = PdfSheet(leads_name, subtitle, subsubtitle)
 
     def _download_stream(self, url: str) -> io.BytesIO:
         r = self.cta.download_url(url)
         return io.BytesIO(r.content)
 
     def delete_event_file(self, event_file: EventFile) -> bool:
-        if event_file.title in (self.chords_file, self.leads_file):
+        if event_file.title in (self._chords_file, self._leads_file):
             if self._enabled:
                 self.cta.delete_event_file(self._event, event_file)
             return True
@@ -120,19 +168,27 @@ class SongSheets:
         if not self._enabled:
             return
         if f := song_files.chords_file:
-            self._chords_pdf.append(self._download_stream(f.file_url))
+            self._chords_pdf.append(
+                song_files.title,
+                song_files.arrangement,
+                self._download_stream(f.file_url),
+            )
         if f := song_files.leads_file:
-            self._leads_pdf.append(self._download_stream(f.file_url))
+            self._leads_pdf.append(
+                song_files.title,
+                song_files.arrangement,
+                self._download_stream(f.file_url),
+            )
 
     def upload(self) -> None:
         if not self._enabled:
             return
-        chords_b = io.BytesIO()
-        leads_b = io.BytesIO()
-        self._chords_pdf.write(chords_b)
-        self._leads_pdf.write(leads_b)
-        self.cta.upload_event_file(self._event, self.chords_file, chords_b.getvalue())
-        self.cta.upload_event_file(self._event, self.leads_file, leads_b.getvalue())
+        self.cta.upload_event_file(
+            self._event, self._chords_file, self._chords_pdf.getbytes()
+        )
+        self.cta.upload_event_file(
+            self._event, self._leads_file, self._leads_pdf.getbytes()
+        )
 
 
 class ChurchToolsEvent:
@@ -185,7 +241,10 @@ class ChurchToolsEvent:
                     else:
                         chords_file = file
         return SongFiles(
-            title=song.name,
+            title=item.song.title,
+            arrangement=f'{item.song.arrangement} ({item.song.key})'
+            if item.song.is_default
+            else item.song.arrangement,
             sng_file=sng_file or default_sng_file,
             chords_file=chords_file,
             leads_file=leads_file or chords_file,
@@ -253,6 +312,8 @@ class ChurchToolsEvent:
                             self._log.warning('Song event item without song data')
                             continue
                         files = self._song_files(item)
+                        # item.title may not be the song title itself,
+                        # so rather use item.song.title instead.
                         item.title = files.title
                         with do_progress(item):
                             filename = (
