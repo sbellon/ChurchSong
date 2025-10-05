@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.11 (2025-10-05)
 
 ### Added
 - added table of contents with songs title and arrangement to song sheets
