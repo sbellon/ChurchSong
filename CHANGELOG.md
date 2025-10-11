@@ -5,6 +5,7 @@
 ### Changed
 - calculate last updated timestamp on the PDF song sheets from the agenda
 - updated external dependencies (pydantic)
+- lock Python to 3.13 until all dependencies support 3.14
 
 ## 0.10.11 (2025-10-05)
 
