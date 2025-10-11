@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- calculate last updated timestamp on the PDF song sheets from the agenda
+
 ## 0.10.11 (2025-10-05)
 
 ### Added
