@@ -134,10 +134,8 @@ class Progress(_Progress):
         )
         self._task = self.add_task(description=description, total=total)
 
-    T = typing.TypeVar('T')
-
     @contextlib.contextmanager
-    def do_progress(
+    def do_progress[T](
         self, item: T, description: str | None = None
     ) -> typing.Generator[T]:
         self.update(self._task, description=description)
@@ -146,7 +144,7 @@ class Progress(_Progress):
         finally:
             self.advance(self._task)
 
-    def iterate(self, items: typing.Iterable[T]) -> typing.Generator[T]:
+    def iterate[T](self, items: typing.Iterable[T]) -> typing.Generator[T]:
         for item in items:
             with self.do_progress(item) as i:
                 yield i
