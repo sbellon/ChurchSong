@@ -269,9 +269,14 @@ class EventAgendaItemType(enum.StrEnum):
     SONG = 'song'
 
 
+class EventAgendaItemMeta(DeprecationAwareModel):
+    modified_date: datetime.datetime = pydantic.Field(alias='modifiedDate')
+
+
 class EventAgendaItem(DeprecationAwareModel):
     title: str
     type: EventAgendaItemType = EventAgendaItemType.NORMAL
+    meta: EventAgendaItemMeta
     song: EventAgendaSong | None = None
 
 

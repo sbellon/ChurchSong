@@ -66,6 +66,7 @@ class SongFiles:
     sng_file: File | None
     chords_file: File | None
     leads_file: File | None
+    last_modified: datetime.datetime
 
 
 class PdfSheet:
@@ -76,7 +77,7 @@ class PdfSheet:
         self._pdf = pypdf.PdfWriter()
         self._toc = []
 
-    def _create_title_page(self) -> pypdf.PageObject:
+    def _create_title_page(self, last_modified: datetime.datetime) -> pypdf.PageObject:
         data = io.BytesIO()
         pagesize = reportlab.lib.pagesizes.A4
         canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
@@ -101,7 +102,9 @@ class PdfSheet:
         canvas.drawCentredString(width / 2, y, self._subtitle)
         y -= int(size_h2 * line_spacing)
         canvas.setFont(font, size_h3)
-        canvas.drawCentredString(width / 2, y, self._subsubtitle)
+        canvas.drawCentredString(
+            width / 2, y, self._subsubtitle.format(last_modified=last_modified)
+        )
         y -= int(size_h3 * line_spacing)
 
         # Table of Contents
@@ -124,8 +127,10 @@ class PdfSheet:
         self._pdf.append(content)
         self._toc.append((title, arrangement))
 
-    def getbytes(self) -> bytes:
-        self._pdf.insert_page(self._create_title_page(), index=0)
+    def finalize(self, last_modified: datetime.datetime) -> bytes:
+        self._pdf.insert_page(
+            self._create_title_page(last_modified=last_modified), index=0
+        )
         content = io.BytesIO()
         self._pdf.write(content)
         return content.getvalue()
@@ -144,12 +149,9 @@ class SongSheets:
         self._leads_file = f'{leads_name}.pdf'
         if self._enabled:
             event_startdate = f'{self._event.start_date.astimezone():{datetime_format}}'
-            last_updated = _('Last update')
-            last_updated_date = (
-                f'{datetime.datetime.now().astimezone():{datetime_format}}'
-            )
+            self._last_modified = datetime.datetime.min.replace(tzinfo=datetime.UTC)
             subtitle = f'{self._event.name} - {event_startdate}'
-            subsubtitle = f'{last_updated}: {last_updated_date}'
+            subsubtitle = f'{_("Last update")}: {{last_modified:{datetime_format}}}'
             self._chords_pdf = PdfSheet(chords_name, subtitle, subsubtitle)
             self._leads_pdf = PdfSheet(leads_name, subtitle, subsubtitle)
 
@@ -179,15 +181,20 @@ class SongSheets:
                 song_files.arrangement,
                 self._download_stream(f.file_url),
             )
+        self._last_modified = max(self._last_modified, song_files.last_modified)
 
     def upload(self) -> None:
         if not self._enabled:
             return
         self.cta.upload_event_file(
-            self._event, self._chords_file, self._chords_pdf.getbytes()
+            self._event,
+            self._chords_file,
+            self._chords_pdf.finalize(last_modified=self._last_modified),
         )
         self.cta.upload_event_file(
-            self._event, self._leads_file, self._leads_pdf.getbytes()
+            self._event,
+            self._leads_file,
+            self._leads_pdf.finalize(last_modified=self._last_modified),
         )
 
 
@@ -248,6 +255,7 @@ class ChurchToolsEvent:
             sng_file=sng_file or default_sng_file,
             chords_file=chords_file,
             leads_file=leads_file or chords_file,
+            last_modified=item.meta.modified_date,
         )
 
     def download_agenda_items(  # noqa: C901
