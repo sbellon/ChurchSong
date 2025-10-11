@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.13 (2025-10-11)
 
 ### Changed
 - another attempt at locking Python 3.13 on Windows
