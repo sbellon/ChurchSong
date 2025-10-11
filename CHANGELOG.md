@@ -4,6 +4,7 @@
 
 ### Changed
 - calculate last updated timestamp on the PDF song sheets from the agenda
+- updated external dependencies (pydantic)
 
 ## 0.10.11 (2025-10-05)
 
