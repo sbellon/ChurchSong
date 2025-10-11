@@ -51,10 +51,8 @@ class BaseModel(pydantic.BaseModel):
     # Define specific types DataDirPath and OptionalDataDirPath that both will be
     # made relative to the `data_dir` above in case they are specified relative in
     # the configuration file.
-    T: typing.ClassVar = typing.TypeVar('T', pathlib.Path, pathlib.Path | None)
-
     @staticmethod
-    def make_relative_to_data_dir(value: T) -> T:
+    def make_relative_to_data_dir[T: pathlib.Path | None](value: T) -> T:
         return BaseModel.data_dir / value if isinstance(value, pathlib.Path) else value
 
     type DataDirPath = typing.Annotated[

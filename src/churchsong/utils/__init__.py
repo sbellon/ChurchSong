@@ -19,17 +19,19 @@ def expand_envvars(text: str) -> str:
     )
 
 
-T = typing.TypeVar('T', str, dict[str, typing.Any], list[typing.Any])
+type JsonLike = str | dict[str, typing.Any] | list[typing.Any]
 
 
-def recursive_expand_envvars(data: T) -> T:  # noqa: UP047
+def recursive_expand_envvars[T: JsonLike](data: T) -> T:
     match data:
         case str():
             return expand_envvars(data)
         case dict():
-            return {k: recursive_expand_envvars(v) for k, v in data.items()}
+            return typing.cast(
+                'T', {k: recursive_expand_envvars(v) for k, v in data.items()}
+            )
         case list():
-            return [recursive_expand_envvars(item) for item in data]
+            return typing.cast('T', [recursive_expand_envvars(item) for item in data])
     return data
 
 
