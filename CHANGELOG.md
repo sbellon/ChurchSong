@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleaed
+
+### Changed
+- updated external dependencies (textual)
+
 ## 0.10.13 (2025-10-11)
 
 ### Changed
