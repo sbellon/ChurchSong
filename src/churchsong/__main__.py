@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 import dataclasses
-import datetime
+import datetime  # noqa: TC003 (used within Annotated)
 import os
-import pathlib
+import pathlib  # noqa: TC003 (used within Annotated)
 import shutil
 import subprocess
 import typing

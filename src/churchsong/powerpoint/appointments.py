@@ -12,9 +12,13 @@ import pptx.table
 import pptx.text.text
 import pptx.util
 
-from churchsong.churchtools import CalendarAppointmentBase, RepeatId
-from churchsong.configuration import CalendarSubtitleField, Configuration
+from churchsong.churchtools import RepeatId
+from churchsong.configuration import CalendarSubtitleField
 from churchsong.powerpoint import PowerPointBase
+
+if typing.TYPE_CHECKING:
+    from churchsong.churchtools import CalendarAppointmentBase
+    from churchsong.configuration import Configuration
 
 
 class TableType(enum.StrEnum):

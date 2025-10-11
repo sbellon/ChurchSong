@@ -4,8 +4,9 @@
 
 import typing
 
-from xlsxwriter.format import Format
-from xlsxwriter.worksheet import Worksheet
+if typing.TYPE_CHECKING:
+    from xlsxwriter.format import Format
+    from xlsxwriter.worksheet import Worksheet
 
 
 class Workbook:

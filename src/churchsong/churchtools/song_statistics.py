@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import abc
-import datetime
 import enum
-import pathlib
 import typing
 from collections import defaultdict
 
@@ -16,9 +14,14 @@ import rich.table
 import typer
 import xlsxwriter
 
-from churchsong.churchtools import ChurchToolsAPI
-from churchsong.configuration import Configuration
 from churchsong.utils.progress import Progress
+
+if typing.TYPE_CHECKING:
+    import datetime
+    import pathlib
+
+    from churchsong.churchtools import ChurchToolsAPI
+    from churchsong.configuration import Configuration
 
 
 class BaseFormatter(abc.ABC):
@@ -53,7 +56,7 @@ class AsciiFormatter(BaseFormatter):
         self,
         title: str,
         *,
-        output_format: 'ChurchToolsSongStatistics.FormatType',
+        output_format: ChurchToolsSongStatistics.FormatType,
         filename: pathlib.Path | None = None,
     ) -> None:
         self._filename = filename

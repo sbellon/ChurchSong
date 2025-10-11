@@ -13,8 +13,10 @@ import warnings
 import pydantic
 import requests
 
-from churchsong.configuration import Configuration
 from churchsong.utils import CliError
+
+if typing.TYPE_CHECKING:
+    from churchsong.configuration import Configuration
 
 
 class DeprecationAwareModel(pydantic.BaseModel):

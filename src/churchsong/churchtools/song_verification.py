@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 import ast
-import datetime
 import inspect
 import typing
 from collections import OrderedDict, defaultdict
@@ -13,9 +12,13 @@ import rich.box
 import rich.table
 import typer
 
-from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
-from churchsong.configuration import Configuration
 from churchsong.utils.progress import Progress
+
+if typing.TYPE_CHECKING:
+    import datetime
+
+    from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
+    from churchsong.configuration import Configuration
 
 
 class SongChecks:
