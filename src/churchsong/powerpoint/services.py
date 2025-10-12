@@ -9,9 +9,11 @@ import pptx
 import pptx.shapes
 import pptx.shapes.placeholder
 
-from churchsong.churchtools.events import Person
-from churchsong.configuration import Configuration
 from churchsong.powerpoint import PowerPointBase
+
+if typing.TYPE_CHECKING:
+    from churchsong.churchtools.events import Person
+    from churchsong.configuration import Configuration
 
 
 class PowerPointServices(PowerPointBase):

@@ -1,8 +1,9 @@
 # ChangeLog
 
-## Unreleaed
+## Unreleased
 
 ### Changed
+- update to Python 3.14
 - updated external dependencies (textual)
 
 ## 0.10.13 (2025-10-11)

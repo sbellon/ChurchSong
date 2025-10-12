@@ -5,8 +5,7 @@
 import contextlib
 import typing
 
-from rich.console import Console, JustifyMethod
-from rich.highlighter import Highlighter
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -18,10 +17,14 @@ from rich.progress import (
 )
 from rich.progress import Progress as _Progress
 from rich.progress_bar import ProgressBar
-from rich.style import StyleType
 from rich.table import Column
 from rich.text import Text
 from rich.theme import Theme
+
+if typing.TYPE_CHECKING:
+    from rich.console import JustifyMethod
+    from rich.highlighter import Highlighter
+    from rich.style import StyleType
 
 
 class CustomTextColumn(TextColumn):

@@ -6,8 +6,7 @@ import dataclasses
 import typing
 
 from textual import on
-from textual.app import App, ComposeResult
-from textual.binding import BindingType
+from textual.app import App
 from textual.color import Color
 from textual.containers import Center, Container, Horizontal, Vertical, VerticalScroll
 from textual.content import Content
@@ -19,6 +18,10 @@ from textual.widget import Widget
 from textual.widgets import Button, Checkbox, Footer, Label, Static
 
 from churchsong.configuration import Configuration
+
+if typing.TYPE_CHECKING:
+    from textual.app import ComposeResult
+    from textual.binding import BindingType
 
 
 @dataclasses.dataclass

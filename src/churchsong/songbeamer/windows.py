@@ -7,10 +7,13 @@ import sys
 if sys.platform == 'win32':
     import ctypes
     import os
-    import pathlib
     import subprocess
+    import typing
 
     import psutil
+
+    if typing.TYPE_CHECKING:
+        import pathlib
 
     def is_songbeamer_running() -> bool:
         return any(

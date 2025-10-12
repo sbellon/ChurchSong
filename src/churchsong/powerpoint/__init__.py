@@ -4,12 +4,15 @@
 
 import abc
 import os
-import pathlib
+import typing
 
 import pptx
 import pptx.exc
 
-from churchsong.configuration import Configuration
+if typing.TYPE_CHECKING:
+    import pathlib
+
+    from churchsong.configuration import Configuration
 
 
 class PowerPointBase(abc.ABC):  # noqa: B024

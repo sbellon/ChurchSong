@@ -16,18 +16,19 @@ import pypdf
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 
-from churchsong.churchtools import (
-    ChurchToolsAPI,
-    EventAgendaItem,
-    EventAgendaItemType,
-    EventFile,
-    EventFileDomainType,
-    EventFull,
-    EventShort,
-    File,
-)
-from churchsong.configuration import Configuration
+from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
 from churchsong.utils.progress import Progress
+
+if typing.TYPE_CHECKING:
+    from churchsong.churchtools import (
+        ChurchToolsAPI,
+        EventAgendaItem,
+        EventFile,
+        EventFull,
+        EventShort,
+        File,
+    )
+    from churchsong.configuration import Configuration
 
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:

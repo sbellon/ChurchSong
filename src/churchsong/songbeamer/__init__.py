@@ -2,15 +2,21 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+
 import re
 import subprocess
 import sys
 import typing
 
 from churchsong.churchtools.events import Item, ItemType
-from churchsong.configuration import Configuration, SongBeamerColorConfig
+from churchsong.configuration import Configuration
 from churchsong.utils import CliError, expand_envvars
+
+if typing.TYPE_CHECKING:
+    import datetime
+
+    from churchsong.configuration import SongBeamerColorConfig
+
 
 r"""
 SongBeamer agenda items look something like this:
