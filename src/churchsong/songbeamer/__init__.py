@@ -170,7 +170,7 @@ class AgendaItem:
         if not text:
             return "''"
 
-        result = []
+        result: list[str] = []
         in_quotes = False
 
         def toggle_quotes() -> None:
@@ -241,7 +241,7 @@ class Agenda:
                         filename=other.filename,
                     )
                 )
-            case _:
+            case _:  # pyright: ignore[reportUnnecessaryComparison]
                 msg = (
                     'Unsupported operand type(s) for +=: '
                     f'"Agenda" and "{type(other).__name__}"'

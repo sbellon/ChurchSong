@@ -5,6 +5,7 @@
 import contextlib
 import datetime
 import enum
+import io
 import re
 import sys
 import typing
@@ -378,6 +379,14 @@ ParamsType = typing.Mapping[
     str, str | int | float | bool | list[str] | list[int] | None
 ]
 
+FilesType = typing.Mapping[
+    str,
+    typing.IO[bytes]
+    | tuple[str, typing.IO[bytes]]
+    | tuple[str, typing.IO[bytes], str]
+    | tuple[str, typing.IO[bytes], str, typing.Mapping[str, str]],
+]
+
 
 class ChurchToolsAPI:
     def __init__(self, config: Configuration) -> None:
@@ -471,7 +480,7 @@ class ChurchToolsAPI:
         params: ParamsType | None = None,
         *,
         stream: bool = False,
-        files: list[tuple] | None = None,
+        files: FilesType | None = None,
     ) -> requests.Response:
         self._log.debug(
             'Request %s %s%s with params=%s', method, self._base_url, url, params
@@ -503,7 +512,7 @@ class ChurchToolsAPI:
         params: ParamsType | None = None,
         *,
         stream: bool = False,
-        files: list[tuple] | None = None,
+        files: FilesType | None = None,
     ) -> requests.Response:
         return self._request('POST', url, params, stream=stream, files=files)
 
@@ -690,7 +699,7 @@ class ChurchToolsAPI:
         msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
         with self.permissions('upload song sheet', ['churchservice:edit events']):
             self._log.debug(msg)
-            files = [('files[]', (filename, content, 'application/pdf'))]
+            files = {'files[]': (filename, io.BytesIO(content), 'application/pdf')}
             r = self._post(f'/api/files/service/{event.id}', files=files)
             if not r.ok:
                 self._log.warning(f'{msg} failed')

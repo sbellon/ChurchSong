@@ -76,7 +76,7 @@ class PdfSheet:
         self._subtitle = subtitle
         self._subsubtitle = subsubtitle
         self._pdf = pypdf.PdfWriter()
-        self._toc = []
+        self._toc: list[tuple[str, str]] = []
 
     def _create_title_page(self, last_modified: datetime.datetime) -> pypdf.PageObject:
         data = io.BytesIO()
@@ -301,7 +301,7 @@ class ChurchToolsEvent:
                             event_file = Item(
                                 ItemType.LINK, item.title, item.frontend_url
                             )
-                    case _:
+                    case _:  # pyright: ignore[reportUnnecessaryComparison]
                         with do_progress(item):
                             self._log.warning(
                                 f'Unexpected event file type: {item.domain_type}'
@@ -337,7 +337,7 @@ class ChurchToolsEvent:
                             )
                             agenda_item = Item(ItemType.SONG, item.title, filename)
                             song_sheets.download_and_append(files)
-                    case _:
+                    case _:  # pyright: ignore[reportUnnecessaryComparison]
                         with do_progress():
                             self._log.warning(
                                 f'Unexpected event item type: {item.type}'

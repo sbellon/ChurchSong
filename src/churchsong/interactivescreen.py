@@ -8,11 +8,10 @@ import typing
 from textual import on
 from textual.app import App
 from textual.color import Color
-from textual.containers import Center, Container, Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.events import Blur, Enter, Focus, Key, Leave, Mount
 from textual.reactive import reactive
-from textual.screen import ModalScreen
 from textual.style import Style
 from textual.widget import Widget
 from textual.widgets import Button, Checkbox, Footer, Label, Static
@@ -22,6 +21,7 @@ from churchsong.configuration import Configuration
 if typing.TYPE_CHECKING:
     from textual.app import ComposeResult
     from textual.binding import BindingType
+    from textual.css.types import EdgeType
 
 
 @dataclasses.dataclass
@@ -111,12 +111,18 @@ class FocusCheckbox(Checkbox):
         )
 
 
+StyleKey = typing.Literal['color', 'background', 'border']
+
+
 class FocusButton(Button):
     is_hovered = reactive(default=False)
 
     def __init__(self, **kwargs: typing.Any) -> None:  # noqa: ANN401
         super().__init__(**kwargs)
-        self.styles_map = {
+        self.app: App[DownloadSelection]
+        self.styles_map: dict[
+            str, dict[StyleKey, Color | tuple[EdgeType, Color | str]]
+        ] = {
             'default': {
                 'color': self.styles.color,
                 'background': self.styles.background,
@@ -137,9 +143,11 @@ class FocusButton(Button):
 
     def apply_style(self, style_name: str) -> None:
         if style := self.styles_map.get(style_name):
-            self.styles.color = style.get('color')
-            self.styles.background = style.get('background')
-            self.styles.border = style.get('border')
+            self.styles.color = typing.cast('Color', style.get('color'))
+            self.styles.background = typing.cast('Color', style.get('background'))
+            self.styles.border = typing.cast(
+                'tuple[EdgeType, Color | str]', style.get('border')
+            )
 
     @on(Enter)
     def hover_enter(self, _event: Enter) -> None:
@@ -218,47 +226,6 @@ class NoticeFooter(Horizontal):
         yield VerticalScroll(Static(id='footer'), can_focus=False)
 
 
-class ExitScreen(ModalScreen[None]):
-    DEFAULT_CSS = """
-    ExitScreen {
-        align: center middle;
-    }
-
-    ExitScreen > Container {
-        width: 50%;
-        height: auto;
-        border: thick $background 80%;
-        background: $surface;
-    }
-
-    ExitScreen > Container > Label {
-        width: 100%;
-        content-align-horizontal: center;
-        margin: 1 2;
-    }
-
-    ExitScreen > Container > Center > Button {
-        margin: 2 4;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        with Container():
-            yield Label('Something went wrong, we have to quit!')
-            with Center():
-                yield Button('Exit', id='exit', variant='error')
-
-    @on(Key)
-    def handle_space(self, event: Key) -> None:
-        if event.key == 'space':
-            self.query_one(Button).press()
-            event.stop()
-
-    @on(Button.Pressed, '#exit')
-    def exit_app(self) -> None:
-        self.app.exit()
-
-
 class InteractiveScreen(App[DownloadSelection]):
     BINDINGS: typing.ClassVar[list[BindingType]] = [
         ('up', 'focus_previous', 'Up'),
@@ -268,6 +235,7 @@ class InteractiveScreen(App[DownloadSelection]):
 
     def __init__(self, config: Configuration) -> None:
         super().__init__()
+        self.app: App[DownloadSelection]
         self.config = config
 
     def compose(self) -> ComposeResult:
