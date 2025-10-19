@@ -19,9 +19,13 @@ from textual.widgets import Button, Checkbox, Footer, Label, Static
 from churchsong.configuration import Configuration
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
     from textual.app import ComposeResult
     from textual.binding import BindingType
     from textual.css.types import EdgeType
+
+    _: Callable[[str], str]
 
 
 @dataclasses.dataclass

@@ -4,7 +4,7 @@
 
 ### Changed
 - update to Python 3.14
-- updated external dependencies (pydantic, textual)
+- updated external dependencies (pydantic, pypdf, textual)
 
 ## 0.10.13 (2025-10-11)
 

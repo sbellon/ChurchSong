@@ -20,6 +20,8 @@ from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
     from churchsong.churchtools import (
         ChurchToolsAPI,
         EventAgendaItem,
@@ -29,6 +31,8 @@ if typing.TYPE_CHECKING:
         File,
     )
     from churchsong.configuration import Configuration
+
+    _: Callable[[str], str]
 
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:

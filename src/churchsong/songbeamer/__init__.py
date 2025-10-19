@@ -14,9 +14,11 @@ from churchsong.utils import CliError, expand_envvars
 
 if typing.TYPE_CHECKING:
     import datetime
+    from collections.abc import Callable
 
     from churchsong.configuration import SongBeamerColorConfig
 
+    _: Callable[[str], str]
 
 r"""
 SongBeamer agenda items look something like this:

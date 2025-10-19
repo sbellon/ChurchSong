@@ -25,7 +25,7 @@ type JsonLike = str | dict[str, typing.Any] | list[typing.Any]
 def recursive_expand_envvars[T: JsonLike](data: T) -> T:
     match data:
         case str():
-            return expand_envvars(data)
+            return typing.cast('T', expand_envvars(data))
         case dict():
             return typing.cast(
                 'T', {k: recursive_expand_envvars(v) for k, v in data.items()}
