@@ -111,43 +111,42 @@ class FocusCheckbox(Checkbox):
         )
 
 
-StyleKey = typing.Literal['color', 'background', 'border']
-
-
 class FocusButton(Button):
     is_hovered = reactive(default=False)
+
+    @dataclasses.dataclass
+    class Style:
+        color: Color
+        background: Color
+        border: tuple[EdgeType, Color | str]
 
     def __init__(self, **kwargs: typing.Any) -> None:  # noqa: ANN401
         super().__init__(**kwargs)
         self.app: App[DownloadSelection]
-        self.styles_map: dict[
-            str, dict[StyleKey, Color | tuple[EdgeType, Color | str]]
-        ] = {
-            'default': {
-                'color': self.styles.color,
-                'background': self.styles.background,
-                'border': ('round', self.styles.background),
-            },
-            'hover': {
-                'color': self.styles.color,
-                'background': self.styles.background,
-                'border': ('round', self.app.current_theme.primary),
-            },
-            'focus': {
-                'color': self.styles.color,
-                'background': self.styles.background,
-                'border': ('round', self.app.current_theme.primary),
-            },
+        self.styles_map: dict[str, FocusButton.Style] = {
+            'default': FocusButton.Style(
+                color=self.styles.color,
+                background=self.styles.background,
+                border=('round', self.styles.background),
+            ),
+            'hover': FocusButton.Style(
+                color=self.styles.color,
+                background=self.styles.background,
+                border=('round', self.app.current_theme.primary),
+            ),
+            'focus': FocusButton.Style(
+                color=self.styles.color,
+                background=self.styles.background,
+                border=('round', self.app.current_theme.primary),
+            ),
         }
         self.apply_style('default')
 
     def apply_style(self, style_name: str) -> None:
         if style := self.styles_map.get(style_name):
-            self.styles.color = typing.cast('Color', style.get('color'))
-            self.styles.background = typing.cast('Color', style.get('background'))
-            self.styles.border = typing.cast(
-                'tuple[EdgeType, Color | str]', style.get('border')
-            )
+            self.styles.color = style.color
+            self.styles.background = style.background
+            self.styles.border = style.border
 
     @on(Enter)
     def hover_enter(self, _event: Enter) -> None:
