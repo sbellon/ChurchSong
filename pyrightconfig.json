@@ -1,4 +1,6 @@
 {
-  "venvPath": ".",
-  "venv": ".venv"
+    "venvPath": ".",
+    "venv": ".venv",
+    "typeCheckingMode": "strict",
+    "ignore": ["**/__pycache__"]
 }

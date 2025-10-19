@@ -57,6 +57,7 @@ package = true
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "strict"
+ignore = ["**/__pycache__"]
 
 [tool.ruff]
 line-length = 88
