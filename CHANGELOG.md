@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.14 (2025-11-15)
 
 ### Changed
 - update to Python 3.14
