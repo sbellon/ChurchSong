@@ -270,7 +270,13 @@ class ChurchToolsEvent:
         download_songs: bool = True,
         upload_songsheets: bool = True,
     ) -> list[Item]:
-        self._log.info('Downloading event files, agenda items, and songs')
+        msg_items = (
+            ['Downloading agenda items']
+            + (['event files'] if download_files else [])
+            + (['songs'] if download_songs else [])
+            + (['uploading song sheets'] if upload_songsheets else [])
+        )
+        self._log.info(', '.join(msg_items))
         agenda_items: list[Item] = []
         song_sheets = SongSheets(
             self.cta, self._event, self._datetime_format, enabled=upload_songsheets

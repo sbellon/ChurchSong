@@ -5,7 +5,7 @@
 {
     "languages": {
         "Python": {
-            "language_servers": ["ruff", "..."],
+            "language_servers": ["ruff", "pyright"],
             "formatter": [
                 { "code_action": "source.organizeImports.ruff" },
                 { "code_action": "source.fixAll.ruff" },

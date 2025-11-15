@@ -4,7 +4,8 @@
 
 ### Changed
 - update to Python 3.14
-- updated external dependencies (psutil, pydantic, pypdf, textual, typer)
+- updated external dependencies
+  (certifi, prettytable, psutil, pydantic, pypdf, textual, typer)
 
 ## 0.10.13 (2025-10-11)
 
