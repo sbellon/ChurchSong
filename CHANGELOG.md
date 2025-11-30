@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (click, pydantic, pypdf, reportlab)
+- updated external dependencies (click, pydantic, pypdf, reportlab, textual)
 
 ## 0.10.14 (2025-11-15)
 
