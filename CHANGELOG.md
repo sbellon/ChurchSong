@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (click, pydantic, pypdf, reportlab, textual)
+- updated external dependencies
+  (click, platformdirs, pydantic, pypdf, reportlab, textual, urllib3)
 
 ## 0.10.14 (2025-11-15)
 
