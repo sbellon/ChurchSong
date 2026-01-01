@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.15 (2026-01-01)
 
 ### Added
 - timeout of 30 seconds for version check to avoid blocking if PyPI is not reachable
