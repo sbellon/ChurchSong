@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+### Added
+- timeout of 30 seconds for version check to avoid blocking if PyPI is not reachable
+
 ### Changed
 - updated external dependencies
-  (click, platformdirs, pydantic, pypdf, reportlab, textual, urllib3)
+  (click, platformdirs, pydantic, pypdf, reportlab, textual, typer, urllib3)
 
 ## 0.10.14 (2025-11-15)
 
