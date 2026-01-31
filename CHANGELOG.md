@@ -1,5 +1,11 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies
+  (certifi, packaging, pypdf, reportlab, rich, textual, typer)
+
 ## 0.10.15 (2026-01-01)
 
 ### Added
