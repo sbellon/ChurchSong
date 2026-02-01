@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.10.16 (2026-02-01)
 
 ### Changed
 - updated external dependencies
