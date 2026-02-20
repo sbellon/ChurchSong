@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.11.0 (2026-02-20)
 
 ### Fixed
 - adjusted schema of event agenda API to latest changes by ChurchTools
