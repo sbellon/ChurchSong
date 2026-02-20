@@ -32,10 +32,7 @@ class DeprecationAwareModel(pydantic.BaseModel):
     def _warn_deprecated_fields(
         cls, data: dict[str, typing.Any]
     ) -> dict[str, typing.Any]:
-        model_fields = [
-            field.alias if field.alias else name
-            for name, field in cls.model_fields.items()
-        ]
+        model_fields = [field.alias or name for name, field in cls.model_fields.items()]
         deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
         if isinstance(deprecated_fields, str):
             deprecated_fields = {
@@ -269,7 +266,8 @@ class EventAgendaSong(DeprecationAwareModel):
 
 class EventAgendaItemType(enum.StrEnum):
     HEADER = 'header'
-    NORMAL = 'normal'
+    NORMAL = 'normal'  # was changed to 'text' in mid-February 2026
+    TEXT = 'text'
     SONG = 'song'
 
 
@@ -279,9 +277,16 @@ class EventAgendaItemMeta(DeprecationAwareModel):
 
 class EventAgendaItem(DeprecationAwareModel):
     title: str
-    type: EventAgendaItemType = EventAgendaItemType.NORMAL
+    type: EventAgendaItemType = EventAgendaItemType.TEXT
     meta: EventAgendaItemMeta
     song: EventAgendaSong | None = None
+
+    # As of mid-February 2026, ChurchTools seems to return title
+    # sometimes as empty string and sometimes as null value.
+    @pydantic.field_validator('title', mode='before')
+    @classmethod
+    def none_to_empty(cls, value: str | None) -> str:
+        return value if value is not None else ''
 
 
 class EventAgenda(DeprecationAwareModel):

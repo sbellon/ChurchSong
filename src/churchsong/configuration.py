@@ -212,10 +212,8 @@ class Configuration(TomlConfig):
 
         # Switch to configured logging.
         self.log.setLevel(self.general.log_level)
-        log_file = (
-            self.general.log_file
-            if self.general.log_file
-            else self.data_dir / pathlib.Path(f'./Logs/{self.package_name}.log')
+        log_file = self.general.log_file or self.data_dir / pathlib.Path(
+            f'./Logs/{self.package_name}.log'
         )
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_to_file = logging.handlers.RotatingFileHandler(
@@ -274,7 +272,7 @@ class Configuration(TomlConfig):
                 f'https://pypi.org/pypi/{self.package_name}/json', timeout=30
             )
             later = packaging.version.Version(PyPIInfo(**r.json()).info.version)
-        except (requests.RequestException, pydantic.ValidationError):
+        except requests.RequestException, pydantic.ValidationError:
             return None
         else:
             return later if later > self.version else None

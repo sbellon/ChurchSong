@@ -115,7 +115,7 @@ class ExcelFormatter(BaseFormatter):
 
 class ChurchToolsSongStatistics:
     # The values are the accepted formats of rich, prettytable and openpyxl.
-    class FormatType(str, enum.Enum):
+    class FormatType(enum.StrEnum):
         RICH = 'rich'
         TEXT = 'text'
         HTML = 'html'

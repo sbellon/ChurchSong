@@ -299,8 +299,8 @@ class ChurchToolsSongVerification:
                     if any(res for res in check_result):
                         table.add_row(
                             f'#{song.id}',
-                            song.name if song.name else f'#{song.id}',
-                            arr.name if arr.name else f'#{arr.id}',
+                            song.name or f'#{song.id}',
+                            arr.name or f'#{arr.id}',
                             *check_result,
                         )
 
