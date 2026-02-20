@@ -368,7 +368,7 @@ class ChurchToolsEvent:
         )
         service_leads: defaultdict[str, set[Person]] = defaultdict(lambda: {nobody})
         for event_service in self._event.event_services:
-            service_name = str(service_id2name.get(event_service.service_id, None))
+            service_name = str(service_id2name.get(event_service.service_id))
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
             if event_service.person_id is not None and (

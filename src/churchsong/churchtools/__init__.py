@@ -32,10 +32,7 @@ class DeprecationAwareModel(pydantic.BaseModel):
     def _warn_deprecated_fields(
         cls, data: dict[str, typing.Any]
     ) -> dict[str, typing.Any]:
-        model_fields = [
-            field.alias if field.alias else name
-            for name, field in cls.model_fields.items()
-        ]
+        model_fields = [field.alias or name for name, field in cls.model_fields.items()]
         deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
         if isinstance(deprecated_fields, str):
             deprecated_fields = {
