@@ -1,5 +1,14 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- adjusted schema of event agenda API to latest changes by ChurchTools
+
+### Changed
+- updated external dependencies
+  (platformdirs, pypdf, reportlab, rich, textual, typer)
+
 ## 0.10.16 (2026-02-01)
 
 ### Changed
