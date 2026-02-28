@@ -266,7 +266,6 @@ class EventAgendaSong(DeprecationAwareModel):
 
 class EventAgendaItemType(enum.StrEnum):
     HEADER = 'header'
-    NORMAL = 'normal'  # was changed to 'text' in mid-February 2026
     TEXT = 'text'
     SONG = 'song'
 
@@ -281,12 +280,21 @@ class EventAgendaItem(DeprecationAwareModel):
     meta: EventAgendaItemMeta
     song: EventAgendaSong | None = None
 
-    # As of mid-February 2026, ChurchTools seems to return title
-    # sometimes as empty string and sometimes as null value.
+    # As of 19-02-2026, "title" sometimes is an empty string and sometimes a null value.
     @pydantic.field_validator('title', mode='before')
     @classmethod
-    def none_to_empty(cls, value: str | None) -> str:
-        return value if value is not None else ''
+    def _title_not_null(cls, value: typing.Any) -> typing.Any:  # noqa: ANN401
+        if value is None:
+            return ''
+        return value
+
+    # As of 19-02-2026, ChurchTools seems to have changed "normal" to "text".
+    @pydantic.field_validator('type', mode='before')
+    @classmethod
+    def _map_old_normal(cls, value: typing.Any) -> typing.Any:  # noqa: ANN401
+        if value == 'normal':
+            return EventAgendaItemType.TEXT
+        return value
 
 
 class EventAgenda(DeprecationAwareModel):

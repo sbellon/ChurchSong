@@ -323,7 +323,7 @@ class ChurchToolsEvent:
                     case EventAgendaItemType.HEADER:
                         with do_progress(item):
                             agenda_item = Item(ItemType.HEADER, item.title)
-                    case EventAgendaItemType.NORMAL | EventAgendaItemType.TEXT:
+                    case EventAgendaItemType.TEXT:
                         with do_progress(item):
                             agenda_item = Item(ItemType.NORMAL, item.title)
                     case EventAgendaItemType.SONG:
