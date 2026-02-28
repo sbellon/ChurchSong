@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (certifi, pypdf, typer)
+
 ## 0.11.0 (2026-02-20)
 
 ### Fixed
