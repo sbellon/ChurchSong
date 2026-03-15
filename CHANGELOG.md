@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (certifi, pypdf, typer)
+- updated external dependencies (certifi, platformdirs, pypdf, textual, typer)
 
 ## 0.11.0 (2026-02-20)
 
