@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.11.1 (2026-03-15)
 
 ### Changed
 - include songs without chords or leads in table of contents of song sheets
