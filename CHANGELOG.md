@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.11.2 (2026-03-15)
 
 ### Changed
 - include a "missing" page in song sheets if neither chords nor leads available
