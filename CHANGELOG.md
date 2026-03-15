@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- include songs without chords or leads in table of contents of song sheets
 - updated external dependencies (certifi, platformdirs, pypdf, textual, typer)
 
 ## 0.11.0 (2026-02-20)

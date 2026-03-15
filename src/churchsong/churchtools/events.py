@@ -128,8 +128,9 @@ class PdfSheet:
         data.seek(0)
         return pypdf.PdfReader(data).pages[0]
 
-    def append(self, title: str, arrangement: str, content: io.BytesIO) -> None:
-        self._pdf.append(content)
+    def append(self, title: str, arrangement: str, content: io.BytesIO | None) -> None:
+        if content:
+            self._pdf.append(content, excluded_fields=['/Annots'])
         self._toc.append((title, arrangement))
 
     def finalize(self, last_modified: datetime.datetime) -> bytes:
@@ -174,18 +175,20 @@ class SongSheets:
     def download_and_append(self, song_files: SongFiles) -> None:
         if not self._enabled:
             return
-        if f := song_files.chords_file:
-            self._chords_pdf.append(
-                song_files.title,
-                song_files.arrangement,
-                self._download_stream(f.file_url),
-            )
-        if f := song_files.leads_file:
-            self._leads_pdf.append(
-                song_files.title,
-                song_files.arrangement,
-                self._download_stream(f.file_url),
-            )
+        self._chords_pdf.append(
+            song_files.title,
+            song_files.arrangement,
+            self._download_stream(cf.file_url)
+            if (cf := song_files.chords_file)
+            else None,
+        )
+        self._leads_pdf.append(
+            song_files.title,
+            song_files.arrangement,
+            self._download_stream(lf.file_url)
+            if (lf := song_files.leads_file)
+            else None,
+        )
         self._last_modified = max(self._last_modified, song_files.last_modified)
 
     def upload(self) -> None:
@@ -255,7 +258,7 @@ class ChurchToolsEvent:
         return SongFiles(
             title=item.song.title,
             arrangement=f'{item.song.arrangement} ({item.song.key})'
-            if item.song.is_default
+            if item.song.is_default and item.song.key
             else item.song.arrangement,
             sng_file=sng_file or default_sng_file,
             chords_file=chords_file,
