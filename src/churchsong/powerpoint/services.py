@@ -16,6 +16,26 @@ if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
 
 
+#######################################################################################
+# Monkey patch python-pptx to accept MPO (multi picture object) JPEGs.
+# Remove as soon as `ext_map` in `Image.ext()` contains "MPO" in pptx/parts/image.py
+# https://github.com/scanny/python-pptx/issues/787
+
+import pptx.parts.image
+import pptx.util
+
+_orig_ext = pptx.parts.image.Image.ext._fget  #  pyright: ignore # noqa: SLF001, PGH003 #
+
+
+@pptx.util.lazyproperty
+def ext(self: pptx.parts.image.Image) -> str:
+    return 'jpeg' if self._format == 'MPO' else _orig_ext(self)  # pyright: ignore # noqa: PGH003
+
+
+pptx.parts.image.Image.ext = ext
+#######################################################################################
+
+
 class PowerPointServices(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
         config.log.info('Creating PowerPoint services slides')
