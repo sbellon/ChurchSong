@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- include a "missing" page in song sheets if neither chords nor leads available
+
 ### Fixed
 - Patch python-pptx to accept MPO (multi picture object) JPEGs
 
