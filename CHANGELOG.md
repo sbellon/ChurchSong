@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- Patch python-pptx to accept MPO (multi picture object) JPEGs
+
 ## 0.11.1 (2026-03-15)
 
 ### Changed
