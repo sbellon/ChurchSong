@@ -13,6 +13,7 @@ import typing
 from collections import defaultdict
 
 import pypdf
+import reportlab.lib.colors
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 
@@ -128,9 +129,43 @@ class PdfSheet:
         data.seek(0)
         return pypdf.PdfReader(data).pages[0]
 
+    def _create_missing_song(self, title: str) -> pypdf.PdfReader:
+        data = io.BytesIO()
+        pagesize = reportlab.lib.pagesizes.A4
+        canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
+        width, height = pagesize
+
+        # Font settings
+        font = 'Helvetica-Bold'
+        size_title = 20
+        size_watermark = 120
+        degree_watermark = 60
+
+        # Heading
+        canvas.setFont(font, size_title)
+        canvas.drawString(2 * size_title, height - 2.5 * size_title, title)
+
+        # Missing
+        canvas.saveState()
+        canvas.setFillColor(reportlab.lib.colors.lightgrey)
+        canvas.setFont(font, size_watermark)
+        canvas.translate(
+            (width + 0.5 * size_watermark) / 2,
+            (height - 0.5 * size_watermark) / 2,
+        )
+        canvas.rotate(degree_watermark)
+        canvas.drawCentredString(0, 0, 'MISSING')
+        canvas.restoreState()
+        canvas.showPage()
+
+        canvas.save()
+        data.seek(0)
+        return pypdf.PdfReader(data)
+
     def append(self, title: str, arrangement: str, content: io.BytesIO | None) -> None:
-        if content:
-            self._pdf.append(content, excluded_fields=['/Annots'])
+        self._pdf.append(
+            content or self._create_missing_song(title), excluded_fields=['/Annots']
+        )
         self._toc.append((title, arrangement))
 
     def finalize(self, last_modified: datetime.datetime) -> bytes:
@@ -261,7 +296,7 @@ class ChurchToolsEvent:
             if item.song.is_default and item.song.key
             else item.song.arrangement,
             sng_file=sng_file or default_sng_file,
-            chords_file=chords_file,
+            chords_file=chords_file or leads_file,
             leads_file=leads_file or chords_file,
             last_modified=item.meta.modified_date,
         )
