@@ -337,9 +337,7 @@ class Arrangement(DeprecationAwareModel):
     files: list[File]
 
     # NOT filled by ChurchTools, but filled and used internally:
-    _sng_file_content: list[str] = typing.cast(
-        'list[str]', pydantic.PrivateAttr(default_factory=list)
-    )
+    _sng_file_content: list[str] = pydantic.PrivateAttr(default_factory=list)
 
     @property
     def sng_file_content(self) -> list[str]:
