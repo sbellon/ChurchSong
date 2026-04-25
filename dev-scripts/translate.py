@@ -16,7 +16,7 @@ LANGUAGES = ['de']
 
 
 @contextlib.contextmanager
-def working_directory(path: pathlib.Path) -> typing.Iterator[None]:
+def working_directory(path: pathlib.Path) -> typing.Generator[None]:
     prev_cwd = pathlib.Path.cwd()
     try:
         os.chdir(path)
