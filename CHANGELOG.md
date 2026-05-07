@@ -4,8 +4,8 @@
 
 ### Changed
 - updated external dependencies
-  (certifi, click, packaging, platformdirs, pydantic, pypdf, requests, rich, textual,
-  typer)
+  (certifi, click, packaging, platformdirs, pydantic, pypdf, reportlab, requests, rich,
+  textual, typer)
 
 ## 0.11.2 (2026-03-15)
 
