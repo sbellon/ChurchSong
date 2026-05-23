@@ -19,10 +19,11 @@ def expand_envvars(text: str) -> str:
     )
 
 
-type JsonLike = str | dict[str, typing.Any] | list[typing.Any]
+type JsonObject = dict[str, 'JsonValue']
+type JsonValue = None | bool | int | float | str | list['JsonValue'] | JsonObject
 
 
-def recursive_expand_envvars[T: JsonLike](data: T) -> T:
+def recursive_expand_envvars[T: JsonValue](data: T) -> T:
     match data:
         case str():
             return typing.cast('T', expand_envvars(data))
@@ -32,7 +33,8 @@ def recursive_expand_envvars[T: JsonLike](data: T) -> T:
             )
         case list():
             return typing.cast('T', [recursive_expand_envvars(item) for item in data])
-    return data
+        case _:
+            return data
 
 
 def flattened_split(the_list: list[str], *, sep: str = ',') -> list[str]:
