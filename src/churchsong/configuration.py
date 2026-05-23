@@ -21,7 +21,7 @@ import polib
 import pydantic
 import requests
 
-from churchsong.utils import CliError, recursive_expand_envvars
+from churchsong.utils import CliError, JsonValue, recursive_expand_envvars
 
 
 class CalendarSubtitleField(enum.StrEnum):
@@ -176,9 +176,7 @@ class TomlConfig(BaseModel):
 
     @pydantic.model_validator(mode='before')
     @classmethod
-    def apply_recursive_string_processing(
-        cls, values: dict[str, typing.Any]
-    ) -> dict[str, typing.Any]:
+    def apply_recursive_string_processing(cls, values: JsonValue) -> JsonValue:
         return recursive_expand_envvars(values)
 
 

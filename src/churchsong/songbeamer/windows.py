@@ -7,7 +7,6 @@ import sys
 if sys.platform == 'win32':
     import ctypes
     import os
-    import subprocess
     import typing
 
     import psutil
@@ -55,8 +54,4 @@ if sys.platform == 'win32':
             user32.SetForegroundWindow(hwnd_match)
 
     def start_songbeamer(cwd: pathlib.Path) -> None:
-        subprocess.run(
-            [os.environ.get('COMSPEC', 'cmd'), '/C', 'start Schedule.col'],
-            check=True,
-            cwd=cwd,
-        )
+        os.startfile('Schedule.col', cwd=cwd)  # noqa: S606, S607

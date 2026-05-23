@@ -15,7 +15,7 @@ import pydantic
 import requests
 import requests.exceptions
 
-from churchsong.utils import CliError
+from churchsong.utils import CliError, JsonObject, JsonValue
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -29,9 +29,7 @@ class DeprecationAwareModel(pydantic.BaseModel):
 
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _warn_deprecated_fields(
-        cls, data: dict[str, typing.Any]
-    ) -> dict[str, typing.Any]:
+    def _warn_deprecated_fields(cls, data: JsonObject) -> JsonObject:
         model_fields = [field.alias or name for name, field in cls.model_fields.items()]
         deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
         if isinstance(deprecated_fields, str):
@@ -39,14 +37,16 @@ class DeprecationAwareModel(pydantic.BaseModel):
                 m.group('old'): m.group('new')
                 for m in cls._RE_STRING_DEPRECATIONS.finditer(deprecated_fields)
             }
-        for old_field, new_field in deprecated_fields.items():
-            if old_field in model_fields and new_field is not None:
-                warnings.warn(
-                    f"Model '{cls.__name__}' defines deprecated field '{old_field}', "
-                    f"consider using '{new_field}' instead.",
-                    DeprecationWarning,
-                    stacklevel=1,
-                )
+        if isinstance(deprecated_fields, dict):
+            for old_field, new_field in deprecated_fields.items():
+                if old_field in model_fields and new_field is not None:
+                    warnings.warn(
+                        f"Model '{cls.__name__}' "
+                        "defines deprecated field '{old_field}', "
+                        f"consider using '{new_field}' instead.",
+                        DeprecationWarning,
+                        stacklevel=1,
+                    )
         return data
 
 
@@ -80,7 +80,7 @@ class PermissionsGlobal(DeprecationAwareModel):
 class PermissionsGlobalData(DeprecationAwareModel):
     data: PermissionsGlobal
 
-    def get_permission(self, perm: str) -> bool | list[int]:
+    def get_permission(self, perm: str) -> bool | typing.Sequence[int]:
         perm = perm.replace(' ', '_')
         obj = self.data
         for key in perm.split(':'):
@@ -91,10 +91,8 @@ class PermissionsGlobalData(DeprecationAwareModel):
         match obj:
             case bool():
                 return obj
-            case list() if all(
-                isinstance(item, int) for item in typing.cast('list[typing.Any]', obj)
-            ):
-                return typing.cast('list[typing.Any]', obj)
+            case [*ls] if all(isinstance(item, int) for item in ls):
+                return obj
             case _:
                 return False
 
@@ -141,14 +139,19 @@ class CalendarAppointmentAppointment(DeprecationAwareModel):
 
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _patch_base_dates(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
-        if (base := data.get('base')) and (calculated := data.get('calculated', {})):
+    def _patch_base_dates(cls, data: JsonObject) -> JsonObject:
+        if (
+            (base := data.get('base'))
+            and (calculated := data.get('calculated'))
+            and isinstance(base, dict)
+            and isinstance(calculated, dict)
+        ):
             all_day = base.get('allDay', False)
             for key, time_suffix in (
                 ('startDate', 'T00:00:00Z'),
                 ('endDate', 'T23:59:59Z'),
             ):
-                if value := calculated.get(key):
+                if (value := calculated.get(key)) and isinstance(value, str):
                     if all_day and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
                         value = f'{value}{time_suffix}'
                     base[key] = value
@@ -214,19 +217,20 @@ class EventService(DeprecationAwareModel):
     # if set, over `person.title`.
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _flatten_person_name(cls, data: dict[str, typing.Any]) -> dict[str, typing.Any]:
-        person: dict[str, typing.Any] | None = data.get('person')
+    def _flatten_person_name(cls, data: JsonObject) -> JsonObject:
+        person = data.get('person')
         if isinstance(person, dict):
-            attrs = person.get('domainAttributes', {})
-            first_name = attrs.get('firstName')
-            last_name = attrs.get('lastName')
-            name = (
-                f'{first_name} {last_name}'
-                if first_name and last_name
-                else person.get('title')
-            )
-            if name:
-                data['name'] = name
+            attrs = person.get('domainAttributes')
+            if isinstance(attrs, dict):
+                first_name = attrs.get('firstName')
+                last_name = attrs.get('lastName')
+                name = (
+                    f'{first_name} {last_name}'
+                    if first_name and last_name
+                    else person.get('title')
+                )
+                if name:
+                    data['name'] = name
         return data
 
 
@@ -283,7 +287,7 @@ class EventAgendaItem(DeprecationAwareModel):
     # As of 19-02-2026, "title" sometimes is an empty string and sometimes a null value.
     @pydantic.field_validator('title', mode='before')
     @classmethod
-    def _title_not_null(cls, value: typing.Any) -> typing.Any:  # noqa: ANN401
+    def _title_not_null(cls, value: JsonValue) -> JsonValue:
         if value is None:
             return ''
         return value
@@ -291,7 +295,7 @@ class EventAgendaItem(DeprecationAwareModel):
     # As of 19-02-2026, ChurchTools seems to have changed "normal" to "text".
     @pydantic.field_validator('type', mode='before')
     @classmethod
-    def _map_old_normal(cls, value: typing.Any) -> typing.Any:  # noqa: ANN401
+    def _map_old_normal(cls, value: JsonValue) -> JsonValue:
         if value == 'normal':
             return EventAgendaItemType.TEXT
         return value
