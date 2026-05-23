@@ -52,14 +52,16 @@ def show_version(ctx: typer.Context, show: bool) -> None:
 )
 def callback(
     ctx: typer.Context,
-    _version: bool = typer.Option(
-        None,
-        '--version',
-        '-v',
-        help='Show the version and exit.',
-        callback=show_version,
-        is_eager=True,
-    ),
+    _version: typing.Annotated[
+        bool | None,
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
+            '--version',
+            '-v',
+            help='Show the version and exit.',
+            callback=show_version,
+            is_eager=True,
+        ),
+    ] = None,
 ) -> None:
     match ctx.invoked_subcommand:
         case None:
@@ -82,7 +84,7 @@ def agenda(
     ctx: typer.Context,
     date: typing.Annotated[
         datetime.datetime,
-        typer.Argument(
+        typer.Argument(  # pyright: ignore[reportUnknownMemberType]
             parser=parse_datetime,
             default_factory=lambda: now().isoformat(),
             show_default=f'{now():%Y-%m-%d}',
@@ -103,7 +105,7 @@ def verify(  # noqa: PLR0913
     ctx: typer.Context,
     date: typing.Annotated[
         datetime.datetime,
-        typer.Argument(
+        typer.Argument(  # pyright: ignore[reportUnknownMemberType]
             parser=parse_datetime,
             default_factory=lambda: now().isoformat(),
             show_default=f'{now():%Y-%m-%d}',
@@ -113,7 +115,7 @@ def verify(  # noqa: PLR0913
     *,
     exclude_tags: typing.Annotated[
         list[str],
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--exclude_tags',
             metavar='TAG,TAG,...',
             default_factory=list,
@@ -123,7 +125,7 @@ def verify(  # noqa: PLR0913
     ],
     include_tags: typing.Annotated[
         list[str],
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--include_tags',
             metavar='TAG,TAG,...',
             default_factory=list,
@@ -133,7 +135,7 @@ def verify(  # noqa: PLR0913
     ],
     execute_checks: typing.Annotated[
         list[str],
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--execute_checks',
             metavar='CHECK,CHECK,...',
             default_factory=list,
@@ -144,7 +146,7 @@ def verify(  # noqa: PLR0913
     ],
     all_arrangements: typing.Annotated[
         bool,
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--all_arrangements',
             help='Check all arrangements of the songs '
             'instead of just the default arrangement.',
@@ -173,7 +175,7 @@ def usage(
     ctx: typer.Context,
     year_range: typing.Annotated[
         DateRange,
-        typer.Argument(
+        typer.Argument(  # pyright: ignore[reportUnknownMemberType]
             metavar='[YEAR|YEAR-YEAR]',
             parser=parse_year_range,
             default_factory=lambda: '',
@@ -184,7 +186,7 @@ def usage(
     *,
     output_file: typing.Annotated[
         pathlib.Path | None,
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--output',
             dir_okay=False,
             show_default=False,
@@ -194,7 +196,7 @@ def usage(
     ] = None,
     output_format: typing.Annotated[
         ChurchToolsSongStatistics.FormatType,
-        typer.Option(
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--format',
             case_sensitive=False,
             help='Define output format.',

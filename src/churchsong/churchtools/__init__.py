@@ -438,7 +438,7 @@ class ChurchToolsAPI:
         except requests.exceptions.HTTPError as e:
             self._log.error(e)
             msg = f'{e}'
-            if e.response.status_code in (
+            if e.response and e.response.status_code in (
                 requests.codes['forbidden'],
                 requests.codes['unauthorized'],
             ):
@@ -601,7 +601,7 @@ class ChurchToolsAPI:
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == requests.codes['forbidden']:
+            if e.response and e.response.status_code == requests.codes['forbidden']:
                 with self.permissions('nickname', ['churchdb:view alldata']):
                     return None
             raise
@@ -672,7 +672,7 @@ class ChurchToolsAPI:
             try:
                 _agenda = self.get_event_agenda(event)
             except requests.HTTPError as e:
-                if e.response.status_code == requests.codes['not_found']:
+                if e.response and e.response.status_code == requests.codes['not_found']:
                     date = f'{event.start_date.date():%Y-%m-%d}'
                     msg = f'No event agenda present for {date} in ChurchTools.'
                     self._log.error(msg)
