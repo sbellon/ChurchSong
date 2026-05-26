@@ -3,10 +3,10 @@
 ## Unreleased
 
 ### Changed
-- start SongBeamer via Python standard library os.startfile() instead of subprocess.run()
+- start SongBeamer via os.startfile() instead of subprocess.run()
 - stricter type annotations in JSON contexts
-- updated external dependencies
-  (certifi, click, packaging, platformdirs, pydantic, pypdf, reportlab, requests, rich,
+- updated external dependencies, "typer" changed to vendored "click" dependency
+  (certifi, packaging, platformdirs, pydantic, pypdf, reportlab, requests, rich,
   textual, typer)
 
 ## 0.11.2 (2026-03-15)

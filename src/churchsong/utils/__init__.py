@@ -6,7 +6,7 @@ import os
 import re
 import typing
 
-from click import ClickException
+from typer._click import ClickException
 
 CliError = ClickException
 
