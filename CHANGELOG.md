@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.11.3 (2026-05-30)
 
 ### Changed
 - start SongBeamer via os.startfile() instead of subprocess.run()
