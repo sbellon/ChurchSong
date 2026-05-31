@@ -4,6 +4,7 @@
 
 ### Fixed
 - fixed all-day events having wrong timezone and thus spanning multiple days
+- fixed crash when running on non-existing event agenda
 
 ## 0.11.3 (2026-05-30)
 
