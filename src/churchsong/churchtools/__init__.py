@@ -147,13 +147,19 @@ class CalendarAppointmentAppointment(DeprecationAwareModel):
             and isinstance(calculated, dict)
         ):
             all_day = base.get('allDay', False)
-            for key, time_suffix in (
-                ('startDate', 'T00:00:00Z'),
-                ('endDate', 'T23:59:59Z'),
+            for key, time_part in (
+                ('startDate', datetime.time.min),
+                ('endDate', datetime.time.max),
             ):
                 if (value := calculated.get(key)) and isinstance(value, str):
                     if all_day and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
-                        value = f'{value}{time_suffix}'
+                        value = (
+                            datetime.datetime.combine(
+                                datetime.date.fromisoformat(value), time_part
+                            )
+                            .astimezone()
+                            .isoformat()
+                        )
                     base[key] = value
 
         return data

@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed all-day events having wrong timezone and thus spanning multiple days
+
 ## 0.11.3 (2026-05-30)
 
 ### Changed
