@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (typer)
+
 ## 0.11.4 (2026-05-31)
 
 ### Fixed
