@@ -16,6 +16,7 @@ import pypdf
 import reportlab.lib.colors
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
+import reportlab.platypus
 
 from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
 from churchsong.utils.progress import Progress
@@ -68,6 +69,7 @@ class Subfolder(enum.StrEnum):
 @dataclasses.dataclass
 class SongFiles:
     title: str
+    ccli: str
     arrangement: str
     sng_file: File | None
     chords_file: File | None
@@ -81,7 +83,7 @@ class PdfSheet:
         self._subtitle = subtitle
         self._subsubtitle = subsubtitle
         self._pdf = pypdf.PdfWriter()
-        self._toc: list[tuple[str, str]] = []
+        self._toc: list[tuple[str, str, str]] = []
 
     def _create_title_page(self, last_modified: datetime.datetime) -> pypdf.PageObject:
         data = io.BytesIO()
@@ -111,19 +113,38 @@ class PdfSheet:
         canvas.drawCentredString(
             width / 2, y, self._subsubtitle.format(last_modified=last_modified)
         )
-        y -= int(size_h3 * line_spacing)
+        y -= int(size_h3 * line_spacing) * 2
 
         # Table of Contents
-        y -= margin
-        canvas.setFont(font, size_b)
-        for idx, (title, arrangement) in enumerate(self._toc, start=1):
-            canvas.drawString(margin, y, f'{idx}.')
-            canvas.drawString(margin + 30, y, title)
-            canvas.drawRightString(width - margin, y, arrangement)
-            y -= int(size_b * line_spacing)
-            if y < margin:  # continue on new page if list is too long
-                canvas.showPage()
-                y = height - margin
+        toc_table = reportlab.platypus.Table(
+            [
+                [f'{idx}.  ', title, ccli, arrangement]
+                for idx, (title, ccli, arrangement) in enumerate(self._toc, start=1)
+            ],
+            colWidths=[
+                15,  # width of song number column
+                width - 15 - 60 - 120 - 2 * margin,  # width of title column (dynamic)
+                60,  # width of ccli number column
+                120,  # width of arrangement column
+            ],
+        )
+        toc_table.setStyle(
+            reportlab.platypus.TableStyle(
+                [
+                    ('FONTNAME', (0, 0), (-1, -1), font),
+                    ('FONTSIZE', (0, 0), (-1, -1), size_b),
+                    ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+                    ('ALIGN', (3, 0), (3, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        _table_width, table_height = toc_table.wrap(width - 2 * margin, y - margin)
+        toc_table.drawOn(canvas, margin, y - table_height)
 
         canvas.save()
         data.seek(0)
@@ -162,11 +183,13 @@ class PdfSheet:
         data.seek(0)
         return pypdf.PdfReader(data)
 
-    def append(self, title: str, arrangement: str, content: io.BytesIO | None) -> None:
+    def append(
+        self, title: str, ccli: str, arrangement: str, content: io.BytesIO | None
+    ) -> None:
         self._pdf.append(
             content or self._create_missing_song(title), excluded_fields=['/Annots']
         )
-        self._toc.append((title, arrangement))
+        self._toc.append((title, ccli, arrangement))
 
     def finalize(self, last_modified: datetime.datetime) -> bytes:
         self._pdf.insert_page(
@@ -212,6 +235,7 @@ class SongSheets:
             return
         self._chords_pdf.append(
             song_files.title,
+            song_files.ccli,
             song_files.arrangement,
             self._download_stream(cf.file_url)
             if (cf := song_files.chords_file)
@@ -219,6 +243,7 @@ class SongSheets:
         )
         self._leads_pdf.append(
             song_files.title,
+            song_files.ccli,
             song_files.arrangement,
             self._download_stream(lf.file_url)
             if (lf := song_files.leads_file)
@@ -292,6 +317,7 @@ class ChurchToolsEvent:
                         chords_file = file
         return SongFiles(
             title=item.song.title,
+            ccli=song.ccli or '',
             arrangement=f'{item.song.arrangement} ({item.song.key})'
             if item.song.is_default and item.song.key
             else item.song.arrangement,
