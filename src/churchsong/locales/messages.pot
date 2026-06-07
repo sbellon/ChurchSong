@@ -1,32 +1,32 @@
 # Translations template for ChurchSong.
-# Copyright (C) 2025 Stefan Bellon
+# Copyright (C) 2026 Stefan Bellon
 # This file is distributed under the same license as the ChurchSong project.
-# Stefan Bellon, 2025.
+# Stefan Bellon, 2026.
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: ChurchSong 0.10.9\n"
+"Project-Id-Version: ChurchSong 0.11.4\n"
 "\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2025-10-04 11:29+0200\n"
+"POT-Creation-Date: 2026-06-07 16:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Stefan Bellon\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.18.0\n"
 
-#: src/churchsong/interactivescreen.py:89
+#: src/churchsong/interactivescreen.py:96
 msgid "Execute: Create selected files and start SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:91
+#: src/churchsong/interactivescreen.py:98
 msgid "Execute: Create selected files"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:293
+#: src/churchsong/interactivescreen.py:267
 #, python-brace-format
 msgid ""
 "Update available\n"
@@ -34,48 +34,60 @@ msgid ""
 "Latest version: {}"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:298
+#: src/churchsong/interactivescreen.py:272
 msgid "Please make your desired choice. By default, all actions are activated."
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:305
+#: src/churchsong/interactivescreen.py:279
 msgid "Get SongBeamer schedule from ChurchTools and launch SongBeamer"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:308
+#: src/churchsong/interactivescreen.py:282
 msgid "Download song files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:311
+#: src/churchsong/interactivescreen.py:285
 msgid "Download event files from ChurchTools"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:314
+#: src/churchsong/interactivescreen.py:288
 msgid "Create PointPoint slides from ChurchTools data"
 msgstr ""
 
-#: src/churchsong/interactivescreen.py:317
+#: src/churchsong/interactivescreen.py:291
 msgid "Create and upload PDF song sheets to ChurchTools"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:77
+#: src/churchsong/churchtools/events.py:218
 msgid "Song Sheets Chords"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:78
+#: src/churchsong/churchtools/events.py:219
 msgid "Song Sheets Leads"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:90
+#: src/churchsong/churchtools/events.py:222
+msgid "Title"
+msgstr ""
+
+#: src/churchsong/churchtools/events.py:222
+msgid "CCLI No."
+msgstr ""
+
+#: src/churchsong/churchtools/events.py:222
+msgid "Arrangement"
+msgstr ""
+
+#: src/churchsong/churchtools/events.py:227
 msgid "Last update"
 msgstr ""
 
-#: src/churchsong/churchtools/events.py:286
-#: src/churchsong/churchtools/events.py:287
+#: src/churchsong/churchtools/events.py:439
+#: src/churchsong/churchtools/events.py:440
 msgid "Nobody"
 msgstr ""
 
-#: src/churchsong/songbeamer/__init__.py:305
+#: src/churchsong/songbeamer/__init__.py:313
 msgid ""
 "SongBeamer is already running.\n"
 "\n"

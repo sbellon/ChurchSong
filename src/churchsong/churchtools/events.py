@@ -78,12 +78,18 @@ class SongFiles:
 
 
 class PdfSheet:
-    def __init__(self, title: str, subtitle: str, subsubtitle: str) -> None:
+    def __init__(
+        self,
+        title: str,
+        subtitle: str,
+        subsubtitle: str,
+        toc_header: tuple[str, str, str],
+    ) -> None:
         self._title = title
         self._subtitle = subtitle
         self._subsubtitle = subsubtitle
         self._pdf = pypdf.PdfWriter()
-        self._toc: list[tuple[str, str, str]] = []
+        self._toc: list[tuple[str, str, str]] = [toc_header]
 
     def _create_title_page(self, last_modified: datetime.datetime) -> pypdf.PageObject:
         data = io.BytesIO()
@@ -93,6 +99,7 @@ class PdfSheet:
 
         # Font settings
         font = 'Helvetica'
+        font_toc_h = f'{font}-Oblique'
         font_h1 = f'{font}-Bold'
         size_h1 = 36
         size_h2 = 24
@@ -118,8 +125,8 @@ class PdfSheet:
         # Table of Contents
         toc_table = reportlab.platypus.Table(
             [
-                [f'{idx}.  ', title, ccli, arrangement]
-                for idx, (title, ccli, arrangement) in enumerate(self._toc, start=1)
+                [f'{idx}.  ' if idx else '', title, ccli, arrangement]
+                for idx, (title, ccli, arrangement) in enumerate(self._toc)
             ],
             colWidths=[
                 15,  # width of song number column
@@ -131,7 +138,8 @@ class PdfSheet:
         toc_table.setStyle(
             reportlab.platypus.TableStyle(
                 [
-                    ('FONTNAME', (0, 0), (-1, -1), font),
+                    ('FONTNAME', (0, 0), (-1, 0), font_toc_h),  # header row only
+                    ('FONTNAME', (0, 1), (-1, -1), font),  # body rows
                     ('FONTSIZE', (0, 0), (-1, -1), size_b),
                     ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                     ('ALIGN', (1, 0), (1, -1), 'LEFT'),
@@ -211,13 +219,14 @@ class SongSheets:
         leads_name = _('Song Sheets Leads')
         self._chords_file = f'{chords_name}.pdf'
         self._leads_file = f'{leads_name}.pdf'
+        toc_header = (_('Title'), _('CCLI No.'), _('Arrangement'))
         if self._enabled:
             event_startdate = f'{self._event.start_date.astimezone():{datetime_format}}'
             self._last_modified = datetime.datetime.min.replace(tzinfo=datetime.UTC)
             subtitle = f'{self._event.name} - {event_startdate}'
             subsubtitle = f'{_("Last update")}: {{last_modified:{datetime_format}}}'
-            self._chords_pdf = PdfSheet(chords_name, subtitle, subsubtitle)
-            self._leads_pdf = PdfSheet(leads_name, subtitle, subsubtitle)
+            self._chords_pdf = PdfSheet(chords_name, subtitle, subsubtitle, toc_header)
+            self._leads_pdf = PdfSheet(leads_name, subtitle, subsubtitle, toc_header)
 
     def _download_stream(self, url: str) -> io.BytesIO:
         r = self.cta.download_url(url)
