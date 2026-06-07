@@ -6,7 +6,7 @@
 - added CCLI number to table of contents of song sheets
 
 ### Changed
-- updated external dependencies (typer)
+- updated external dependencies (pypdf, typer)
 
 ## 0.11.4 (2026-05-31)
 
