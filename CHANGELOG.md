@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- added CCLI number to table of contents of song sheets
+
 ### Changed
 - updated external dependencies (typer)
 
