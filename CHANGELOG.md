@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (pypdf)
+
 ## 0.11.5 (2026-06-07)
 
 ### Added
