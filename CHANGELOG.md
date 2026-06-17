@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (pypdf)
+- updated external dependencies (pypdf, tzlocal)
 
 ## 0.11.5 (2026-06-07)
 
