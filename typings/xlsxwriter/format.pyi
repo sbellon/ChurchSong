@@ -2,5 +2,4 @@
 #
 # SPDX-License-Identifier: MIT
 
-
 class Format: ...

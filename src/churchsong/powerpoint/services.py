@@ -24,7 +24,7 @@ if typing.TYPE_CHECKING:
 import pptx.parts.image
 import pptx.util
 
-_orig_ext = pptx.parts.image.Image.ext._fget  #  pyright: ignore # noqa: SLF001, PGH003 #
+_orig_ext = typing.cast('typing.Any', pptx.parts.image.Image.ext)._fget  # noqa: SLF001
 
 
 @pptx.util.lazyproperty

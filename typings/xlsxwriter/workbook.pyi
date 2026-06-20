@@ -4,10 +4,8 @@
 
 import typing
 
-if typing.TYPE_CHECKING:
-    from xlsxwriter.format import Format
-    from xlsxwriter.worksheet import Worksheet
-
+from xlsxwriter.format import Format
+from xlsxwriter.worksheet import Worksheet
 
 class Workbook:
     def __init__(

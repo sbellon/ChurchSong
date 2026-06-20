@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (pypdf, tzlocal)
+- updated external dependencies (certifi, pypdf, reportlab, tzlocal)
 
 ## 0.11.5 (2026-06-07)
 
