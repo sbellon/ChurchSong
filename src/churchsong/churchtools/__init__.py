@@ -92,7 +92,7 @@ class PermissionsGlobalData(DeprecationAwareModel):
             case bool():
                 return obj
             case [*ls] if all(isinstance(item, int) for item in ls):
-                return obj
+                return typing.cast('typing.Sequence[int]', obj)
             case _:
                 return False
 

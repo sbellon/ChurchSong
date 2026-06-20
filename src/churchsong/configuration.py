@@ -52,8 +52,18 @@ class BaseModel(pydantic.BaseModel):
     # made relative to the `data_dir` above in case they are specified relative in
     # the configuration file.
     @staticmethod
-    def make_relative_to_data_dir[T: pathlib.Path | None](value: T) -> T:
-        return BaseModel.data_dir / value if isinstance(value, pathlib.Path) else value
+    @typing.overload
+    def make_relative_to_data_dir(val: pathlib.Path) -> pathlib.Path: ...
+
+    @staticmethod
+    @typing.overload
+    def make_relative_to_data_dir(val: None) -> None: ...
+
+    @staticmethod
+    def make_relative_to_data_dir(
+        val: pathlib.Path | None,
+    ) -> pathlib.Path | None:
+        return (BaseModel.data_dir / val) if isinstance(val, pathlib.Path) else val
 
     type DataDirPath = typing.Annotated[
         pathlib.Path, pydantic.AfterValidator(make_relative_to_data_dir)

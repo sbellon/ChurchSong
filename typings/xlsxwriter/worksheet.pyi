@@ -6,8 +6,7 @@ import typing
 
 from xlsxwriter.format import Format
 
-Types = bool | float | int | str | Format
-
+type Types = bool | float | int | str | Format
 
 class Worksheet:
     def write(self, row: int, col: int, *args: Types) -> int: ...
