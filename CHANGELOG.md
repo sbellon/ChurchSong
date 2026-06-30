@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### Changed
-- updated external dependencies (certifi, prettytable, pypdf, reportlab, tzlocal, typer)
+- updated external dependencies
+  (certifi, prettytable, pypdf, reportlab, textual, tzlocal, typer)
 
 ## 0.11.5 (2026-06-07)
 
