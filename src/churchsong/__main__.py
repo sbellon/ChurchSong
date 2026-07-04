@@ -18,6 +18,7 @@ from churchsong.churchtools.events import ChurchToolsEvent
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.churchtools.song_verification import ChurchToolsSongVerification
 from churchsong.configuration import Configuration
+from churchsong.immich import ImmichAPI
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint.appointments import PowerPointAppointments
 from churchsong.powerpoint.services import PowerPointServices
@@ -281,6 +282,7 @@ def _handle_agenda(
         download_files=selection.files,
         download_songs=selection.songs,
         upload_songsheets=selection.songsheets,
+        immich_upload=ImmichAPI(config),
     )
     service_items, service_leads = cte.get_service_info()
 

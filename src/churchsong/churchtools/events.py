@@ -33,6 +33,7 @@ if typing.TYPE_CHECKING:
         File,
     )
     from churchsong.configuration import Configuration
+    from churchsong.immich import ImmichAPI
 
     _: Callable[[str], str]
 
@@ -342,6 +343,7 @@ class ChurchToolsEvent:
         download_files: bool = True,
         download_songs: bool = True,
         upload_songsheets: bool = True,
+        immich_upload: ImmichAPI,
     ) -> list[Item]:
         msg_items = (
             ['Downloading agenda items']
@@ -378,6 +380,7 @@ class ChurchToolsEvent:
                                 Subfolder.FILES,
                                 overwrite=download_files,
                             )
+                            immich_upload.upload_media_file(filename)
                             event_file = Item(ItemType.FILE, item.title, filename)
                     case EventFileDomainType.LINK:
                         with do_progress(item):

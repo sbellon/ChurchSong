@@ -13,8 +13,14 @@ configured.
 The ChurchTools song database can also be checked for consistency regarding metadata
 as well as present .sng files to contain a background image.
 
-Finally, you can create song usage statistics in various output formats for chosen
-time periods.
+You can also create song usage statistics in various output formats for chosen time
+periods.
+
+Songsheets in PDF format are created from ChurchTools song database and upload as
+event files for the music team to use.
+
+If you have an Immich (https://immich.app/) instance running, you can also automatically
+upload media files from the event files to your Immich.
 
 ## Installation
 
@@ -85,6 +91,13 @@ two columns each. One of the tables needs to be named `Weekly Table` and the oth
 needs to be named `Irregular Table` (use the Select Pane with Alt-F10). Appointments
 will be added to those tables depending on whether they are weekly recurring or not.
 
+#### Immich instance
+
+If you have your own Immich instance, you can configure `base_url` and `login_token`
+for your Immich instance. The user associated with the token requires the permission
+`asset.upload`. By configuring `include_globbings` and `exclude_globbings` you can
+define which event file patterns to consider for media upload and which to ignore.
+
 ## Usage
 
 ### SongBeamer agenda download
@@ -142,3 +155,9 @@ optional for all other output formats.
 
 The time period for the statistics can be specified using either `YYYY`, `-YYYY`,
 `YYYY-`, or `YYYY-YYYY`.
+
+### PDF Songsheets
+
+Two PDFs are created for each event, one containing the song chords and another one
+containing the song leads. Those are upload to the event files and can be used by
+the music team.

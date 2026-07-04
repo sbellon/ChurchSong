@@ -4,6 +4,7 @@
 
 import contextlib
 import enum
+import fnmatch
 import gettext
 import importlib.metadata
 import importlib.resources
@@ -12,6 +13,7 @@ import locale
 import logging
 import logging.handlers
 import pathlib
+import re
 import tomllib
 import typing
 
@@ -179,10 +181,27 @@ class SongBeamerConfig(BaseModel):
     )
 
 
+def compile_glob(value: str) -> re.Pattern[str]:
+    return re.compile(fnmatch.translate(value), re.IGNORECASE)
+
+
+Globbing = typing.Annotated[re.Pattern[str], pydantic.BeforeValidator(compile_glob)]
+
+
+class ImmichConfig(BaseModel):
+    base_url: str
+    login_token: str
+    include_globbings: list[Globbing] = [
+        compile_glob(x) for x in ('*.jpg', '*.jpeg', '*.mp4', '*.mov', '*.heic')
+    ]
+    exclude_globbings: list[Globbing] = []
+
+
 class TomlConfig(BaseModel):
     general: GeneralConfig = pydantic.Field(default=GeneralConfig(), alias='General')
     churchtools: ChurchToolsConfig = pydantic.Field(alias='ChurchTools')
     songbeamer: SongBeamerConfig = pydantic.Field(alias='SongBeamer')
+    immich: ImmichConfig | None = pydantic.Field(default=None, alias='Immich')
 
     @pydantic.model_validator(mode='before')
     @classmethod
