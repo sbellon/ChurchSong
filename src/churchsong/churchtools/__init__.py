@@ -16,6 +16,7 @@ import requests
 import requests.exceptions
 
 from churchsong.utils import CliError, JsonObject, JsonValue
+from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -397,24 +398,14 @@ class SongData(DeprecationAwareModel):
     data: Song
 
 
-ParamsType = typing.Mapping[
-    str, str | int | float | bool | list[str] | list[int] | None
-]
-
-FilesType = typing.Mapping[
-    str,
-    typing.IO[bytes]
-    | tuple[str, typing.IO[bytes]]
-    | tuple[str, typing.IO[bytes], str]
-    | tuple[str, typing.IO[bytes], str, typing.Mapping[str, str]],
-]
-
-
-class ChurchToolsAPI:
+class ChurchToolsAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
         self._log = config.log
         self._base_url = config.churchtools.base_url
-        self._login_token = config.churchtools.login_token
+        self._headers = {
+            'Accept': 'application/json',
+            'Authorization': f'Login {config.churchtools.login_token}',
+        }
         self._look_ahead_weeks = (
             config.songbeamer.powerpoint.appointments.look_ahead_weeks
         )
@@ -465,7 +456,7 @@ class ChurchToolsAPI:
 
     def _assert_permissions(self, *required_perms: str) -> None:
         if missing_perms := self._get_missing_permissions(*required_perms):
-            msg = 'Missing required permissions for token user: {}'.format(
+            msg = 'Missing required permissions for ChurchTools token user: {}'.format(
                 ', '.join(f'"{perm}"' for perm in missing_perms)
             )
             self._log.error(msg)
@@ -488,64 +479,6 @@ class ChurchToolsAPI:
 
     def has_permissions(self, required_perms: list[str]) -> bool:
         return not self._get_missing_permissions(*required_perms)
-
-    def _headers(self) -> dict[str, str]:
-        return {
-            'Accept': 'application/json',
-            'Authorization': f'Login {self._login_token}',
-        }
-
-    def _request(
-        self,
-        method: str,
-        url: str,
-        params: ParamsType | None = None,
-        *,
-        stream: bool = False,
-        files: FilesType | None = None,
-    ) -> requests.Response:
-        self._log.debug(
-            'Request %s %s%s with params=%s', method, self._base_url, url, params
-        )
-        r = requests.request(
-            method,
-            f'{self._base_url}{url}',
-            headers=self._headers(),
-            params=params,
-            stream=stream,
-            files=files,
-        )
-        self._log.debug('Response is %s %s', r.status_code, r.reason)
-        r.raise_for_status()
-        return r
-
-    def _get(
-        self,
-        url: str,
-        params: ParamsType | None = None,
-        *,
-        stream: bool = False,
-    ) -> requests.Response:
-        return self._request('GET', url, params, stream=stream)
-
-    def _post(
-        self,
-        url: str,
-        params: ParamsType | None = None,
-        *,
-        stream: bool = False,
-        files: FilesType | None = None,
-    ) -> requests.Response:
-        return self._request('POST', url, params, stream=stream, files=files)
-
-    def _delete(
-        self,
-        url: str,
-        params: ParamsType | None = None,
-        *,
-        stream: bool = False,
-    ) -> requests.Response:
-        return self._request('DELETE', url, params, stream=stream)
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
@@ -711,7 +644,7 @@ class ChurchToolsAPI:
         # We do need the authentication headers even for "public" URLs, as otherwise
         # we get back status code 200 OK but a HTML page telling us that we do not
         # have sufficient permissions.
-        return requests.get(full_url, headers=self._headers(), stream=True)
+        return requests.get(full_url, headers=self._headers, stream=True)
 
     def delete_event_file(self, event: EventFull, file: EventFile) -> None:
         msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'

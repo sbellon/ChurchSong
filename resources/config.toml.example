@@ -98,3 +98,9 @@ bgcolor = 'clGrey'
 [SongBeamer.Color.File]
 color = 'clBlack'
 bgcolor = 'clGrey'
+
+[Immich]
+base_url = "https://IMMICH.YOUR-DOMAIN"
+login_token = "YOUR_LOGIN_TOKEN"
+include_globbings = ['*.jpeg', '*.jpg', '*.mp4', '*.mov', '*.heic']
+exclude_globbings = ['*birthday*']
