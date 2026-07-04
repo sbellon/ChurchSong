@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- upload event media files matching configured globbings to an Immich server instance
+
 ### Changed
 - updated external dependencies
   (certifi, prettytable, pypdf, reportlab, textual, tzlocal, typer)
