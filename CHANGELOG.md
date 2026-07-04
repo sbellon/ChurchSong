@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.12.1 (2026-07-04)
 
 ### Added
 - option to automatically tag upload media files in Immich
