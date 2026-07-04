@@ -73,6 +73,20 @@ class BaseAPI:
             'GET', url, params, data=data, json=json, files=files, stream=stream
         )
 
+    def _put(  # noqa: PLR0913
+        self,
+        url: str,
+        params: ParamsType | None = None,
+        *,
+        data: DataType | None = None,
+        json: JsonObject | None = None,
+        files: FilesType | None = None,
+        stream: bool = False,
+    ) -> requests.Response:
+        return self._request(
+            'PUT', url, params, data=data, json=json, files=files, stream=stream
+        )
+
     def _post(  # noqa: PLR0913
         self,
         url: str,

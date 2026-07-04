@@ -66,7 +66,7 @@ content = """
 """
 
 [[SongBeamer.Slides.Insert]]
-keywords = ['Appointments', 'Dates', 'News']
+keywords = ["Appointments", "Dates", "News"]
 content = """
     item
       Caption = 'Appointments'
@@ -76,31 +76,32 @@ content = """
 """
 
 [SongBeamer.Color.Service]
-color = 'clBlack'
-bgcolor = 'clAqua'
+color = "clBlack"
+bgcolor = "clAqua"
 
 [SongBeamer.Color.Header]
-color = 'clBlack'
-bgcolor = 'clRed'
+color = "clBlack"
+bgcolor = "clRed"
 
 [SongBeamer.Color.Normal]
-color = 'clBlack'
-bgcolor = 'clYellow'
+color = "clBlack"
+bgcolor = "clYellow"
 
 [SongBeamer.Color.Song]
-color = 'clBlue'
-bgcolor = 'clGrey'
+color = "clBlue"
+bgcolor = "clGrey"
 
 [SongBeamer.Color.Link]
-color = 'clBlack'
-bgcolor = 'clGrey'
+color = "clBlack"
+bgcolor = "clGrey"
 
 [SongBeamer.Color.File]
-color = 'clBlack'
-bgcolor = 'clGrey'
+color = "clBlack"
+bgcolor = "clGrey"
 
 [Immich]
 base_url = "https://IMMICH.YOUR-DOMAIN"
 login_token = "YOUR_LOGIN_TOKEN"
-include_globbings = ['*.jpeg', '*.jpg', '*.mp4', '*.mov', '*.heic']
-exclude_globbings = ['*birthday*']
+include_globbings = ["*.jpeg", "*.jpg", "*.mp4", "*.mov", "*.heic"]
+exclude_globbings = ["*birthday*"]
+tags = ["Upload_By_ChurchSong"]

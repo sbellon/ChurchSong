@@ -14,7 +14,7 @@ import pydantic
 import requests
 import requests.exceptions
 
-from churchsong.utils import CliError, JsonObject
+from churchsong.utils import CliError, JsonObject, JsonValue
 from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
@@ -37,6 +37,19 @@ class AssetUploadAction(enum.StrEnum):
 class AssetRejectReason(enum.StrEnum):
     DUPLICATE = 'duplicate'
     UNSUPPORTED_FORMAT = 'unsupported-format'
+
+
+class TagResponse(BaseModel):
+    id: str
+    name: str
+
+
+class TagResponseResults(pydantic.RootModel[list[TagResponse]]):
+    pass
+
+
+class AssetMediaResponse(BaseModel):
+    id: str
 
 
 class AssetBulkUploadCheckResult(BaseModel):
@@ -63,13 +76,15 @@ class ImmichAPI(BaseAPI):
             }
             self._include_globbings = config.immich.include_globbings
             self._exclude_globbings = config.immich.exclude_globbings
-            self._permissions = self._fetch_permissions()
 
+            self._permissions = self._fetch_permissions()
             # Assert permissions that are required for basic functionality of the app.
             # Additional permissions are queried on-demand and other functionality
             # may be disabled if permissions are missing (like nicknames or appointment
             # slides).
             self._assert_permissions('asset.upload')
+
+            self._tag_ids = self._get_tag_ids(config.immich.tags)
         else:
             self._enable_immich = False
 
@@ -107,6 +122,46 @@ class ImmichAPI(BaseAPI):
             self._log.error(msg)
             raise CliError(msg) from None
 
+    def _has_permissions(self, required_perms: list[str]) -> bool:
+        return not self._get_missing_permissions(*required_perms)
+
+    def _create_tag(self, tagname: str) -> str | None:
+        if not self._has_permissions(['tag.create']):
+            self._log.warning(
+                f'Permission "tag.create" missing, skipping tag "{tagname}"'
+            )
+            return None
+        r = self._post('/api/tags', json={'name': tagname})
+        return TagResponse(**r.json()).id
+
+    def _get_tag_ids(self, tagnames: list[str]) -> list[JsonValue]:
+        if not self._has_permissions(['tag.read']):
+            self._log.warning('Permission "tag.read" missing, skipping all tagging')
+            return []
+        r = self._get('/api/tags')
+        tag2id = {
+            tag.name: tag.id for tag in TagResponseResults.model_validate(r.json()).root
+        }
+        return [
+            tag_id
+            for tagname in tagnames
+            if (
+                (tag_id := tag2id.get(tagname)) is not None
+                or (tag_id := self._create_tag(tagname)) is not None
+            )
+        ]
+
+    def _tag_asset(self, asset_id: str) -> None:
+        if not self._has_permissions(['tag.asset']):
+            self._log.warning('Permission "tag.asset" missing, skipping all tagging')
+        payload: JsonObject = {
+            'assetIds': [asset_id],
+            'tagIds': self._tag_ids,
+        }
+        r = self._put('/api/tags/assets', json=payload)
+        if not r.ok:
+            self._log.warning(f'Tagging asset "{asset_id}" failed')
+
     def _get_sha1_checksum(self, filename: pathlib.Path) -> str:
         sha1 = hashlib.sha1(usedforsecurity=False)
         with filename.open('rb') as fd:
@@ -127,7 +182,7 @@ class ImmichAPI(BaseAPI):
         result = AssetBulkUploadCheckResults(**r.json())
         return result.results[0].action == AssetUploadAction.REJECT
 
-    def _upload_media_file(self, filename: pathlib.Path) -> None:
+    def _upload_media_file(self, filename: pathlib.Path) -> str | None:
         msg = f'Uploading file "{filename.name}" to Immich'
         mime_type, _ = mimetypes.guess_file_type(filename)
         stat = filename.stat()
@@ -144,8 +199,10 @@ class ImmichAPI(BaseAPI):
         with filename.open('rb') as fd:
             files = {'assetData': (filename.name, fd, mime_type or 'image/jpeg')}
             r = self._post('/api/assets', data=data, files=files)
-            if not r.ok:
-                self._log.error(f'{msg} failed')
+            if r.ok:
+                return AssetMediaResponse(**r.json()).id
+        self._log.error(f'{msg} failed')
+        return None
 
     def upload_media_file(self, filename: str) -> None:
         if (
@@ -153,11 +210,16 @@ class ImmichAPI(BaseAPI):
             and any(incl.match(filename) for incl in self._include_globbings)
             and not any(excl.match(filename) for excl in self._exclude_globbings)
         ):
-            fn = pathlib.Path(filename)
-            if not self._media_file_exists(fn):
-                self._log.info(f'Uploading new media file "{fn.name}" to Immich')
-                self._upload_media_file(fn)
-            else:
-                self._log.info(
-                    f'Skipping upload of existing file "{fn.name}" to Immich'
-                )
+            try:
+                fn = pathlib.Path(filename)
+                if not self._media_file_exists(fn):
+                    self._log.info(f'Uploading new media file "{fn.name}" to Immich')
+                    if asset_id := self._upload_media_file(fn):
+                        self._tag_asset(asset_id)
+                else:
+                    self._log.info(
+                        f'Skipping upload of existing file "{fn.name}" to Immich'
+                    )
+            except requests.RequestException as e:
+                # Keep flying as the Immich upload should not crash an event.
+                self._log.error(e)

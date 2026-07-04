@@ -195,6 +195,7 @@ class ImmichConfig(BaseModel):
         compile_glob(x) for x in ('*.jpg', '*.jpeg', '*.mp4', '*.mov', '*.heic')
     ]
     exclude_globbings: list[Globbing] = []
+    tags: list[str] = []
 
 
 class TomlConfig(BaseModel):
