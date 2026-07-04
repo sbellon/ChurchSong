@@ -1,6 +1,9 @@
 # ChangeLog
 
-## Unreleased
+## 0.12.0 (2026-07-04)
+
+### Added
+- upload event media files matching configured globbings to an Immich server instance
 
 ### Changed
 - updated external dependencies
