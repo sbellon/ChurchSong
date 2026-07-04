@@ -7,6 +7,7 @@ import enum
 import hashlib
 import mimetypes
 import pathlib
+import sys
 import typing
 
 import pydantic
@@ -129,12 +130,15 @@ class ImmichAPI(BaseAPI):
     def _upload_media_file(self, filename: pathlib.Path) -> None:
         msg = f'Uploading file "{filename.name}" to Immich'
         mime_type, _ = mimetypes.guess_file_type(filename)
+        stat = filename.stat()
         data = {
             'fileCreatedAt': datetime.datetime.fromtimestamp(
-                filename.stat().st_ctime, datetime.UTC
+                stat.st_birthtime if sys.platform == 'win32' else stat.st_ctime,
+                datetime.UTC,
             ).isoformat(),
             'fileModifiedAt': datetime.datetime.fromtimestamp(
-                filename.stat().st_mtime, datetime.UTC
+                stat.st_mtime,
+                datetime.UTC,
             ).isoformat(),
         }
         with filename.open('rb') as fd:
