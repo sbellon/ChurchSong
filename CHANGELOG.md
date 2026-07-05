@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- internally refactored the fine-grained permission checks of optional permissions
+
 ## 0.12.1 (2026-07-04)
 
 ### Added

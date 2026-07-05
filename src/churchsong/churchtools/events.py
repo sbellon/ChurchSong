@@ -215,7 +215,9 @@ class SongSheets:
     ) -> None:
         self.cta = cta
         self._event = event
-        self._enabled = enabled and cta.has_permissions(['churchservice:edit events'])
+        self._enabled = enabled and cta.has_permissions(
+            ['churchservice:edit events'], 'song sheet generation'
+        )
         chords_name = _('Song Sheets Chords')
         leads_name = _('Song Sheets Leads')
         self._chords_file = f'{chords_name}.pdf'

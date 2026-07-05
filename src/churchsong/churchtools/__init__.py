@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import contextlib
 import datetime
 import enum
 import io
@@ -462,23 +461,15 @@ class ChurchToolsAPI(BaseAPI):
             self._log.error(msg)
             raise CliError(msg) from None
 
-    @contextlib.contextmanager
-    def permissions(
-        self, reason: str, required_perms: list[str]
-    ) -> typing.Generator[None]:
-        if missing_perms := self._get_missing_permissions(*required_perms):
+    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
+        missing_perms = self._get_missing_permissions(*required_perms)
+        if missing_perms and log_reason:
             self._log.warning(
-                f'Skipping {reason} due to missing permissions: {{}}'.format(
+                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
                     ', '.join(f'"{perm}"' for perm in missing_perms)
                 )
             )
-        try:
-            yield
-        finally:
-            pass
-
-    def has_permissions(self, required_perms: list[str]) -> bool:
-        return not self._get_missing_permissions(*required_perms)
+        return not missing_perms
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
@@ -547,18 +538,19 @@ class ChurchToolsAPI(BaseAPI):
             if (
                 e.response is not None
                 and e.response.status_code == requests.codes['forbidden']
-            ):
-                with self.permissions('nickname', ['churchdb:view alldata']):
-                    return None
-            raise
-        else:
-            result = PersonsData(**r.json())
-            if result.data.nickname is None:
-                self._log.warning(
-                    'Skipping nickname due to missing permission: '
-                    '"churchdb:security level person"'
+                and not self.has_permissions(
+                    ['churchdb:view alldata'], 'nickname lookup'
                 )
-            return result.data
+            ):
+                return None
+            raise
+        result = PersonsData(**r.json())
+        if result.data.nickname is None:
+            self._log.warning(
+                'Skipping nickname due to missing permission: '
+                '"churchdb:security level person"'
+            )
+        return result.data
 
     def get_appointments(
         self, event: EventShort
@@ -647,20 +639,24 @@ class ChurchToolsAPI(BaseAPI):
         return requests.get(full_url, headers=self._headers, stream=True)
 
     def delete_event_file(self, event: EventFull, file: EventFile) -> None:
+        if not self.has_permissions(
+            ['churchservice:edit events'], 'song sheet deletion'
+        ):
+            return
         msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'
-        with self.permissions('delete song sheet', ['churchservice:edit events']):
-            self._log.debug(msg)
-            r = self._delete(f'/api/files/{file.domain_identifier}')
-            if not r.ok:
-                self._log.warning(f'{msg} failed')
+        self._log.debug(msg)
+        r = self._delete(f'/api/files/{file.domain_identifier}')
+        if not r.ok:
+            self._log.warning(f'{msg} failed')
 
     def upload_event_file(
         self, event: EventFull, filename: str, content: bytes
     ) -> None:
+        if not self.has_permissions(['churchservice:edit events'], 'song sheet upload'):
+            return
         msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
-        with self.permissions('upload song sheet', ['churchservice:edit events']):
-            self._log.debug(msg)
-            files = {'files[]': (filename, io.BytesIO(content), 'application/pdf')}
-            r = self._post(f'/api/files/service/{event.id}', files=files)
-            if not r.ok:
-                self._log.warning(f'{msg} failed')
+        self._log.debug(msg)
+        files = {'files[]': (filename, io.BytesIO(content), 'application/pdf')}
+        r = self._post(f'/api/files/service/{event.id}', files=files)
+        if not r.ok:
+            self._log.warning(f'{msg} failed')
