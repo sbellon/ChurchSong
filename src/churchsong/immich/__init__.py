@@ -122,21 +122,24 @@ class ImmichAPI(BaseAPI):
             self._log.error(msg)
             raise CliError(msg) from None
 
-    def _has_permissions(self, required_perms: list[str]) -> bool:
-        return not self._get_missing_permissions(*required_perms)
+    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
+        missing_perms = self._get_missing_permissions(*required_perms)
+        if missing_perms and log_reason:
+            self._log.warning(
+                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
+                    ', '.join(f'"{perm}"' for perm in missing_perms)
+                )
+            )
+        return not missing_perms
 
     def _create_tag(self, tagname: str) -> str | None:
-        if not self._has_permissions(['tag.create']):
-            self._log.warning(
-                f'Permission "tag.create" missing, skipping tag "{tagname}"'
-            )
+        if not self.has_permissions(['tag.create'], 'tag creation'):
             return None
         r = self._post('/api/tags', json={'name': tagname})
         return TagResponse(**r.json()).id
 
     def _get_tag_ids(self, tagnames: list[str]) -> list[JsonValue]:
-        if not self._has_permissions(['tag.read']):
-            self._log.warning('Permission "tag.read" missing, skipping all tagging')
+        if not self.has_permissions(['tag.read'], 'tag enumeration'):
             return []
         r = self._get('/api/tags')
         tag2id = {
@@ -152,8 +155,8 @@ class ImmichAPI(BaseAPI):
         ]
 
     def _tag_asset(self, asset_id: str) -> None:
-        if not self._has_permissions(['tag.asset']):
-            self._log.warning('Permission "tag.asset" missing, skipping all tagging')
+        if not self.has_permissions(['tag.asset'], 'asset tagging'):
+            return
         payload: JsonObject = {
             'assetIds': [asset_id],
             'tagIds': self._tag_ids,
