@@ -4,6 +4,7 @@
 
 ### Changed
 - internally refactored the fine-grained permission checks of optional permissions
+- updated external dependencies (platformdirs, typer)
 
 ## 0.12.1 (2026-07-04)
 

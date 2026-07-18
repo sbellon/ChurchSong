@@ -118,7 +118,7 @@ def verify(  # noqa: PLR0913
         list[str],
         typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--exclude_tags',
-            metavar='TAG,TAG,...',
+            metavar='<tag,tag,...>',
             default_factory=list,
             show_default='no tags',
             help='Song tags that should be excluded from verification.',
@@ -128,7 +128,7 @@ def verify(  # noqa: PLR0913
         list[str],
         typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--include_tags',
-            metavar='TAG,TAG,...',
+            metavar='<tag,tag,...>',
             default_factory=list,
             show_default='all tags',
             help='Song tags that should be included in verification.',
@@ -138,7 +138,7 @@ def verify(  # noqa: PLR0913
         list[str],
         typer.Option(  # pyright: ignore[reportUnknownMemberType]
             '--execute_checks',
-            metavar='CHECK,CHECK,...',
+            metavar='<check,check,...>',
             default_factory=list,
             show_default=','.join(ChurchToolsSongVerification.available_checks()),
             parser=ChurchToolsSongVerification.validate_checks,
@@ -177,7 +177,7 @@ def usage(
     year_range: typing.Annotated[
         DateRange,
         typer.Argument(  # pyright: ignore[reportUnknownMemberType]
-            metavar='[YEAR|YEAR-YEAR]',
+            metavar='[year|year-year]',
             parser=parse_year_range,
             default_factory=lambda: '',
             show_default=f'{now():%Y}',
