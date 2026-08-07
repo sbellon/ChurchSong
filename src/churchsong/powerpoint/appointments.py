@@ -29,7 +29,7 @@ class TableType(enum.StrEnum):
 class TableFiller:
     type: typing.ClassVar[str]
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         config: Configuration,
         table_type: TableType,

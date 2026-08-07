@@ -28,7 +28,7 @@ if typing.TYPE_CHECKING:
 
 
 class CustomTextColumn(TextColumn):
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         text_format: str,
         max_description_length: int | None = None,

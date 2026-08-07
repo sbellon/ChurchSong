@@ -4,7 +4,7 @@
 
 ### Changed
 - internally refactored the fine-grained permission checks of optional permissions
-- updated external dependencies (certifi, platformdirs, typer)
+- updated external dependencies (certifi, packaging, platformdirs, pypdf, typer)
 
 ## 0.12.1 (2026-07-04)
 
