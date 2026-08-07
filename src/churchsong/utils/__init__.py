@@ -20,7 +20,7 @@ def expand_envvars(text: str) -> str:
 
 
 type JsonObject = dict[str, 'JsonValue']
-type JsonValue = None | bool | int | float | str | list['JsonValue'] | JsonObject
+type JsonValue = bool | int | float | str | list['JsonValue'] | JsonObject | None
 
 
 def recursive_expand_envvars[T: JsonValue](data: T) -> T:

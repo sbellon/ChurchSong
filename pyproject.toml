@@ -78,6 +78,9 @@ ignore = [
     "FBT002", # boolean-default-value-positional-argument
 ]
 
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "(?i)SPDX-FileCopyrightText:"
+
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 

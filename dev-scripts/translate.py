@@ -1,4 +1,9 @@
 #!/usr/bin/env -S uv run --script
+#
+# SPDX-FileCopyrightText: 2024-2025 Stefan Bellon
+#
+# SPDX-License-Identifier: MIT
+#
 # /// script
 # requires-python = ">=3.13"
 # dependencies = ['babel']
