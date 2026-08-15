@@ -298,8 +298,8 @@ def _handle_agenda(
                 'appointment slides generation',
             )
         ):
-            ppa = PowerPointAppointments(config)
-            ppa.create(cta.get_appointments(event), event.start_date)
+            ppa = PowerPointAppointments(config, event.start_date)
+            ppa.create(cta.get_appointments(event))
             ppa.save()
 
     if selection.schedule:

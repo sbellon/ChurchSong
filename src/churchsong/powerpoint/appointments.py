@@ -27,27 +27,25 @@ class TableType(enum.StrEnum):
 
 
 class TableFiller:
-    type: typing.ClassVar[str]
-
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(
         self,
         config: Configuration,
         table_type: TableType,
-        regular_datetime_format: str,
-        allday_datetime_format: str,
-        multiday_datetime_format: str,
-        subtitle_prio: list[CalendarSubtitleField],
+        one_week_later: datetime.datetime,
     ) -> None:
         self._log = config.log
+        self._appointments_config = config.songbeamer.powerpoint.appointments
+        self._table_type = table_type
+        self._one_week_later = one_week_later
+        self._subtitle_prio = (
+            self._appointments_config.weekly.subtitle_priority
+            if self._table_type == TableType.WEEKLY
+            else self._appointments_config.irregular.subtitle_priority
+        )
         self._table = None
         self._font = None
         self._total_rows = 0
         self._current_row = 0
-        self._table_type = table_type
-        self._regular_fmt = regular_datetime_format
-        self._allday_fmt = allday_datetime_format
-        self._multiday_fmt = multiday_datetime_format
-        self._subtitle_prio = subtitle_prio
         self._unset_table_warning = False
 
     @property
@@ -110,15 +108,30 @@ class TableFiller:
                 )
 
     def _date_and_time(self, appt: CalendarAppointmentBase) -> str:
+        # Use local timezone for display purposes.
         local_start = appt.start_date.astimezone()
         local_end = appt.end_date.astimezone()
-        return (
-            f'{local_start:{self._multiday_fmt}} - {local_end:{self._multiday_fmt}}'
-            if (local_start.month, local_start.day) != (local_end.month, local_end.day)
-            else f'{local_start:{self._allday_fmt}}'
-            if appt.all_day
-            else f'{local_start:{self._regular_fmt}}'
+        # Use 'weekly' format for appointments within the next week (on weekly
+        # table as well as on irregular table), 'irregular' format for appointments
+        # on irregular table, further away than a week.
+        fmt_cfg = (
+            self._appointments_config.weekly
+            if appt.start_date < self._one_week_later
+            else self._appointments_config.irregular
         )
+        # Format date/time according to the following format strings with priority:
+        #  1. multiday, if start != end
+        #  2. allday, if marked allday
+        #  3. regular (with time)
+        if (local_start.month, local_start.day) != (local_end.month, local_end.day):
+            return (
+                f'{local_start:{fmt_cfg.multiday_datetime_format}}'
+                ' - '
+                f'{local_end:{fmt_cfg.multiday_datetime_format}}'
+            )
+        if appt.all_day:
+            return f'{local_start:{fmt_cfg.allday_datetime_format}}'
+        return f'{local_start:{fmt_cfg.regular_datetime_format}}'
 
     def _subtitle(self, appt: CalendarAppointmentBase) -> str:
         for subtitle in self._subtitle_prio:
@@ -177,26 +190,23 @@ class TableFiller:
 
 
 class PowerPointAppointments(PowerPointBase):
-    def __init__(self, config: Configuration) -> None:
+    def __init__(
+        self, config: Configuration, event_start_date: datetime.datetime
+    ) -> None:
         config.log.info('Creating PowerPoint appointments slides')
         super().__init__(
             config, config.songbeamer.powerpoint.appointments.template_pptx
         )
+        self._one_week_later = event_start_date + datetime.timedelta(days=8)
         self._weekly_table = TableFiller(
             config=config,
             table_type=TableType.WEEKLY,
-            regular_datetime_format=config.songbeamer.powerpoint.appointments.weekly.regular_datetime_format,
-            allday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.allday_datetime_format,
-            multiday_datetime_format=config.songbeamer.powerpoint.appointments.weekly.multiday_datetime_format,
-            subtitle_prio=config.songbeamer.powerpoint.appointments.weekly.subtitle_priority,
+            one_week_later=self._one_week_later,
         )
         self._irregular_table = TableFiller(
             config=config,
             table_type=TableType.IRREGULAR,
-            regular_datetime_format=config.songbeamer.powerpoint.appointments.irregular.regular_datetime_format,
-            allday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.allday_datetime_format,
-            multiday_datetime_format=config.songbeamer.powerpoint.appointments.irregular.multiday_datetime_format,
-            subtitle_prio=config.songbeamer.powerpoint.appointments.irregular.subtitle_priority,
+            one_week_later=self._one_week_later,
         )
 
     def _setup_tables(self) -> None:
@@ -219,21 +229,16 @@ class PowerPointAppointments(PowerPointBase):
                         case _:
                             pass
 
-    def create(
-        self,
-        appointments: typing.Iterable[CalendarAppointmentBase],
-        from_date: datetime.datetime,
-    ) -> None:
+    def create(self, appointments: typing.Iterable[CalendarAppointmentBase]) -> None:
         if not self._prs:
             return
 
         self._setup_tables()
 
         # Walk through the appointments and put them in the appropriate table.
-        next_8days = from_date + datetime.timedelta(days=8)
         for appt in appointments:
             match (appt.repeat_id, appt.repeat_frequency):
-                case (RepeatId.WEEKLY, 1) if appt.start_date < next_8days:
+                case (RepeatId.WEEKLY, 1) if appt.start_date < self._one_week_later:
                     self._weekly_table.add(appt)
                 case (RepeatId.WEEKLY, 1):
                     pass  # ignore weekly appointments more than one week away
