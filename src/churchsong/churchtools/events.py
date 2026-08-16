@@ -8,6 +8,7 @@ import datetime
 import enum
 import io
 import os
+import pathlib
 import re
 import typing
 from collections import defaultdict
@@ -17,6 +18,7 @@ import reportlab.lib.colors
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 import reportlab.platypus
+import requests
 
 from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
 from churchsong.utils.progress import Progress
@@ -301,6 +303,8 @@ class ChurchToolsEvent:
             filename = match.group(1).encode('latin1').decode('utf-8')
         else:
             filename = name
+        if (filename := pathlib.PureWindowsPath(filename).name) in ('', '.', '..'):
+            filename = 'unnamed'
         (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
         filename = self._output_dir / subfolder / filename
         if overwrite:
@@ -339,7 +343,7 @@ class ChurchToolsEvent:
             last_modified=item.meta.modified_date,
         )
 
-    def download_agenda_items(  # noqa: C901
+    def download_agenda_items(  # noqa: C901, PLR0912, PLR0915
         self,
         *,
         download_files: bool = True,
@@ -371,67 +375,78 @@ class ChurchToolsEvent:
             total=len(self._event.event_files) + len(self._agenda.items),
         ) as progress:
             for item in self._event.event_files:
-                match item.domain_type:
-                    case EventFileDomainType.FILE:
-                        with do_progress(item):
-                            if song_sheets.delete_event_file(item):
-                                continue
-                            filename = self._download_file(
-                                item.title,
-                                item.frontend_url,
-                                Subfolder.FILES,
-                                overwrite=download_files,
-                            )
-                            immich_upload.upload_media_file(filename)
-                            event_file = Item(ItemType.FILE, item.title, filename)
-                    case EventFileDomainType.LINK:
-                        with do_progress(item):
-                            event_file = Item(
-                                ItemType.LINK, item.title, item.frontend_url
-                            )
-                    case _:  # pyright: ignore[reportUnnecessaryComparison]
-                        with do_progress(item):
-                            self._log.warning(
-                                f'Unexpected event file type: {item.domain_type}'
-                            )
-                        continue
-                agenda_items.append(event_file)
-            for item in self._agenda.items:
-                match item.type:
-                    case EventAgendaItemType.HEADER:
-                        with do_progress(item):
-                            agenda_item = Item(ItemType.HEADER, item.title)
-                    case EventAgendaItemType.TEXT:
-                        with do_progress(item):
-                            agenda_item = Item(ItemType.NORMAL, item.title)
-                    case EventAgendaItemType.SONG:
-                        if not item.song:
-                            self._log.warning('Song event item without song data')
-                            continue
-                        files = self._song_files(item)
-                        # item.title may not be the song title itself,
-                        # so rather use item.song.title instead.
-                        item.title = files.title
-                        with do_progress(item):
-                            filename = (
-                                self._download_file(
+                try:
+                    match item.domain_type:
+                        case EventFileDomainType.FILE:
+                            with do_progress(item):
+                                if song_sheets.delete_event_file(item):
+                                    continue
+                                filename = self._download_file(
                                     item.title,
-                                    files.sng_file.file_url,
-                                    Subfolder.SONGS,
-                                    overwrite=download_songs,
+                                    item.frontend_url,
+                                    Subfolder.FILES,
+                                    overwrite=download_files,
                                 )
-                                if files.sng_file
-                                else None
-                            )
-                            agenda_item = Item(ItemType.SONG, item.title, filename)
-                            song_sheets.download_and_append(files)
-                    case _:  # pyright: ignore[reportUnnecessaryComparison]
-                        with do_progress():
-                            self._log.warning(
-                                f'Unexpected event item type: {item.type}'
-                            )
-                        continue
-                agenda_items.append(agenda_item)
+                                immich_upload.upload_media_file(filename)
+                                event_file = Item(ItemType.FILE, item.title, filename)
+                        case EventFileDomainType.LINK:
+                            with do_progress(item):
+                                event_file = Item(
+                                    ItemType.LINK, item.title, item.frontend_url
+                                )
+                        case _:  # pyright: ignore[reportUnnecessaryComparison]
+                            with do_progress(item):
+                                self._log.warning(
+                                    f'Unexpected event file type: {item.domain_type}'
+                                )
+                            continue
+                    agenda_items.append(event_file)
+                except requests.exceptions.HTTPError:
+                    self._log.warning(f'Failed to download event file for {item.title}')
+            for item in self._agenda.items:
+                try:
+                    match item.type:
+                        case EventAgendaItemType.HEADER:
+                            with do_progress(item):
+                                agenda_item = Item(ItemType.HEADER, item.title)
+                        case EventAgendaItemType.TEXT:
+                            with do_progress(item):
+                                agenda_item = Item(ItemType.NORMAL, item.title)
+                        case EventAgendaItemType.SONG:
+                            if not item.song:
+                                with do_progress(item):
+                                    self._log.warning(
+                                        'Song event item without song data'
+                                    )
+                                continue
+                            files = self._song_files(item)
+                            # item.title may not be the song title itself,
+                            # so rather use item.song.title instead.
+                            item.title = files.title
+                            with do_progress(item):
+                                filename = (
+                                    self._download_file(
+                                        item.title,
+                                        files.sng_file.file_url,
+                                        Subfolder.SONGS,
+                                        overwrite=download_songs,
+                                    )
+                                    if files.sng_file
+                                    else None
+                                )
+                                agenda_item = Item(ItemType.SONG, item.title, filename)
+                                song_sheets.download_and_append(files)
+                        case _:  # pyright: ignore[reportUnnecessaryComparison]
+                            with do_progress(item):
+                                self._log.warning(
+                                    f'Unexpected event item type: {item.type}'
+                                )
+                            continue
+                    agenda_items.append(agenda_item)
+                except requests.exceptions.HTTPError:
+                    self._log.warning(
+                        f'Failed to download agenda file for {item.title}'
+                    )
         song_sheets.upload()
         return agenda_items
 

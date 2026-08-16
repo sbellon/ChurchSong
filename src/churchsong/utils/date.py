@@ -56,9 +56,13 @@ def parse_year_range(year_str: str) -> DateRange:
     )
 
 
-def parse_datetime(date_str: str) -> datetime.datetime | None:
+def parse_datetime_or_all(date_str: str) -> datetime.datetime | None:
     if date_str.lower() == 'all':
         return None
+    return parse_datetime(date_str)
+
+
+def parse_datetime(date_str: str) -> datetime.datetime:
     date = datetime.datetime.fromisoformat(date_str)
     if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
         # convert offset-naive datetime object to offset-aware

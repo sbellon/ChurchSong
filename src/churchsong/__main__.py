@@ -24,7 +24,13 @@ from churchsong.powerpoint.appointments import PowerPointAppointments
 from churchsong.powerpoint.services import PowerPointServices
 from churchsong.songbeamer import SongBeamer
 from churchsong.utils import CliError, flattened_split
-from churchsong.utils.date import DateRange, now, parse_datetime, parse_year_range
+from churchsong.utils.date import (
+    DateRange,
+    now,
+    parse_datetime,
+    parse_datetime_or_all,
+    parse_year_range,
+)
 
 app = typer.Typer(
     add_completion=False,  # disable tab completion
@@ -107,7 +113,7 @@ def verify(  # noqa: PLR0913
     date: typing.Annotated[
         datetime.datetime,
         typer.Argument(  # pyright: ignore[reportUnknownMemberType]
-            parser=parse_datetime,
+            parser=parse_datetime_or_all,
             default_factory=lambda: now().isoformat(),
             show_default=f'{now():%Y-%m-%d}',
             help='Verify only songs of next event >= DATE (YYYY-MM-DD), or "all".',

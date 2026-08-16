@@ -16,7 +16,7 @@ if sys.platform == 'win32':
 
     def is_songbeamer_running() -> bool:
         return any(
-            proc.name() == 'SongBeamer.exe'
+            proc.info['name'] == 'SongBeamer.exe'
             for proc in psutil.process_iter(['name'])  # pyright: ignore[reportUnknownMemberType]
         )
 

@@ -66,6 +66,7 @@ class AssetBulkUploadCheckResults(BaseModel):
 
 class ImmichAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
+        super().__init__()
         self._log = config.log
         if config.immich:
             self._enable_immich = True
@@ -172,7 +173,7 @@ class ImmichAPI(BaseAPI):
                 sha1.update(chunk)
         return sha1.hexdigest()
 
-    def _media_file_exists(self, filename: pathlib.Path) -> bool:
+    def _media_file_exists_or_rejected(self, filename: pathlib.Path) -> bool:
         payload: JsonObject = {
             'assets': [
                 {
@@ -183,7 +184,19 @@ class ImmichAPI(BaseAPI):
         }
         r = self._post('/api/assets/bulk-upload-check', json=payload)
         result = AssetBulkUploadCheckResults(**r.json())
-        return result.results[0].action == AssetUploadAction.REJECT
+        if result.results[0].action == AssetUploadAction.REJECT:
+            fn = filename.name
+            match result.results[0].reason:
+                case AssetRejectReason.DUPLICATE:
+                    self._log.info(f'Skipping upload of existing file "{fn}" to Immich')
+                case AssetRejectReason.UNSUPPORTED_FORMAT:
+                    self._log.info(
+                        f'Skipping upload of unsupported file "{fn}" to Immich'
+                    )
+                case _:
+                    self._log.info(f'Skipping upload of file "{fn}" to Immich')
+            return True
+        return False
 
     def _upload_media_file(self, filename: pathlib.Path) -> str | None:
         msg = f'Uploading file "{filename.name}" to Immich'
@@ -215,14 +228,14 @@ class ImmichAPI(BaseAPI):
         ):
             try:
                 fn = pathlib.Path(filename)
-                if not self._media_file_exists(fn):
+                if not self._media_file_exists_or_rejected(fn):
                     self._log.info(f'Uploading new media file "{fn.name}" to Immich')
                     if asset_id := self._upload_media_file(fn):
                         self._tag_asset(asset_id)
-                else:
-                    self._log.info(
-                        f'Skipping upload of existing file "{fn.name}" to Immich'
-                    )
-            except requests.RequestException as e:
+            except (
+                requests.RequestException,
+                pydantic.ValidationError,
+                IndexError,
+            ) as e:
                 # Keep flying as the Immich upload should not crash an event.
                 self._log.error(e)

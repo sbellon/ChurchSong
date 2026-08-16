@@ -53,6 +53,9 @@ class PowerPointServices(PowerPointBase):
                 'pptx.shapes.placeholder.BasePlaceholder',
                 getattr(ph, '_base_placeholder', None),
             )
+            if not base_placeholder:
+                self._log.warning('Skipping unrecognized placeholder')
+                continue
             service_name = base_placeholder.name
             sorted_persons = sorted(
                 service_leads[service_name], key=lambda p: p.fullname

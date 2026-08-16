@@ -204,10 +204,12 @@ class AgendaItem:
     def parse(cls, content: str) -> list[typing.Self]:
         return [
             cls(
-                caption=cls._decode(match.group('caption')),
-                color=match.group('color'),
-                bgcolor=match.group('bgcolor'),
-                filename=cls._decode(fn) if (fn := match.group('filename')) else None,
+                caption=expand_envvars(cls._decode(match.group('caption'))),
+                color=expand_envvars(match.group('color')),
+                bgcolor=expand_envvars(bg) if (bg := match.group('bgcolor')) else None,
+                filename=expand_envvars(cls._decode(fn))
+                if (fn := match.group('filename'))
+                else None,
             )
             for match in re.finditer(cls._RE_AGENDA_ITEM, content)
         ]
@@ -221,7 +223,7 @@ class AgendaItem:
         if self.filename:
             result += f'\n      FileName = {self._encode(self.filename)}'
         result += '\n    end'
-        return expand_envvars(result)
+        return result
 
 
 class Agenda:
