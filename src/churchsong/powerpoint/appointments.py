@@ -55,6 +55,7 @@ class TableFiller:
     def set_table(self, table: pptx.table.Table) -> None:
         if self._table:
             self._log.warning('%s already set, not setting again', self._table_type)
+            return
         self._table = table
         self._total_rows = len(table.rows)
         self._current_row = 0

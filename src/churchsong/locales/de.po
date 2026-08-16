@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ChurchSong 0.6.3\n"
 "Report-Msgid-Bugs-To: https://github.com/sbellon/ChurchSong/issues\n"
-"POT-Creation-Date: 2026-06-07 16:17+0200\n"
+"POT-Creation-Date: 2026-08-15 15:52+0200\n"
 "PO-Revision-Date: 2025-04-04 18:20+0200\n"
 "Last-Translator: Stefan Bellon\n"
 "Language: de\n"
@@ -54,39 +54,40 @@ msgid "Download event files from ChurchTools"
 msgstr "Lade Event-Dateien aus ChurchTools herunter"
 
 #: src/churchsong/interactivescreen.py:288
-msgid "Create PointPoint slides from ChurchTools data"
+#, fuzzy
+msgid "Create PowerPoint slides from ChurchTools data"
 msgstr "Erzeuge PowerPoint-Folien gemäß Daten aus ChurchTools"
 
 #: src/churchsong/interactivescreen.py:291
 msgid "Create and upload PDF song sheets to ChurchTools"
 msgstr "Erzeuge PDF Liedblätter und lade sie zu ChurchTools hoch"
 
-#: src/churchsong/churchtools/events.py:218
+#: src/churchsong/churchtools/events.py:221
 msgid "Song Sheets Chords"
 msgstr "Liedblatt Akkorde"
 
-#: src/churchsong/churchtools/events.py:219
+#: src/churchsong/churchtools/events.py:222
 msgid "Song Sheets Leads"
 msgstr "Liedblatt Noten"
 
-#: src/churchsong/churchtools/events.py:222
+#: src/churchsong/churchtools/events.py:225
 msgid "Title"
 msgstr "Titel"
 
-#: src/churchsong/churchtools/events.py:222
+#: src/churchsong/churchtools/events.py:225
 msgid "CCLI No."
 msgstr "CCLI-Nr."
 
-#: src/churchsong/churchtools/events.py:222
+#: src/churchsong/churchtools/events.py:225
 msgid "Arrangement"
 msgstr "Arrangement"
 
-#: src/churchsong/churchtools/events.py:227
+#: src/churchsong/churchtools/events.py:230
 msgid "Last update"
 msgstr "Stand"
 
-#: src/churchsong/churchtools/events.py:439
-#: src/churchsong/churchtools/events.py:440
+#: src/churchsong/churchtools/events.py:444
+#: src/churchsong/churchtools/events.py:445
 msgid "Nobody"
 msgstr "Niemand"
 

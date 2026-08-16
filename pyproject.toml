@@ -72,7 +72,6 @@ fixable = [
 ignore = [
     "D",      # docstring
     "COM812", # missing-trailing-comma
-    "S113",   # request-without-timeout
     "S603",   # subprocess-without-shell-equals-true
     "FBT001", # boolean-type-hint-positional-argument
     "FBT002", # boolean-default-value-positional-argument

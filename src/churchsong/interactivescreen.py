@@ -285,7 +285,7 @@ class InteractiveScreen(App[DownloadSelection]):
             'Download event files from ChurchTools'
         )
         self.query_one('#slides', Checkbox).label = _(
-            'Create PointPoint slides from ChurchTools data'
+            'Create PowerPoint slides from ChurchTools data'
         )
         self.query_one('#songsheets', Checkbox).label = _(
             'Create and upload PDF song sheets to ChurchTools'

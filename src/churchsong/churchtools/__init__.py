@@ -15,7 +15,7 @@ import requests
 import requests.exceptions
 
 from churchsong.utils import CliError, JsonObject, JsonValue
-from churchsong.utils.http import BaseAPI
+from churchsong.utils.http import BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -42,7 +42,7 @@ class DeprecationAwareModel(pydantic.BaseModel):
                 if old_field in model_fields and new_field is not None:
                     warnings.warn(
                         f"Model '{cls.__name__}' "
-                        "defines deprecated field '{old_field}', "
+                        f"defines deprecated field '{old_field}', "
                         f"consider using '{new_field}' instead.",
                         DeprecationWarning,
                         stacklevel=1,
@@ -399,6 +399,7 @@ class SongData(DeprecationAwareModel):
 
 class ChurchToolsAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
+        super().__init__()
         self._log = config.log
         self._base_url = config.churchtools.base_url
         self._headers = {
@@ -586,6 +587,14 @@ class ChurchToolsAPI(BaseAPI):
     def get_events(
         self, from_date: datetime.date, to_date: datetime.date | None = None
     ) -> typing.Generator[EventShort]:
+        # Get all events that meet the given search criteria. It is important to note
+        # that some of the search parameters are mutually exclusive. Most importantly,
+        # pagination only works when `from` is used in combination with `direction`
+        # (The `to` parameter is ignored in this case). Conversely, when a range is
+        # used with `from` and `to`, `page` and `limit` are ignored. Furthermore, when
+        # neither `to` nor `direction` are supplied, a `to` value with the current date
+        # plus two months is used. (NB: The `to` parameter is here still *inclusive*,
+        # but will be *exclusive* at a future point in time.)
         params = {'from': f'{from_date:%Y-%m-%d}'}
         if to_date:
             params['to'] = f'{to_date:%Y-%m-%d}'
@@ -633,10 +642,19 @@ class ChurchToolsAPI(BaseAPI):
 
     def download_url(self, full_url: str) -> requests.Response:
         self._log.debug('Request GET %s', full_url)
-        # We do need the authentication headers even for "public" URLs, as otherwise
-        # we get back status code 200 OK but a HTML page telling us that we do not
-        # have sufficient permissions.
-        return requests.get(full_url, headers=self._headers, stream=True)
+        # We do need the authentication headers even for "public" URLs of the
+        # ChurchTools instance, as otherwise we get back status code 200 OK but a HTML
+        # page telling us that we do not have sufficient permissions. If we are not
+        # downloading from our ChurchTools' `base_url` however, cancel out our headers,
+        # not to leak information to other hosts.
+        r = self._session.get(
+            full_url,
+            headers=self._headers if is_same_host(full_url, self._base_url) else None,
+            stream=True,
+            timeout=30,
+        )
+        r.raise_for_status()
+        return r
 
     def delete_event_file(self, event: EventFull, file: EventFile) -> None:
         if not self.has_permissions(

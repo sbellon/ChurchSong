@@ -7,6 +7,7 @@ import inspect
 import typing
 from collections import OrderedDict, defaultdict
 
+import requests
 import rich
 import rich.box
 import rich.table
@@ -279,11 +280,16 @@ class ChurchToolsSongVerification:
                             None,
                         )
                         if sng_file:
-                            arr.sng_file_content = (
-                                self.cta.download_url(sng_file.file_url)
-                                .text.lstrip('\ufeff')
-                                .splitlines()
-                            )
+                            try:
+                                arr.sng_file_content = (
+                                    self.cta.download_url(sng_file.file_url)
+                                    .text.lstrip('\ufeff')
+                                    .splitlines()
+                                )
+                            except requests.exceptions.HTTPError:
+                                self._log.warning(
+                                    f'Failed to download arrangement {arr}'
+                                )
 
                 # Execute the actual checks.
                 check_results = zip(
