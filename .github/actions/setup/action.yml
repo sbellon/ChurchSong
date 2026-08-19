@@ -10,4 +10,3 @@ runs:
       uses: astral-sh/setup-uv@v9
       with:
         enable-cache: true
-        cache-dependency-glob: uv.lock
