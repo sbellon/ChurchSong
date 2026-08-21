@@ -135,7 +135,7 @@ def test_ascii_formatter_writes_parseable_csv_without_title(
     )
     formatter.add_row(['#10', 'Song, with comma', '2'])
     formatter.done()
-    content = output_file.read_text(encoding='utf-8')
+    content = output_file.read_text(encoding='utf-8', newline='')
     assert 'not part of csv output' not in content
     rows = list(csv.reader(io.StringIO(content)))
     assert rows[0] == ['Id', 'Song', 'Performed']
