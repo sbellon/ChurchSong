@@ -1,0 +1,35 @@
+# Pre-commit hooks running the same checks as .github/workflows/code-quality.yml.
+# One-time setup after cloning: uv sync && uv run pre-commit install
+# All entries go through uv/uvx, so they work on Windows and GNU/Linux alike.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uvx ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uvx ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: pyright
+        name: pyright
+        entry: uvx pyright --project .
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+      - id: typos
+        name: typos
+        entry: uvx typos --force-exclude
+        language: system
+        require_serial: true
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        types_or: [python, pyi, toml]
+        pass_filenames: false
