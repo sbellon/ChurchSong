@@ -42,21 +42,28 @@ jobs:
         run: uv sync --all-extras --dev
       - name: Run pyright
         run: uvx pyright --project .
+  testing:
+    runs-on: windows-latest
+    needs: [lockfile]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+      - name: Run pytest
+        run: uv run pytest
   typos:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install wget for Windows
-        shell: pwsh
-        run: choco install wget --no-progress
-      - name: Add Chocolatey bin to PATH for following steps
-        shell: pwsh
-        run: echo "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $Env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Run typos check
-        uses: crate-ci/typos@v1.30.0
+      - uses: ./.github/actions/setup
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+      - name: Run typos
+        run: uvx typos --force-exclude
   build:
     runs-on: windows-latest
-    needs: [linting, formatting, typing, typos]
+    needs: [linting, formatting, typing, testing, typos]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup

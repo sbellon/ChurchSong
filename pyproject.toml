@@ -39,8 +39,9 @@ Changelog = "https://github.com/sbellon/ChurchSong/blob/main/CHANGELOG.md"
 ChurchSong = "churchsong.__main__:main"
 
 [dependency-groups]
-dev = ["babel>=2.17.0"]
+dev = ["babel>=2.17.0", "pre-commit>=4.0"]
 lint = ["pyright>=1.1.400", "ruff>=0.11.9"]
+test = ["pytest>=8.4", "responses>=0.25.8"]
 
 [build-system]
 requires = ["uv_build>=0.11.16,<0.13"]
@@ -48,9 +49,13 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
+default-groups = ["dev", "test"]
 
 [tool.setuptools.package-data]
 "churchsong" = ["locales/*.po"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.pyright]
 venvPath = "."
@@ -77,6 +82,14 @@ ignore = [
     "FBT002", # boolean-default-value-positional-argument
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",    # assert is the whole point of tests
+    "S105",    # tests do compare against hardcoded dummy tokens
+    "S106",    # tests do pass hardcoded dummy tokens
+    "PLR2004", # magic-value comparisons against literal expectations are fine here
+]
+
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = "(?i)SPDX-FileCopyrightText:"
 
@@ -94,6 +107,11 @@ classmethod-decorators = [
     "pydantic.validator",
     "pydantic.root_validator",
 ]
+
+[tool.typos.default.extend-words]
+# Package name of the CA bundle, not a typo of "certify" (newer typos
+# dictionaries flag it; the version pinned in CI does not know it yet).
+certifi = "certifi"
 
 [tool.typos.default]
 extend-ignore-re = [
