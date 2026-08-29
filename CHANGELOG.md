@@ -7,7 +7,7 @@
 - internally refactored the fine-grained permission checks of optional permissions
 - lots of smaller bug fixes and improvements as suggested by Claude Code review
 - updated external dependencies
-  (certifi, packaging, platformdirs, pypdf, reportlab, typer)
+  (certifi, packaging, platformdirs, pydantic, pypdf, reportlab, typer)
 
 ## 0.12.1 (2026-07-04)
 
