@@ -230,6 +230,9 @@ class NoticeFooter(Horizontal):
 
 
 class InteractiveScreen(App[DownloadSelection]):
+    # Directly focus on the submit button and not on the first widget initially.
+    AUTO_FOCUS = '#submit'
+
     BINDINGS: typing.ClassVar[list[BindingType]] = [
         ('up', 'focus_previous', 'Up'),
         ('down', 'focus_next', 'Down'),
@@ -294,7 +297,7 @@ class InteractiveScreen(App[DownloadSelection]):
         # Trigger Changed event on first Checkbox to initialize Button label.
         schedule_checkbox.post_message(Checkbox.Changed(schedule_checkbox, value=True))
 
-        # Focus Button.
+        # Focus Button explicitly (AUTO_FOCUS may be skipped if terminal has no focus).
         self.query_one('#submit').focus()
 
     @on(Button.Pressed, '#submit')
