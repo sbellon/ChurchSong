@@ -62,6 +62,7 @@ class FocusCheckbox(Checkbox):
             }
         }
         &:blur:hover {
+            border: round $primary;
             & > .toggle--label {
                 background: $background;
             }
@@ -257,6 +258,15 @@ class InteractiveScreen(App[DownloadSelection]):
                 yield FocusButton(id='submit')
             yield NoticeFooter()
             yield Footer(show_command_palette=False)
+
+    # We want to lose the mouse focus when moving with the keys.
+    def action_focus_next(self) -> None:
+        self._set_mouse_over(None, None)
+        super().action_focus_next()
+
+    def action_focus_previous(self) -> None:
+        self._set_mouse_over(None, None)
+        super().action_focus_previous()
 
     @on(Mount)
     def initialize(self) -> None:
