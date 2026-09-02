@@ -5,8 +5,10 @@
 import asyncio
 import typing
 
+import packaging.version
 import pytest
 from textual.color import Color
+from textual.widgets import Label
 
 from churchsong.configuration import Configuration
 from churchsong.interactivescreen import (
@@ -250,3 +252,49 @@ def test_pressing_submit_returns_the_selection() -> None:
     assert app.return_value == DownloadSelection(
         schedule=True, songs=False, files=True, slides=True, songsheets=True
     )
+
+
+def test_space_on_the_submit_button_returns_the_selection() -> None:
+    async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
+        # The submit button holds the focus right from the start.
+        assert app.focused is app.query_one('#submit', FocusButton)
+        await pilot.press('space')
+
+    app = run_scenario(scenario)
+    assert app.return_value == DownloadSelection(
+        schedule=True, songs=True, files=True, slides=True, songsheets=True
+    )
+
+
+def test_backwards_cursor_navigation_outlines_exactly_one_widget() -> None:
+    async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
+        # Leave the mouse hovering over a widget the cursor keys pass through,
+        # to make sure it does not contribute a second border.
+        await pilot.hover('#slides')
+        await pilot.pause()
+        for _ in range(len(CHECKBOX_IDS) + 1):
+            await pilot.press('up')
+            await pilot.pause()
+            assert len(highlighted(app)) == 1
+
+    run_scenario(scenario)
+
+
+def test_header_points_out_an_available_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        Configuration,
+        'later_version_available',
+        property(lambda _self: packaging.version.Version('99.0.0')),
+    )
+
+    async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
+        await pilot.pause()
+        version_label = app.query_one('#header_label_right', Label)
+        text = str(version_label.content)
+        assert 'Update available' in text
+        assert '99.0.0' in text
+        assert version_label.styles.color == Color.parse(app.current_theme.accent)
+
+    run_scenario(scenario)

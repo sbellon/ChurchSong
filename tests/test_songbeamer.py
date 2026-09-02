@@ -3,13 +3,17 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import subprocess
+import sys
 import typing
 
 import pytest
 
+import churchsong.songbeamer
 from churchsong.churchtools.events import Item, ItemType
 from churchsong.configuration import SongBeamerColorConfig, SongBeamerColorItemConfig
 from churchsong.songbeamer import Agenda, AgendaItem, SongBeamer
+from churchsong.utils import CliError
 from tests.conftest import make_config
 
 if typing.TYPE_CHECKING:
@@ -181,3 +185,85 @@ def test_create_schedule_assembles_slides_agenda_and_services(
         'Closing',
         'Music: Jane Doe',
     ]
+
+
+def test_agenda_is_iterable() -> None:
+    agenda = Agenda(colors=SongBeamerColorConfig())
+    agenda += Item(type=ItemType.HEADER, title='Welcome')
+    agenda += Item(type=ItemType.SONG, title='Amazing Grace')
+    assert [item.caption for item in agenda] == ['Welcome', 'Amazing Grace']
+
+
+def test_encode_decode_round_trip_of_random_texts() -> None:
+    # The module ships its own fuzzing round-trip check.
+    AgendaItem._test_encode_decode()  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+
+class FakeWindows:
+    """Stands in for the win32-only churchsong.songbeamer.windows module."""
+
+    def __init__(
+        self, *, running: bool = False, start_error: Exception | None = None
+    ) -> None:
+        self.calls: list[str] = []
+        self._running = running
+        self._start_error = start_error
+
+    def is_songbeamer_running(self) -> bool:
+        return self._running
+
+    def open_message_box(self, _title: str, _message: str) -> None:
+        self.calls.append('message_box')
+
+    def bring_songbeamer_window_to_front(self) -> None:
+        self.calls.append('to_front')
+
+    def start_songbeamer(self, cwd: pathlib.Path) -> None:
+        self.calls.append(f'start:{cwd}')
+        if self._start_error:
+            raise self._start_error
+
+
+def install_fake_windows(monkeypatch: pytest.MonkeyPatch, fake: FakeWindows) -> None:
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    monkeypatch.setattr(churchsong.songbeamer, 'windows', fake, raising=False)
+
+
+def test_launch_is_unsupported_off_windows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    with pytest.raises(CliError, match='not supported on linux'):
+        SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+
+
+def test_launch_starts_songbeamer_in_the_output_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    fake = FakeWindows()
+    install_fake_windows(monkeypatch, fake)
+    SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+    assert fake.calls == [f'start:{tmp_path.resolve()}']
+
+
+def test_launch_notifies_about_an_already_running_songbeamer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    fake = FakeWindows(running=True)
+    install_fake_windows(monkeypatch, fake)
+    SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+    # The user is warned about the unsaved agenda before SongBeamer reloads it.
+    assert fake.calls == [
+        'message_box',
+        'to_front',
+        f'start:{tmp_path.resolve()}',
+    ]
+
+
+def test_launch_reports_a_failing_songbeamer_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    error = subprocess.CalledProcessError(returncode=1, cmd=['SongBeamer.exe'])
+    install_fake_windows(monkeypatch, FakeWindows(start_error=error))
+    with pytest.raises(CliError, match='Cannot start SongBeamer'):
+        SongBeamer(make_config(output_dir=str(tmp_path))).launch()

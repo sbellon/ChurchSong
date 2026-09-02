@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import logging
 import typing
 
 import pytest
+import requests
 import responses
 from responses import matchers
 
-from churchsong.churchtools import ChurchToolsAPI, EventFull
+from churchsong.churchtools import ChurchToolsAPI, EventFile, EventFull, EventShort
 from churchsong.utils import CliError
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
@@ -225,3 +227,164 @@ def test_upload_event_file_posts_multipart_file(
     body = mocked_responses.calls[-1].request.body
     assert body is not None
     assert b'songsheet.pdf' in typing.cast('bytes', body)
+
+
+def make_person_json(nickname: str | None) -> dict[str, object]:
+    return {'data': {'firstName': 'John', 'lastName': 'Newton', 'nickname': nickname}}
+
+
+def make_appointment_json(
+    title: str, start: str, *, is_internal: bool = False
+) -> dict[str, object]:
+    return {
+        'appointment': {
+            'base': {
+                'title': title,
+                'subtitle': None,
+                'description': None,
+                'image': None,
+                'link': None,
+                'isInternal': is_internal,
+                'startDate': start,
+                'endDate': start,
+                'allDay': False,
+                'repeatId': 0,
+                'repeatFrequency': None,
+                'address': None,
+            }
+        }
+    }
+
+
+def test_init_reports_an_unreachable_churchtools_instance(
+    config: Configuration, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        body=requests.exceptions.ConnectionError('no route to host'),
+    )
+    with pytest.raises(CliError, match='configure the URL'):
+        ChurchToolsAPI(config)
+
+
+def test_get_songs_returns_nothing_when_the_song_database_is_inaccessible(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/songs', status=403)
+    total, songs = churchtools_api.get_songs()
+    assert total == 0
+    assert list(songs) == []
+
+
+def test_get_person_returns_none_without_the_required_permission(
+    mocked_responses: responses.RequestsMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions(view_alldata=False),
+    )
+    api = ChurchToolsAPI(make_config())
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', status=403)
+    with caplog.at_level(logging.WARNING):
+        assert api.get_person(1) is None
+    assert 'nickname lookup' in caplog.text
+
+
+def test_get_person_reraises_unexpected_errors(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # The permission is there, so a 403 is not the missing permission and has
+    # to be reported instead of being swallowed.
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', status=403)
+    with pytest.raises(requests.exceptions.HTTPError):
+        churchtools_api.get_person(1)
+
+
+def test_get_person_warns_about_a_missing_nickname(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/persons/1', json=make_person_json(None)
+    )
+    with caplog.at_level(logging.WARNING):
+        person = churchtools_api.get_person(1)
+    assert person is not None
+    assert person.firstname == 'John'
+    assert 'security level person' in caplog.text
+
+
+def test_get_appointments_asks_all_calendars_and_filters_the_event_itself(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/calendars',
+        json={'data': [{'id': 1, 'name': 'Services'}, {'id': 2, 'name': 'Youth'}]},
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/calendars/appointments',
+        json={
+            'data': [
+                # The event the agenda is created for is not an appointment.
+                make_appointment_json('Next', '2026-08-23T10:00:00Z'),
+                make_appointment_json(
+                    'Staff Meeting', '2026-08-30T10:00:00Z', is_internal=True
+                ),
+                make_appointment_json('Church Picnic', '2026-09-06T10:00:00Z'),
+            ]
+        },
+    )
+    event = EventShort.model_validate(
+        make_event_json(2, 'Next', '2026-08-23T10:00:00Z', '2026-08-23T12:00:00Z')
+    )
+    appointments = list(churchtools_api.get_appointments(event))
+    assert [appointment.title for appointment in appointments] == ['Church Picnic']
+    url = mocked_responses.calls[-1].request.url
+    assert url is not None
+    assert 'calendar_ids%5B%5D=1' in url
+    assert 'calendar_ids%5B%5D=2' in url
+    assert 'from=2026-08-23' in url
+    assert 'to=2026-11-22' in url  # the configured 13 weeks look ahead
+
+
+def test_get_next_event_reraises_unexpected_agenda_errors(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events',
+        json={
+            'data': [
+                make_event_json(
+                    2, 'Next', '2026-08-23T10:00:00Z', '2026-08-23T12:00:00Z'
+                )
+            ]
+        },
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events/2/agenda', status=500)
+    from_date = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+    with pytest.raises(requests.exceptions.HTTPError):
+        churchtools_api.get_next_event(from_date, agenda_required=True)
+
+
+def test_delete_event_file_is_skipped_without_edit_permission(
+    mocked_responses: responses.RequestsMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    # No DELETE endpoint is registered: without the short-circuit the HTTP
+    # call would fail the test.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions(edit_events=False),
+    )
+    api = ChurchToolsAPI(make_config())
+    event_file = EventFile.model_validate(
+        {
+            'title': 'Song Sheets Chords.pdf',
+            'domainType': 'file',
+            'domainIdentifier': 900,
+            'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/900',
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        api.delete_event_file(make_event_full(), event_file)
+    assert 'song sheet deletion' in caplog.text

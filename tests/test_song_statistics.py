@@ -155,3 +155,38 @@ def test_excel_formatter_writes_workbook(tmp_path: pathlib.Path) -> None:
     assert 'Song statistics for 2026' in workbook_xml  # worksheet name
     for cell_value in ('Id', 'Song', 'Performed', '#10', 'Amazing Grace', '2'):
         assert f'<t>{cell_value}</t>' in shared_strings
+
+
+def test_song_usage_text_output_goes_to_the_console(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
+    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+        FROM_DATE,
+        TO_DATE,
+        output_format=ChurchToolsSongStatistics.FormatType.TEXT,
+    )
+    out = capsys.readouterr().out
+    assert 'Song statistics for 2024-2026' in out
+    assert 'Amazing Grace' in out
+
+
+def test_song_usage_writes_an_xlsx_workbook(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    tmp_path: pathlib.Path,
+) -> None:
+    register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
+    output_file = tmp_path / 'usage.xlsx'
+    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+        FROM_DATE,
+        TO_DATE,
+        output_file=output_file,
+        output_format=ChurchToolsSongStatistics.FormatType.XLSX,
+    )
+    with zipfile.ZipFile(output_file) as archive:
+        assert '<t>Amazing Grace</t>' in archive.read('xl/sharedStrings.xml').decode()

@@ -29,10 +29,10 @@ class FakeConfiguration(Configuration):
 
 def make_config(
     *,
-    with_immich: bool = False,
     output_dir: str = 'output',
     replacements: dict[str, str] | None = None,
     songbeamer: dict[str, typing.Any] | None = None,
+    immich: dict[str, typing.Any] | None = None,
 ) -> Configuration:
     data: dict[str, typing.Any] = {
         'ChurchTools': {
@@ -42,10 +42,11 @@ def make_config(
         },
         'SongBeamer': {'output_dir': output_dir, **(songbeamer or {})},
     }
-    if with_immich:
+    if immich is not None:
         data['Immich'] = {
             'base_url': IMMICH_BASE_URL,
             'login_token': 'immich-test-token',
+            **immich,
         }
     return FakeConfiguration(**data)
 

@@ -168,3 +168,9 @@ def test_get_permission_empty_id_list_is_falsy() -> None:
         make_global_permissions(edit_events=False)
     )
     assert not permissions.get_permission('churchservice:edit events')
+
+
+def test_get_permission_of_a_whole_group_is_falsy() -> None:
+    permissions = PermissionsGlobalData.model_validate(make_global_permissions())
+    # 'churchdb' addresses a group of permissions, not a single permission.
+    assert permissions.get_permission('churchdb') is False
