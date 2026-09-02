@@ -399,7 +399,17 @@ class SongData(DeprecationAwareModel):
 
 class ChurchToolsAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
-        super().__init__()
+        # A login token authenticates every single request on its own, which is the
+        # documented default: "Login-Tokens erzeugen bei REST-API-Aufrufen
+        # standardmäßig keine Session" (a session is only created when explicitly
+        # asked for with `with_session=true`). ChurchTools nevertheless answers with
+        # a `ChurchToolsV2_*` session cookie, and once that cookie is sent back, it
+        # authenticates the request by session instead of by our `Authorization`
+        # header -- which then rejects every state-changing request that carries no
+        # `CSRF-Token` header with a 401 "CSRF-Token is invalid". So keep the token
+        # the only means of authentication and drop the cookie.
+        # See https://churchtools.academy/de/help/system-einstellungen/api/api-authentifizierung/
+        super().__init__(persist_cookies=False)
         self._log = config.log
         self._base_url = config.churchtools.base_url
         self._headers = {

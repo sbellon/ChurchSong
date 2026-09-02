@@ -97,6 +97,15 @@ it rewrites files that are currently in use.
 per-request and deliberately *not* put on the session, so downloads from a foreign host can drop
 them (`is_same_host()`). `ChurchToolsAPI` and `ImmichAPI` both subclass it.
 
+`BaseAPI` stays service-agnostic: it defaults to normal `requests` cookie handling and only *offers*
+`persist_cookies=False`, which blocks the session jar from storing and sending cookies (cookies
+within a single redirect chain still work). Whether to use it is each client's decision, taken with
+the reason next to the `super().__init__()` call — `ChurchToolsAPI` opts out because a login token
+authenticates every request on its own, but ChurchTools still answers with a `ChurchToolsV2_*`
+session cookie; sending that back switches it to session authentication, which then rejects every
+state-changing request lacking a `CSRF-Token` header with a 401. `ImmichAPI` keeps the default. Add
+service-specific HTTP behaviour this way rather than by putting it into `BaseAPI`.
+
 **ChurchTools API models** (`churchtools/__init__.py`) are Pydantic models mirroring the JSON, with
 camelCase aliases and `DeprecationAwareModel` as base — it inspects the `@deprecated` key ChurchTools
 returns and emits `DeprecationWarning` when a model still uses a superseded field. Several models
