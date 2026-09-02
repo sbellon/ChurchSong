@@ -34,7 +34,7 @@ uvx ruff check .                # lint
 uvx ruff format --check .       # format (drop --check to apply)
 uvx pyright --project .         # type check (strict) — needs `uv sync` first
 uv run pytest                   # test suite in tests/ — needs `uv sync` first
-typos                           # spell check (crate-ci/typos)
+uvx typos --force-exclude       # spell check (crate-ci/typos)
 uv build                        # sdist + wheel
 ```
 
@@ -48,11 +48,13 @@ clients are tested with the `responses` library mocking `requests` at the adapte
 endpoints are registered with realistic JSON, and `responses.RequestsMock` also fails the test on
 any unexpected or unfired request (used to assert that e.g. missing permissions skip an upload).
 `tests/conftest.py` provides `FakeConfiguration`, which validates a dict through the real config
-model tree while bypassing `Configuration.__init__`'s file/logging/gettext side effects — use it
-instead of constructing `Configuration` in tests. Tests are held to the same ruff/pyright gates
-as the source (a few relaxations in `[tool.ruff.lint.per-file-ignores]`). Full end-to-end
-behaviour (SongBeamer launch, real API quirks) still needs a real run against a configured
-ChurchTools instance.
+model tree while bypassing `Configuration.__init__`'s file/logging/gettext side effects — reach for
+it through the `make_config()` helper or the `config` / `mocked_responses` / `churchtools_api`
+fixtures instead of constructing `Configuration` in tests. CLI commands are driven end-to-end with
+Typer's `CliRunner` and `obj=make_config()` (`test_cli.py`), the TUI with Textual's `app.run_test()`
+pilot (`test_interactivescreen.py`). Tests are held to the same ruff/pyright gates as the source (a
+few relaxations in `[tool.ruff.lint.per-file-ignores]`). Full end-to-end behaviour (SongBeamer
+launch, real API quirks) still needs a real run against a configured ChurchTools instance.
 
 Regenerate translation catalogs after touching any `_('...')` string:
 
@@ -83,11 +85,17 @@ component takes it in `__init__` and pulls out only what it needs. Notable behav
 **Command surface** lives entirely in `__main__.py` (Typer app + `songs` and `self` sub-apps). With
 no subcommand it launches the Textual TUI in `interactivescreen.py`, which returns a
 `DownloadSelection` and feeds the same `_handle_agenda()` path as the `agenda` command —
-`_handle_agenda` is the one place that orchestrates ChurchTools → PowerPoint → SongBeamer.
+`_handle_agenda` is the one place that orchestrates ChurchTools → PowerPoint → SongBeamer. Date and
+year-range arguments are parsed by the `parser=` callables in `utils/date.py`. Every command except
+the `self` sub-app (`version`/`info`/`update`) first hits the PyPI check in
+`Configuration.later_version_available`; `self update` `exec`s `uv tool upgrade` in place, because
+it rewrites files that are currently in use.
 
-**HTTP clients** subclass `utils/http.BaseAPI`, which only provides `_get/_put/_post/_delete`
-wrappers that prefix `self._base_url`, attach `self._headers`, log, and `raise_for_status()`.
-`ChurchToolsAPI` and `ImmichAPI` both do this.
+**HTTP clients** subclass `utils/http.BaseAPI`, which owns one `requests.Session` per instance
+(connection reuse, closed via `atexit`) and provides `_get/_put/_post/_delete` wrappers that prefix
+`self._base_url`, attach `self._headers`, log, and `raise_for_status()`. Auth headers are passed
+per-request and deliberately *not* put on the session, so downloads from a foreign host can drop
+them (`is_same_host()`). `ChurchToolsAPI` and `ImmichAPI` both subclass it.
 
 **ChurchTools API models** (`churchtools/__init__.py`) are Pydantic models mirroring the JSON, with
 camelCase aliases and `DeprecationAwareModel` as base — it inspects the `@deprecated` key ChurchTools
@@ -96,11 +104,14 @@ carry `model_validator(mode='before')` shims for ChurchTools quirks (null titles
 item type, all-day appointment dates without timezone). When the upstream API changes, that is where
 compatibility patches go — dated comments mark the existing ones.
 
-**Permissions are two-tier.** `ChurchToolsAPI.__init__` fetches `/api/permissions/global` once and
-hard-asserts the permissions needed for basic operation (raising `CliError`). Everything optional
-(appointment slides, nickname lookup, song sheet upload/delete) calls
+**Permissions are two-tier**, in both clients. `ChurchToolsAPI.__init__` fetches
+`/api/permissions/global` and `ImmichAPI.__init__` fetches `/api/api-keys/me` once, then
+hard-assert what basic operation needs (raising `CliError`): the `churchservice:view*` set for
+ChurchTools, `asset.upload` for Immich. Everything optional — appointment slides, nickname lookup,
+song sheet upload/delete, and Immich's `tag.create`/`tag.read`/`tag.asset` — calls
 `has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
-new optional features this way rather than by asserting.
+new optional features this way rather than by asserting. The fetch/assert/`has_permissions` trio is
+duplicated per client because the two permission payloads have different shapes.
 
 **Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks event
 files and agenda items, downloads `.sng` and attachments into `output_dir/{Songs,Files}`, feeds PDFs
@@ -119,13 +130,21 @@ parsed back through `AgendaItem.parse`, so config content flows through the same
 
 **PowerPoint** (`powerpoint/`): templates are driven by *shape names*, not indices — the ChurchTools
 service name is the placeholder name in the services template, and the appointments template needs
-tables named `Weekly Table` / `Irregular Table`. `services.py` monkey-patches `python-pptx` to accept
-MPO JPEGs; the patch has a removal condition in its comment.
+tables named `Weekly Table` / `Irregular Table`. `powerpoint/__init__.py` holds `PowerPointBase`,
+which loads the template and implements `save()`; a missing or unloadable template leaves `_prs` at
+`None`, so both subclasses degrade to no-ops instead of failing. `services.py` monkey-patches
+`python-pptx` to accept MPO JPEGs; the patch has a removal condition in its comment.
 
 **Song verification** (`churchtools/song_verification.py`) uses a decorator registry:
 `@SongChecks.register('CCLI')` on a `(Song, list[Arrangement]) -> list[str]` function. The key
 doubles as the result-table column header and as the value accepted by `--execute_checks`, so adding
 a check is a single registered function.
+
+**Song usage statistics** (`churchtools/song_statistics.py`) counts song occurrences across the
+events of a year range and emits them through a `BaseFormatter` ABC: `RichFormatter` (console),
+`AsciiFormatter` (prettytable, covering `text`/`html`/`json`/`csv`/`latex`/`mediawiki`) and
+`ExcelFormatter` (xlsxwriter, which requires `--output`). A new format is an added `FormatType`
+value plus, unless prettytable already renders it, a formatter.
 
 ## Conventions
 
