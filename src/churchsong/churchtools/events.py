@@ -343,7 +343,7 @@ class ChurchToolsEvent:
             last_modified=item.meta.modified_date,
         )
 
-    def download_agenda_items(  # noqa: C901, PLR0912, PLR0915
+    def download_agenda_items(  # noqa: C901
         self,
         *,
         download_files: bool = True,
@@ -394,12 +394,6 @@ class ChurchToolsEvent:
                                 event_file = Item(
                                     ItemType.LINK, item.title, item.frontend_url
                                 )
-                        case _:  # pyright: ignore[reportUnnecessaryComparison]
-                            with do_progress(item):
-                                self._log.warning(
-                                    f'Unexpected event file type: {item.domain_type}'
-                                )
-                            continue
                     agenda_items.append(event_file)
                 except requests.exceptions.HTTPError:
                     self._log.warning(f'Failed to download event file for {item.title}')
@@ -436,12 +430,6 @@ class ChurchToolsEvent:
                                 )
                                 agenda_item = Item(ItemType.SONG, item.title, filename)
                                 song_sheets.download_and_append(files)
-                        case _:  # pyright: ignore[reportUnnecessaryComparison]
-                            with do_progress(item):
-                                self._log.warning(
-                                    f'Unexpected event item type: {item.type}'
-                                )
-                            continue
                     agenda_items.append(agenda_item)
                 except requests.exceptions.HTTPError:
                     self._log.warning(

@@ -663,9 +663,7 @@ class ChurchToolsAPI(BaseAPI):
             return
         msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'
         self._log.debug(msg)
-        r = self._delete(f'/api/files/{file.domain_identifier}')
-        if not r.ok:
-            self._log.warning(f'{msg} failed')
+        self._delete(f'/api/files/{file.domain_identifier}')
 
     def upload_event_file(
         self, event: EventFull, filename: str, content: bytes
@@ -675,6 +673,4 @@ class ChurchToolsAPI(BaseAPI):
         msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
         self._log.debug(msg)
         files = {'files[]': (filename, io.BytesIO(content), 'application/pdf')}
-        r = self._post(f'/api/files/service/{event.id}', files=files)
-        if not r.ok:
-            self._log.warning(f'{msg} failed')
+        self._post(f'/api/files/service/{event.id}', files=files)

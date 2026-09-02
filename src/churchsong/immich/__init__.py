@@ -162,9 +162,7 @@ class ImmichAPI(BaseAPI):
             'assetIds': [asset_id],
             'tagIds': self._tag_ids,
         }
-        r = self._put('/api/tags/assets', json=payload)
-        if not r.ok:
-            self._log.warning(f'Tagging asset "{asset_id}" failed')
+        self._put('/api/tags/assets', json=payload)
 
     def _get_sha1_checksum(self, filename: pathlib.Path) -> str:
         sha1 = hashlib.sha1(usedforsecurity=False)
@@ -199,7 +197,6 @@ class ImmichAPI(BaseAPI):
         return False
 
     def _upload_media_file(self, filename: pathlib.Path) -> str | None:
-        msg = f'Uploading file "{filename.name}" to Immich'
         mime_type, _ = mimetypes.guess_file_type(filename)
         stat = filename.stat()
         data = {
@@ -215,10 +212,7 @@ class ImmichAPI(BaseAPI):
         with filename.open('rb') as fd:
             files = {'assetData': (filename.name, fd, mime_type or 'image/jpeg')}
             r = self._post('/api/assets', data=data, files=files)
-            if r.ok:
-                return AssetMediaResponse(**r.json()).id
-        self._log.error(f'{msg} failed')
-        return None
+            return AssetMediaResponse(**r.json()).id
 
     def upload_media_file(self, filename: str) -> None:
         if (
