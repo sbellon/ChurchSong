@@ -10,7 +10,7 @@ import pytest
 import typer
 from responses import matchers
 
-from churchsong.churchtools import Arrangement, Song
+from churchsong.churchtools import MAX_SONGS_PAGE_SIZE, Arrangement, Song
 from churchsong.churchtools.song_verification import (
     ChurchToolsSongVerification,
     SongChecks,
@@ -236,7 +236,11 @@ def register_all_songs(
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={'data': songs, 'meta': meta},
-        match=[matchers.query_param_matcher({'page': '1', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
     )
 
 

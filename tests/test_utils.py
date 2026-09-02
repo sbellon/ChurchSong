@@ -6,6 +6,7 @@ import logging
 import typing
 
 import pytest
+import requests
 
 from churchsong.utils import (
     JsonObject,
@@ -58,9 +59,11 @@ def test_is_same_host() -> None:
 
 
 class FakeAPI(BaseAPI):
-    _log = logging.getLogger('test')
     _base_url = 'https://host.test'
     _headers: dict[str, str] = {}  # noqa: RUF012 (only ever read, never mutated)
+
+    def __init__(self, *, persist_cookies: bool = True) -> None:
+        super().__init__(logging.getLogger('test'), persist_cookies=persist_cookies)
 
 
 @pytest.mark.parametrize('persist_cookies', [True, False])
@@ -96,3 +99,58 @@ def test_persist_cookies_defaults_to_standard_behaviour(
     api._get('/first')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
     assert len(api._session.cookies) == 1  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+
+def test_get_is_retried_after_a_rate_limit_response(
+    mocked_responses: responses.RequestsMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    # ChurchTools throttles the paging through its song database with 429.
+    mocked_responses.get(
+        'https://host.test/songs', status=429, headers={'Retry-After': '7'}
+    )
+    mocked_responses.get('https://host.test/songs', json={'data': []})
+
+    api = FakeAPI()
+    with caplog.at_level(logging.WARNING):
+        r = api._get('/songs')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+    assert r.json() == {'data': []}
+    assert len(mocked_responses.calls) == 2
+    # The wait is announced before it is sat out, and follows the `Retry-After`
+    # of the server rather than the backoff, so a pause is never a silent one.
+    assert 'Waiting 7s to retry GET' in caplog.text
+    assert 'after status 429 (4 attempt(s) left)' in caplog.text
+
+
+def test_exhausted_retries_raise_the_plain_http_error(
+    mocked_responses: responses.RequestsMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    # `raise_on_status=False` keeps the error a caller has to handle the same as it
+    # was before there were any retries - a `RetryError` would slip through every
+    # `except requests.exceptions.HTTPError`.
+    mocked_responses.get('https://host.test/songs', status=429)
+
+    api = FakeAPI()
+    with (
+        caplog.at_level(logging.WARNING),
+        pytest.raises(requests.exceptions.HTTPError) as excinfo,
+    ):
+        api._get('/songs')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+    assert excinfo.value.response is not None
+    assert excinfo.value.response.status_code == 429
+    assert len(mocked_responses.calls) == 6  # the request plus its five retries
+    # Every single wait is logged, which also proves that `Retry.new()` carries
+    # the logger over into the retry object of the next attempt.
+    assert caplog.text.count('Waiting') == 5
+
+
+def test_post_is_not_retried(mocked_responses: responses.RequestsMock) -> None:
+    # Repeating an upload could duplicate data, so only GET may be retried.
+    mocked_responses.post('https://host.test/files', status=429)
+
+    api = FakeAPI()
+    with pytest.raises(requests.exceptions.HTTPError):
+        api._post('/files')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+    assert len(mocked_responses.calls) == 1
