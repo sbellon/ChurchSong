@@ -10,6 +10,7 @@ import typing
 
 import packaging.version
 import pytest
+import typer.main
 import typer.testing
 
 from churchsong import __main__ as cli
@@ -24,6 +25,19 @@ if typing.TYPE_CHECKING:
     import pathlib
 
 runner = typer.testing.CliRunner()
+
+
+@pytest.fixture(scope='session', autouse=True)
+def resolve_cli_annotations() -> None:
+    # Python 3.14 evaluates annotations lazily (PEP 649), and the `typing.Annotated`
+    # metadata of the commands reads attributes off the module globals, e.g.
+    # `ChurchToolsSongVerification.available_checks()`. That expression therefore only
+    # runs when Typer first builds the command tree, and is cached from then on. Force
+    # it here while the real classes are still in place - otherwise whichever test
+    # invokes the CLI first decides the outcome, and one that installs a fake
+    # beforehand would resolve the annotations against the fake and fail.
+    typer.main.get_command(cli.app)
+
 
 # Rich wraps its output at the terminal width, which would split the strings
 # the assertions below look for.
