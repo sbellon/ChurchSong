@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- fixed crash of song verification on a song without (default) arrangement
+
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones
 - reuse a single HTTP connection per API instead of reconnecting for every request
