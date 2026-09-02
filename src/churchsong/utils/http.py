@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import atexit
+import http.cookiejar
 import typing
 import urllib.parse
 
@@ -33,13 +34,24 @@ class BaseAPI:
     _base_url: str
     _headers: dict[str, str]
 
-    def __init__(self) -> None:
+    def __init__(self, *, persist_cookies: bool = True) -> None:
         # Reuse one connection for all requests of an API instead of paying for a
         # TCP and TLS handshake per request. The authentication headers are
         # deliberately *not* put onto the session: per-request `headers` are merged
         # into the session headers instead of replacing them, so a `headers=None`
         # (as used for downloads from a foreign host) could not drop them again.
         self._session = requests.Session()
+        if not persist_cookies:
+            # Services that authenticate per request via `self._headers` can pass
+            # `persist_cookies=False` if carrying a server-issued cookie over into
+            # the next request would change how that request is authenticated. An
+            # empty `allowed_domains` blocks cookies from being stored *and* from
+            # being sent; cookies within a single redirect chain are unaffected,
+            # because requests resolves redirects through the prepared request's
+            # own jar.
+            self._session.cookies.set_policy(
+                http.cookiejar.DefaultCookiePolicy(allowed_domains=[])
+            )
         atexit.register(self._session.close)
 
     def _request(  # noqa: PLR0913

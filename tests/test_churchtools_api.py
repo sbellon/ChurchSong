@@ -388,3 +388,26 @@ def test_delete_event_file_is_skipped_without_edit_permission(
     with caplog.at_level(logging.WARNING):
         api.delete_event_file(make_event_full(), event_file)
     assert 'song sheet deletion' in caplog.text
+
+
+def test_does_not_send_back_session_cookie(
+    config: Configuration, mocked_responses: responses.RequestsMock
+) -> None:
+    """ChurchTools authenticates by session as soon as it sees its own cookie again
+    and then rejects writes without a CSRF token, so the login token has to stay the
+    only means of authentication."""
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions(),
+        headers={'Set-Cookie': 'ChurchToolsV2_ct_test=secret; path=/'},
+    )
+    mocked_responses.post(
+        f'{CHURCHTOOLS_BASE_URL}/api/files/service/2', json={'data': []}
+    )
+
+    api = ChurchToolsAPI(config)
+    api.upload_event_file(make_event_full(), 'songsheet.pdf', b'%PDF-1.7')
+
+    upload = mocked_responses.calls[-1].request
+    assert 'Cookie' not in upload.headers
+    assert upload.headers['Authorization'] == 'Login churchtools-test-token'
