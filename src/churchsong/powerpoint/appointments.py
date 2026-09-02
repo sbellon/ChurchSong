@@ -231,9 +231,6 @@ class PowerPointAppointments(PowerPointBase):
                             pass
 
     def create(self, appointments: typing.Iterable[CalendarAppointmentBase]) -> None:
-        if not self._prs:
-            return
-
         self._setup_tables()
 
         # Walk through the appointments and put them in the appropriate table.

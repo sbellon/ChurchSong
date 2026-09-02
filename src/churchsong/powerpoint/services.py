@@ -50,7 +50,7 @@ class PowerPointServices(PowerPointBase):
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
             base_placeholder = typing.cast(
-                'pptx.shapes.placeholder.BasePlaceholder',
+                'pptx.shapes.placeholder.BasePlaceholder | None',
                 getattr(ph, '_base_placeholder', None),
             )
             if not base_placeholder:
