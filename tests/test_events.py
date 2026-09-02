@@ -2,14 +2,17 @@
 #
 # SPDX-License-Identifier: MIT
 
+import datetime
 import io
+import logging
 import typing
 
+import pypdf
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 
 from churchsong.churchtools import ChurchToolsAPI, EventShort
-from churchsong.churchtools.events import ChurchToolsEvent, ItemType
+from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet
 from churchsong.immich import ImmichAPI
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
@@ -20,6 +23,7 @@ from tests.conftest import (
 if typing.TYPE_CHECKING:
     import pathlib
 
+    import pytest
     import responses
 
     from churchsong.configuration import Configuration
@@ -311,3 +315,244 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     assert preacher.shortname == 'JD'
     (musician,) = service_leads['Music']
     assert musician.shortname == 'Vol'
+
+
+SONG_ITEM: dict[str, object] = {
+    'title': 'Song 1',
+    'type': 'song',
+    'meta': META,
+    'song': {
+        'songId': 7,
+        'arrangementId': 70,
+        'title': 'Amazing Grace',
+        'arrangement': 'Standard',
+        'key': 'G',
+        'isDefault': True,
+    },
+}
+
+
+def register_song(
+    mocked_responses: responses.RequestsMock, files: list[dict[str, str]]
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs/7',
+        json={
+            'data': {
+                'id': 7,
+                'name': 'Amazing Grace',
+                'author': 'John Newton',
+                'ccli': '22025',
+                'arrangements': [
+                    {
+                        'id': 70,
+                        'name': 'Standard',
+                        'isDefault': True,
+                        'source': None,
+                        'sourceReference': None,
+                        'key': 'G',
+                        'beat': None,
+                        'tempo': None,
+                        'duration': 180,
+                        'files': files,
+                    }
+                ],
+            }
+        },
+    )
+
+
+def extract_pdf_text(content: bytes) -> str:
+    reader = pypdf.PdfReader(io.BytesIO(content))
+    return '\n'.join(page.extract_text() for page in reader.pages)
+
+
+def test_song_sheet_marks_a_missing_song_with_a_watermark() -> None:
+    sheet = PdfSheet(
+        'Song Sheets Chords',
+        'Sunday Service - 2026-08-23',
+        'Last update: {last_modified:%Y-%m-%d}',
+        ('Title', 'CCLI No.', 'Arrangement'),
+    )
+    sheet.append('Amazing Grace', '22025', 'Standard', io.BytesIO(make_pdf('chords')))
+    sheet.append('Be Thou My Vision', '12345', 'Standard', None)  # no PDF in the DB
+    last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
+    text = extract_pdf_text(sheet.finalize(last_modified=last_modified))
+    # Title page with the table of contents, then one page per song.
+    assert 'Song Sheets Chords' in text
+    assert 'Last update: 2026-08-16' in text
+    assert 'chords' in text
+    assert 'MISSING' in text
+    assert text.count('Be Thou My Vision') == 2  # table of contents and placeholder
+
+
+def test_download_agenda_items_survives_a_failing_file_download(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            },
+            {
+                'title': 'Livestream',
+                'domainType': 'link',
+                'domainIdentifier': 902,
+                'frontendUrl': 'https://stream.test/live',
+            },
+        ],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', status=500)
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    assert 'Failed to download event file for Notes' in caplog.text
+    # The unusable file is dropped, everything else still makes it.
+    assert [item.title for item in items] == ['Livestream']
+
+
+def test_download_agenda_items_survives_a_failing_song_download(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        agenda_items=[{'title': 'Welcome', 'type': 'header', 'meta': META}, SONG_ITEM],
+    )
+    register_song(
+        mocked_responses,
+        [
+            {
+                'name': 'amazing-grace.sng',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/7',
+            }
+        ],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/sng/7', status=500)
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    assert 'Failed to download agenda file for Amazing Grace' in caplog.text
+    assert [item.title for item in items] == ['Welcome']
+
+
+def test_download_file_falls_back_to_the_item_title(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes.pdf',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            }
+        ],
+    )
+    # Without a Content-Disposition header the event file title is used.
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', body=b'notes content')
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+    event = make_churchtools_event(churchtools_api, config)
+    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    assert item.filename == str(tmp_path / 'Files' / 'Notes.pdf')
+
+
+def test_download_file_replaces_a_dangerous_filename(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            }
+        ],
+    )
+    # A filename that would escape the output directory is not used as-is.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/901',
+        body=b'notes content',
+        headers={'Content-Disposition': 'filename=".."'},
+    )
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+    event = make_churchtools_event(churchtools_api, config)
+    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    assert item.filename == str(tmp_path / 'Files' / 'unnamed')
+
+
+def test_disabled_songsheets_still_download_the_song(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(mocked_responses, agenda_items=[SONG_ITEM])
+    register_song(
+        mocked_responses,
+        [
+            {
+                'name': 'amazing-grace.sng',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/7',
+            },
+            {
+                'name': 'amazing-grace-chords-sheet.pdf',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/chords/7',
+            },
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/sng/7', body=b'#Title=Amazing Grace'
+    )
+    # Neither the chords PDF is downloaded nor is a song sheet uploaded: no
+    # endpoint is registered for either, so both would fail the test.
+    event = make_churchtools_event(churchtools_api, config)
+    (item,) = event.download_agenda_items(
+        upload_songsheets=False, immich_upload=ImmichAPI(config)
+    )
+    assert item.filename == str(tmp_path / 'Songs' / 'Amazing Grace')
+
+
+def test_get_service_info_merges_several_persons_of_one_service(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_services=[
+            {'personId': None, 'name': 'Jane Doe', 'serviceId': 1},
+            {'personId': None, 'name': 'John Newton', 'serviceId': 1},
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/services',
+        json={'data': [{'id': 1, 'name': 'Music'}]},
+    )
+    event = make_churchtools_event(churchtools_api, config)
+    service_items, service_leads = event.get_service_info()
+    assert [item.title for item in service_items] == ['Music: Jane Doe, John Newton']
+    assert {person.shortname for person in service_leads['Music']} == {'Jane', 'John'}

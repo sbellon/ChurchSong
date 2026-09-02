@@ -5,14 +5,18 @@
 import base64
 import copy
 import datetime
+import logging
 import os
 import typing
 
 import pptx
+import pptx.dml.color
+import pptx.enum.dml
 import pptx.enum.shapes
 import pptx.oxml.ns
 import pptx.shapes.graphfrm
 import pptx.shapes.placeholder
+import pptx.table
 import pptx.util
 
 from churchsong.churchtools import CalendarAppointmentBase
@@ -23,6 +27,8 @@ from tests.conftest import make_config
 
 if typing.TYPE_CHECKING:
     import pathlib
+
+    import pytest
 
     from churchsong.configuration import Configuration
 
@@ -35,13 +41,19 @@ JPEG_1PX = base64.b64decode(
 
 
 def make_services_template(
-    path: pathlib.Path, *, text_services: tuple[str, str], picture_service: str
+    path: pathlib.Path,
+    *,
+    text_services: tuple[str, str],
+    picture_service: str,
+    table_service: str | None = None,
 ) -> None:
     """Build a services template like a user would in PowerPoint.
 
     PowerPointServices instantiates slide layout 0 and matches placeholders to services
     by *name*, so rename layout 0's title/subtitle placeholders and insert a picture
     placeholder (borrowed from the stock 'Picture with Caption' layout) onto it.
+    An optional table placeholder stands in for a placeholder type that cannot
+    hold service staff at all.
     """
     prs = pptx.Presentation()
     layout = prs.slide_layouts[0]
@@ -67,6 +79,17 @@ def make_services_template(
         ph for ph in layout.placeholders if ph.placeholder_format.idx == 13
     )
     picture_ph.name = picture_service
+    if table_service:
+        table_element: typing.Any = copy.deepcopy(element)
+        table_ph_element = table_element.find(f'.//{pptx.oxml.ns.qn("p:ph")}')
+        assert table_ph_element is not None
+        table_ph_element.set('idx', '14')
+        table_ph_element.set('type', 'tbl')
+        sp_tree.append(table_element)
+        table_ph = next(
+            ph for ph in layout.placeholders if ph.placeholder_format.idx == 14
+        )
+        table_ph.name = table_service
     prs.save(os.fspath(path))
 
 
@@ -379,3 +402,177 @@ def test_corrupt_template_skips_powerpoint(tmp_path: pathlib.Path) -> None:
     powerpoint.create({})
     powerpoint.save()
     assert list((tmp_path / 'output').iterdir()) == []
+
+
+def make_odd_appointments_template(path: pathlib.Path) -> None:
+    """A template with a duplicate weekly table and an unrelated table."""
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    for name in ('Weekly Table', 'Weekly Table', 'Other Table'):
+        frame = slide.shapes.add_table(
+            1, 2, pptx.util.Cm(2), pptx.util.Cm(2), pptx.util.Cm(16), pptx.util.Cm(2)
+        )
+        frame.name = name
+        for cell in frame.table.rows[0].cells:
+            cell.text = 'TEMPLATE'
+    prs.save(os.fspath(path))
+
+
+def make_styled_appointments_template(
+    path: pathlib.Path, *, theme_color: bool = False
+) -> None:
+    """A template whose table text carries explicit character formatting."""
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    frame = slide.shapes.add_table(
+        1, 2, pptx.util.Cm(2), pptx.util.Cm(2), pptx.util.Cm(16), pptx.util.Cm(2)
+    )
+    frame.name = 'Weekly Table'
+    for cell in frame.table.rows[0].cells:
+        cell.text = 'TEMPLATE'
+        font = cell.text_frame.paragraphs[0].runs[0].font
+        font.bold = True
+        font.size = pptx.util.Pt(18)
+        if theme_color:
+            font.color.theme_color = pptx.enum.dml.MSO_THEME_COLOR.ACCENT_1
+        else:
+            font.color.rgb = pptx.dml.color.RGBColor(0xFF, 0x00, 0x00)
+    prs.save(os.fspath(path))
+
+
+def read_first_table(path: pathlib.Path) -> pptx.table.Table:
+    prs = pptx.Presentation(os.fspath(path))
+    return next(
+        shape.table
+        for slide in prs.slides
+        for shape in slide.shapes
+        if isinstance(shape, pptx.shapes.graphfrm.GraphicFrame) and shape.has_table
+    )
+
+
+def create_appointments(tmp_path: pathlib.Path, template: pathlib.Path) -> pathlib.Path:
+    """Render one weekly appointment into the template and save the result."""
+    (tmp_path / 'output').mkdir(exist_ok=True)
+    config = make_powerpoint_config(tmp_path, 'Appointments', template)
+    powerpoint = PowerPointAppointments(
+        config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+    )
+    powerpoint.create(
+        [
+            make_appointment(
+                'Prayer Meeting',
+                '2026-08-25T09:00:00Z',
+                subtitle='Chapel',
+                repeat_id=7,
+                repeat_frequency=1,
+            )
+        ]
+    )
+    powerpoint.save()
+    return tmp_path / 'output' / 'appointments.pptx'
+
+
+def test_missing_appointments_template_skips_powerpoint(
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    powerpoint = PowerPointAppointments(
+        config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+    )
+    powerpoint.create([make_appointment('Concert', '2026-09-05T14:00:00Z')])
+    powerpoint.save()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_duplicate_table_is_ignored_and_unknown_table_untouched(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    template = tmp_path / 'appointments.pptx'
+    make_odd_appointments_template(template)
+    with caplog.at_level(logging.WARNING):
+        output = create_appointments(tmp_path, template)
+    assert 'Weekly Table already set' in caplog.text
+    prs = pptx.Presentation(os.fspath(output))
+    weekly = [
+        [[cell.text_frame.text for cell in row.cells] for row in shape.table.rows]
+        for slide in prs.slides
+        for shape in slide.shapes
+        if isinstance(shape, pptx.shapes.graphfrm.GraphicFrame)
+        and shape.has_table
+        and shape.name == 'Weekly Table'
+    ]
+    # The first of the two weekly tables wins, the duplicate stays untouched ...
+    assert weekly[0][0][1] == 'Prayer Meeting\vChapel'
+    assert weekly[1][0] == ['TEMPLATE', 'TEMPLATE']
+    # ... and so does the table nobody asked for.
+    assert read_tables(output)['Other Table'] == [['TEMPLATE', 'TEMPLATE']]
+
+
+def test_appointment_text_inherits_the_template_font(tmp_path: pathlib.Path) -> None:
+    template = tmp_path / 'appointments.pptx'
+    make_styled_appointments_template(template)
+    table = read_first_table(create_appointments(tmp_path, template))
+    title_run, subtitle_run = table.cell(0, 1).text_frame.paragraphs[0].runs
+    assert title_run.font.bold
+    assert title_run.font.size == pptx.util.Pt(18)
+    assert (
+        title_run.font.color.rgb  # pyright: ignore[reportUnknownMemberType]
+        == pptx.dml.color.RGBColor(0xFF, 0x00, 0x00)
+    )
+    # The subtitle is added by us and rendered smaller than the title.
+    assert subtitle_run.font.size is not None
+    assert title_run.font.size is not None
+    assert subtitle_run.font.size < title_run.font.size
+
+
+def test_appointment_text_inherits_a_theme_colored_template_font(
+    tmp_path: pathlib.Path,
+) -> None:
+    template = tmp_path / 'appointments.pptx'
+    make_styled_appointments_template(template, theme_color=True)
+    table = read_first_table(create_appointments(tmp_path, template))
+    title_run = table.cell(0, 1).text_frame.paragraphs[0].runs[0]
+    assert (
+        title_run.font.color.theme_color  # pyright: ignore[reportUnknownMemberType]
+        == pptx.enum.dml.MSO_THEME_COLOR.ACCENT_1
+    )
+
+
+def test_services_warns_about_an_unsupported_placeholder(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    template = tmp_path / 'services.pptx'
+    make_services_template(
+        template,
+        text_services=('Preaching', 'Music'),
+        picture_service='Welcome',
+        table_service='Coffee',  # a table cannot hold service staff
+    )
+    portraits = tmp_path / 'portraits'
+    portraits.mkdir()
+    (portraits / 'Jane Doe.jpeg').write_bytes(JPEG_1PX)
+    (tmp_path / 'output').mkdir()
+    config = make_powerpoint_config(tmp_path, 'Services', template)
+
+    jane = {Person('Jane Doe', 'Jane')}
+    powerpoint = PowerPointServices(config)
+    with caplog.at_level(logging.WARNING):
+        powerpoint.create(
+            {
+                'Preaching': jane,
+                'Music': jane,
+                'Welcome': jane,
+                'Coffee': jane,
+                str(None): {Person('Nobody', 'Nobody')},
+            }
+        )
+    powerpoint.save()
+    assert 'Skipping unsupported placeholder type' in caplog.text
+    # The rest of the slide is still filled in.
+    result = pptx.Presentation(os.fspath(tmp_path / 'output' / 'services.pptx'))
+    texts = [
+        shape.text_frame.text
+        for shape in result.slides[0].placeholders
+        if isinstance(shape, pptx.shapes.placeholder.SlidePlaceholder)
+    ]
+    assert 'Jane' in texts
