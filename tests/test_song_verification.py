@@ -141,6 +141,15 @@ def test_languages_check_flags_en_de_tagged_song_without_lang_markers() -> None:
     assert run_check('#Lang', song, [complete]) == ['']
 
 
+def test_every_check_returns_one_result_per_arrangement() -> None:
+    # The invariant verify_songs() relies on when zipping the check results:
+    # a check that returns more or fewer results breaks the whole run.
+    song = make_song()
+    for name, check in SongChecks.available_checks().items():
+        assert check(song, []) == [], name
+        assert len(check(song, [make_arrangement()])) == 1, name
+
+
 def test_registry_rejects_duplicate_registration() -> None:
     with pytest.raises(RuntimeError, match='already registered'):
         SongChecks.register('CCLI')(lambda _song, _arrangements: [])
@@ -259,6 +268,82 @@ def test_verify_songs_lists_only_songs_with_findings(
     assert 'Be Thou My Vision' in out
     assert 'miss' in out
     assert 'Amazing Grace' not in out  # the complete song stays out of the table
+
+
+def test_verify_songs_reports_a_song_without_any_arrangement(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    register_all_songs(
+        mocked_responses, [make_song_json(42, 'Amazing Grace', arrangements=[])]
+    )
+    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['CCLI'],
+        all_arrangements=False,
+    )
+    out = capsys.readouterr().out
+    assert 'Amazing Grace' in out
+    assert 'miss' in out
+
+
+def test_verify_songs_reports_a_song_without_a_default_arrangement(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(
+                42,
+                'Amazing Grace',
+                arrangements=[make_arrangement_json(name='Acoustic', is_default=False)],
+            )
+        ],
+    )
+    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['CCLI'],
+        all_arrangements=False,
+    )
+    out = capsys.readouterr().out
+    assert 'Amazing Grace' in out
+    assert 'miss' in out
+
+
+def test_verify_songs_checks_a_non_default_arrangement_on_demand(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The very same song is complete once every arrangement is considered.
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(
+                42,
+                'Amazing Grace',
+                arrangements=[make_arrangement_json(name='Acoustic', is_default=False)],
+            )
+        ],
+    )
+    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['CCLI'],
+        all_arrangements=True,
+    )
+    assert 'No problems found.' in capsys.readouterr().out
 
 
 def test_verify_songs_reports_nothing_to_complain_about(

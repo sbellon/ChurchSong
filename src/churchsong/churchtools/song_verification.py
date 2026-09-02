@@ -23,6 +23,9 @@ if typing.TYPE_CHECKING:
 
 
 class SongChecks:
+    # A check receives the song and the arrangements to look at, and has to return
+    # exactly one result per arrangement: verify_songs() zips the results of all
+    # active checks with the arrangements to build the rows of the result table.
     type CheckFunc = typing.Callable[[Song, list[Arrangement]], list[str]]
 
     _song_checks: typing.ClassVar[typing.OrderedDict[str, CheckFunc]] = OrderedDict()
@@ -94,7 +97,7 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
             )
         )
         for arr in arrangements
-    ] or [SongChecks.miss_if(not song.tags)]
+    ]
 
 
 @SongChecks.register('Src.')
@@ -269,6 +272,16 @@ class ChurchToolsSongVerification:
                     if all_arrangements
                     else [arr for arr in song.arrangements if arr.is_default]
                 )
+
+                # Report if there is no arrangement at all, then skip further checks.
+                if not arrangements:
+                    table.add_row(
+                        f'#{song.id}',
+                        song.name or f'#{song.id}',
+                        'miss',
+                        *('' for _ in active_song_checks),
+                    )
+                    continue
 
                 # Load .sng files - if existing - to have them available for checking.
                 if needs_sng_file_contents:
