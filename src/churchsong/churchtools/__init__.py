@@ -15,10 +15,14 @@ import requests
 import requests.exceptions
 
 from churchsong.utils import CliError, JsonObject, JsonValue
-from churchsong.utils.http import BaseAPI, is_same_host
+from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
+
+# The bigger the page, the fewer requests it takes to walk the whole song database.
+# 200 is the maximum, a limit of 201 is already answered with a 400 Bad Request.
+MAX_SONGS_PAGE_SIZE = 200
 
 
 class DeprecationAwareModel(pydantic.BaseModel):
@@ -409,8 +413,7 @@ class ChurchToolsAPI(BaseAPI):
         # `CSRF-Token` header with a 401 "CSRF-Token is invalid". So keep the token
         # the only means of authentication and drop the cookie.
         # See https://churchtools.academy/de/help/system-einstellungen/api/api-authentifizierung/
-        super().__init__(persist_cookies=False)
-        self._log = config.log
+        super().__init__(config.log, persist_cookies=False)
         self._base_url = config.churchtools.base_url
         self._headers = {
             'Accept': 'application/json',
@@ -497,7 +500,7 @@ class ChurchToolsAPI(BaseAPI):
         else:
             self._log.info('Getting all songs')
             api_url = '/api/songs'
-            params = {'include': 'tags'}
+            params = {'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
             require_tags = False  # Tags are already included in the result by default.
 
         def empty_generator() -> typing.Generator[Song]:
@@ -661,7 +664,7 @@ class ChurchToolsAPI(BaseAPI):
             full_url,
             headers=self._headers if is_same_host(full_url, self._base_url) else None,
             stream=True,
-            timeout=30,
+            timeout=REQUEST_TIMEOUT,
         )
         r.raise_for_status()
         return r

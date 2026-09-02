@@ -160,6 +160,7 @@ dependencies = [
     { name = "textual" },
     { name = "typer" },
     { name = "tzlocal" },
+    { name = "urllib3" },
     { name = "xlsxwriter" },
 ]
 
@@ -193,6 +194,7 @@ requires-dist = [
     { name = "textual", specifier = ">=3.0.1" },
     { name = "typer", specifier = ">=0.15.4" },
     { name = "tzlocal", specifier = ">=5.3.1" },
+    { name = "urllib3", specifier = ">=2.0" },
     { name = "xlsxwriter", specifier = ">=3.2.3" },
 ]
 

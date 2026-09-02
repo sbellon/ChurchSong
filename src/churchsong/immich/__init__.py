@@ -66,8 +66,7 @@ class AssetBulkUploadCheckResults(BaseModel):
 
 class ImmichAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
-        super().__init__()
-        self._log = config.log
+        super().__init__(config.log)
         if config.immich:
             self._enable_immich = True
             self._base_url = config.immich.base_url

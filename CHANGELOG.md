@@ -4,6 +4,7 @@
 
 ### Fixed
 - fixed crash of song verification on a song without (default) arrangement
+- fixed aborting on rate limits and transient server errors by retrying the requests
 
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones

@@ -11,7 +11,13 @@ import requests
 import responses
 from responses import matchers
 
-from churchsong.churchtools import ChurchToolsAPI, EventFile, EventFull, EventShort
+from churchsong.churchtools import (
+    MAX_SONGS_PAGE_SIZE,
+    ChurchToolsAPI,
+    EventFile,
+    EventFull,
+    EventShort,
+)
 from churchsong.utils import CliError
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
@@ -102,7 +108,11 @@ def test_get_songs_iterates_over_all_pages(
                 'pagination': {'total': 3, 'limit': 2, 'current': 1, 'lastPage': 2},
             },
         },
-        match=[matchers.query_param_matcher({'page': '1', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
     )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
@@ -113,13 +123,77 @@ def test_get_songs_iterates_over_all_pages(
                 'pagination': {'total': 3, 'limit': 2, 'current': 2, 'lastPage': 2},
             },
         },
-        match=[matchers.query_param_matcher({'page': '2', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
     )
 
     total, songs = churchtools_api.get_songs()
     names = [song.name for song in songs]
     assert total == 3
     assert names == ['Amazing Grace', 'How Great Thou Art', 'Be Thou My Vision']
+
+
+def test_get_songs_survives_a_rate_limited_page(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # Paging through the whole song database is what runs into the rate limit of
+    # ChurchTools, and a 429 in the middle of it used to abort `songs verify`.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(1, 'Amazing Grace')],
+            'meta': {
+                'count': 1,
+                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+            },
+        },
+        match=[matchers.query_param_matcher({'page': '1', 'limit': '1'})],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(1, 'Amazing Grace')],
+            'meta': {
+                'count': 1,
+                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+            },
+        },
+        match=[
+            matchers.query_param_matcher(
+                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        status=429,
+        match=[
+            matchers.query_param_matcher(
+                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(2, 'Be Thou My Vision')],
+            'meta': {
+                'count': 1,
+                'pagination': {'total': 2, 'limit': 1, 'current': 2, 'lastPage': 2},
+            },
+        },
+        match=[
+            matchers.query_param_matcher(
+                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+
+    _total, songs = churchtools_api.get_songs()
+    assert [song.name for song in songs] == ['Amazing Grace', 'Be Thou My Vision']
 
 
 def test_get_next_event_skips_already_finished_events(
