@@ -8,6 +8,7 @@ import os
 import pathlib  # noqa: TC003 (used within Annotated)
 import shutil
 import subprocess
+import sys
 import typing
 
 import rich
@@ -248,16 +249,12 @@ def update(ctx: typer.Context) -> None:
         msg = 'Cannot find "uv", aborting self update'
         ctx.obj.log.fatal(msg)
         raise CliError(msg)
-    try:
-        # "uv self update" does not touch any files of our application,
-        # so we can use subprocess.run().
-        cmd = [uv, 'self', 'update', '--no-config']
-        ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        msg = f'"uv self update" failed: {e}'
-        ctx.obj.log.fatal(msg)
-        raise CliError(msg) from None
+    # "uv self update" does not touch any files of our application, so we can use
+    # subprocess.run(). A failure to update `uv` is not fatal for ChurchSong however.
+    cmd = [uv, 'self', 'update', '--no-config']
+    ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+    if subprocess.run(cmd, check=False).returncode != 0:
+        ctx.obj.log.warning('"uv self update" failed, continuing with installed uv')
     # However "uv tool upgrade" modifies files of our application that are in use,
     # so we have to "exec" instead of starting a subprocess.
     cmd = [
@@ -271,6 +268,8 @@ def update(ctx: typer.Context) -> None:
         Configuration.package_name,
     ]
     ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+    rich.print(f'Updating {Configuration.package_name} ...')
+    sys.stdout.flush()  # os.execl does not flush the buffers of the replaced process
     os.execl(uv, *cmd)  # noqa: S606
 
 

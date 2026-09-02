@@ -300,7 +300,7 @@ class Configuration(TomlConfig):
 
         try:
             r = requests.get(
-                f'https://pypi.org/pypi/{self.package_name}/json', timeout=30
+                f'https://pypi.org/pypi/{self.package_name}/json', timeout=5
             )
             later = packaging.version.Version(PyPIInfo(**r.json()).info.version)
         except requests.RequestException, pydantic.ValidationError:

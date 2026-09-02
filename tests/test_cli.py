@@ -309,26 +309,16 @@ def test_self_update_without_uv_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 'Cannot find "uv"' in result.output
 
 
-def test_self_update_reports_failing_uv_self_update(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail(cmd: list[str], **_kwargs: object) -> None:
-        raise subprocess.CalledProcessError(returncode=1, cmd=cmd)
-
-    monkeypatch.setattr('shutil.which', some_uv)
-    monkeypatch.setattr('subprocess.run', fail)
-    result = invoke(['self', 'update'])
-    assert result.exit_code == 1
-    assert '"uv self update" failed' in result.output
-
-
-def test_self_update_updates_uv_and_then_execs_tool_upgrade(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def install_fake_uv(
+    monkeypatch: pytest.MonkeyPatch, returncode: int
+) -> list[list[str]]:
     executed: list[list[str]] = []
 
-    def fake_run(cmd: list[str], **_kwargs: object) -> None:
+    def fake_run(
+        cmd: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
         executed.append(cmd)
+        return subprocess.CompletedProcess(cmd, returncode)
 
     def fake_execl(_file: str, *args: str) -> None:
         executed.append(list(args))
@@ -336,10 +326,28 @@ def test_self_update_updates_uv_and_then_execs_tool_upgrade(
     monkeypatch.setattr('shutil.which', some_uv)
     monkeypatch.setattr('subprocess.run', fake_run)
     monkeypatch.setattr('os.execl', fake_execl)
+    return executed
+
+
+def test_self_update_updates_uv_and_then_execs_tool_upgrade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed = install_fake_uv(monkeypatch, returncode=0)
     result = invoke(['self', 'update'])
     assert result.exit_code == 0
     # "uv self update" runs as a subprocess, "uv tool upgrade" replaces us.
     assert executed[0] == ['/usr/bin/uv', 'self', 'update', '--no-config']
+    assert executed[1][:3] == ['/usr/bin/uv', 'tool', 'upgrade']
+    assert executed[1][-1] == 'ChurchSong'
+
+
+def test_self_update_upgrades_even_if_uv_cannot_update_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A uv from a package manager refuses to self-update, but can still upgrade us.
+    executed = install_fake_uv(monkeypatch, returncode=1)
+    result = invoke(['self', 'update'])
+    assert result.exit_code == 0
     assert executed[1][:3] == ['/usr/bin/uv', 'tool', 'upgrade']
     assert executed[1][-1] == 'ChurchSong'
 
