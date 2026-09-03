@@ -20,6 +20,7 @@ from churchsong.churchtools.events import Item, ItemType, Person
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import Configuration
 from churchsong.interactivescreen import DownloadSelection
+from churchsong.utils import CliError
 from tests.conftest import make_config
 
 if typing.TYPE_CHECKING:
@@ -643,6 +644,24 @@ def test_main_passes_the_configuration_as_context_object(
     monkeypatch.setattr(cli, 'app', fake_app)
     cli.main()
     assert seen['obj'] is config
+
+
+def test_main_renders_a_configuration_cli_error_without_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def raise_cli_error() -> Configuration:
+        msg = 'Configuration file "config.toml" not found.'
+        raise CliError(msg)
+
+    def unexpected_app_call(**_kwargs: object) -> None:
+        pytest.fail('app() must not run when Configuration() failed')
+
+    monkeypatch.setattr(cli, 'Configuration', raise_cli_error)
+    monkeypatch.setattr(cli, 'app', unexpected_app_call)
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main()
+    assert exc_info.value.code == 1
+    assert 'Configuration file "config.toml" not found.' in capsys.readouterr().err
 
 
 def test_main_logs_unexpected_exceptions_before_reraising(

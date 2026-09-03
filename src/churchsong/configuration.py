@@ -16,6 +16,7 @@ import pathlib
 import re
 import tomllib
 import typing
+import urllib.parse
 
 import packaging.version
 import platformdirs
@@ -87,7 +88,19 @@ class GeneralConfig(BaseModel):
     )
 
 
-BaseUrl = typing.Annotated[str, pydantic.AfterValidator(lambda url: url.rstrip('/'))]
+def validate_base_url(url: str) -> str:
+    # Reject anything that is not an absolute http(s) URL here, so that the error names
+    # the offending configuration field instead of only surfacing at the first request
+    # as a requests.exceptions.MissingSchema pointing at the request. Trailing slashes
+    # are stripped so that appending an endpoint path cannot double the separator.
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in {'http', 'https'} or not parts.netloc:
+        msg = f'must be a URL starting with "http://" or "https://", got "{url}"'
+        raise ValueError(msg)
+    return url.rstrip('/')
+
+
+BaseUrl = typing.Annotated[str, pydantic.AfterValidator(validate_base_url)]
 
 
 class ChurchToolsConfig(BaseModel):
@@ -213,6 +226,18 @@ class TomlConfig(BaseModel):
         return recursive_expand_envvars(values)
 
 
+def format_validation_error(e: pydantic.ValidationError) -> str:
+    # Pydantic reports the location of an error in terms of the aliases, which are
+    # exactly the PascalCase section and key names as written in the TOML file, so the
+    # parts can be joined as-is; only list indices need bracket instead of dot syntax.
+    def location(loc: tuple[int | str, ...]) -> str:
+        return ''.join(
+            f'[{item}]' if isinstance(item, int) else f'.{item}' for item in loc
+        ).lstrip('.')
+
+    return '\n'.join(f'  {location(err["loc"])}: {err["msg"]}' for err in e.errors())
+
+
 class Configuration(TomlConfig):
     log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(__name__)
 
@@ -236,6 +261,16 @@ class Configuration(TomlConfig):
             raise CliError(msg) from None
         except UnicodeDecodeError as e:
             msg = f'Configuration file "{self.config_toml}" is invalid: {e}'
+            raise CliError(msg) from None
+        except tomllib.TOMLDecodeError as e:
+            # The exception message already carries the offending line and column.
+            msg = f'Configuration file "{self.config_toml}" is not valid TOML: {e}'
+            raise CliError(msg) from None
+        except pydantic.ValidationError as e:
+            msg = (
+                f'Configuration file "{self.config_toml}" is invalid:\n'
+                f'{format_validation_error(e)}'
+            )
             raise CliError(msg) from None
         except Exception as e:
             self.log.fatal(e, exc_info=True)

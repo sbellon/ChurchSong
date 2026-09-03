@@ -11,6 +11,7 @@ import tomllib
 import typing
 
 import packaging.version
+import pydantic
 import pytest
 import requests
 
@@ -105,6 +106,25 @@ def test_base_urls_are_stored_without_a_trailing_slash() -> None:
     assert config.immich.base_url == 'https://immich.test'
 
 
+def test_base_url_without_a_scheme_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match='base_url'):
+        FakeConfiguration(
+            ChurchTools={'base_url': 'churchtools.test', 'login_token': 'token'},
+            SongBeamer={'output_dir': 'output'},
+        )
+
+
+def test_base_url_with_a_non_http_scheme_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match='base_url'):
+        FakeConfiguration(
+            ChurchTools={
+                'base_url': 'ftp://churchtools.test',
+                'login_token': 'token',
+            },
+            SongBeamer={'output_dir': 'output'},
+        )
+
+
 def test_immich_globbings_match_case_insensitively() -> None:
     config = FakeConfiguration(**tomllib.loads(MINIMAL_TOML))
     assert config.immich is not None
@@ -184,11 +204,41 @@ def test_configuration_file_with_invalid_encoding_is_reported(
         Configuration()
 
 
-def test_broken_configuration_file_is_logged_and_reraised(
-    config_toml: pathlib.Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_malformed_toml_is_reported(config_toml: pathlib.Path) -> None:
     config_toml.write_text('this is not = = toml', encoding='utf-8')
-    with caplog.at_level(logging.CRITICAL), pytest.raises(tomllib.TOMLDecodeError):
+    with pytest.raises(CliError, match='not valid TOML'):
+        Configuration()
+
+
+def test_invalid_configuration_reports_the_offending_section_and_field(
+    config_toml: pathlib.Path,
+) -> None:
+    config_toml.write_text(
+        '[ChurchTools]\nbase_url = "https://churchtools.test"\n', encoding='utf-8'
+    )
+    with pytest.raises(CliError) as exc_info:
+        Configuration()
+    message = exc_info.value.format_message()
+    assert 'ChurchTools.login_token' in message
+    assert 'SongBeamer' in message
+
+
+def test_unexpected_configuration_errors_are_logged_and_reraised(
+    config_toml: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_toml.write_text(MINIMAL_TOML, encoding='utf-8')
+
+    def raise_boom(*_args: object, **_kwargs: object) -> None:
+        msg = 'disk on fire'
+        raise OSError(msg)
+
+    monkeypatch.setattr(tomllib, 'load', raise_boom)
+    with (
+        caplog.at_level(logging.CRITICAL),
+        pytest.raises(OSError, match='disk on fire'),
+    ):
         Configuration()
     assert any(record.levelno == logging.CRITICAL for record in caplog.records)
 
