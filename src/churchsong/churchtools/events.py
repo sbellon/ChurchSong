@@ -11,7 +11,6 @@ import os
 import pathlib
 import re
 import typing
-from collections import defaultdict
 
 import pypdf
 import reportlab.lib.colors
@@ -447,7 +446,7 @@ class ChurchToolsEvent:
         song_sheets.upload()
         return agenda_items
 
-    def get_service_info(self) -> tuple[list[Item], defaultdict[str, set[Person]]]:
+    def get_service_info(self) -> tuple[list[Item], dict[str, set[Person]]]:
         self._log.info('Fetching service team information')
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
@@ -456,7 +455,7 @@ class ChurchToolsEvent:
             fullname=self._person_dict.get(str(None), _('Nobody')),
             shortname=self._person_dict.get(str(None), _('Nobody')),
         )
-        service_leads: defaultdict[str, set[Person]] = defaultdict(lambda: {nobody})
+        service_leads: dict[str, set[Person]] = {}
         for event_service in self._event.event_services:
             service_name = str(service_id2name.get(event_service.service_id))
             # If we have access to the churchdb, we can query the person there and
@@ -485,4 +484,7 @@ class ChurchToolsEvent:
             )
             for service, persons in sorted(service_leads.items())
         ]
+        # Add the fallback `None -> nobody` entry *after* the `service_items` are built
+        # as otherwise the fallback service entry would appear in the Schedule.col.
+        service_leads.setdefault(str(None), {nobody})
         return service_items, service_leads

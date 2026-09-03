@@ -42,10 +42,24 @@ class PowerPointServices(PowerPointBase):
         super().__init__(config, config.songbeamer.powerpoint.services.template_pptx)
         self._portraits_dir = config.songbeamer.powerpoint.services.portraits_dir
 
+    def _insert_portrait(
+        self, ph: pptx.shapes.placeholder.PicturePlaceholder, fullnames: str
+    ) -> bool:
+        portrait = self._portraits_dir / f'{fullnames}.jpeg'
+        try:
+            ph.insert_picture(  # pyright: ignore[reportUnknownMemberType]
+                os.fspath(portrait)
+            )
+        except OSError as e:
+            self._log.error('Cannot embed portrait picture: %s', e)
+            return False
+        return True
+
     def create(self, service_leads: dict[str, set[Person]]) -> None:
         if not self._prs:
             return
 
+        nobody = service_leads.get(str(None), set())
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:
@@ -58,7 +72,7 @@ class PowerPointServices(PowerPointBase):
                 continue
             service_name = base_placeholder.name
             sorted_persons = sorted(
-                service_leads[service_name], key=lambda p: p.fullname
+                service_leads.get(service_name, nobody), key=lambda p: p.fullname
             )
             person_fullnames = ' + '.join(p.fullname for p in sorted_persons)
             person_shortnames = ' + '.join(p.shortname for p in sorted_persons)
@@ -69,18 +83,12 @@ class PowerPointServices(PowerPointBase):
                         service_name,
                         person_fullnames,
                     )
-                    try:
-                        ph.insert_picture(  # pyright: ignore[reportUnknownMemberType]
-                            os.fspath(self._portraits_dir / f'{person_fullnames}.jpeg')
-                        )
-                    except FileNotFoundError as e:
-                        self._log.error(f'Cannot embed portrait picture: {e}')
-                        no_persons = ' + '.join(
-                            sorted(p.fullname for p in service_leads[str(None)])
-                        )
-                        ph.insert_picture(  # pyright: ignore[reportUnknownMemberType]
-                            os.fspath(self._portraits_dir / f'{no_persons}.jpeg')
-                        )
+                    if not self._insert_portrait(ph, person_fullnames):
+                        no_persons = ' + '.join(sorted(p.fullname for p in nobody))
+                        if not self._insert_portrait(ph, no_persons):
+                            self._log.error(
+                                'Leaving portrait placeholder %s empty', service_name
+                            )
                 case pptx.shapes.placeholder.SlidePlaceholder() if ph.has_text_frame:
                     self._log.debug(
                         'Replacing text placeholder %s with %s',
@@ -93,4 +101,3 @@ class PowerPointServices(PowerPointBase):
                         'Skipping unsupported placeholder type %s',
                         ph.placeholder_format.type,
                     )
-        _ = service_leads.pop(str(None), None)

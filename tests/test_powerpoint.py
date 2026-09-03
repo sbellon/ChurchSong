@@ -209,11 +209,12 @@ def test_services_fills_text_and_picture_placeholders(
         'Welcome': {Person('Jane Doe', 'Jane')},
         str(None): {Person('Nobody', 'Nobody')},
     }
+    expected_leads = copy.deepcopy(service_leads)
     powerpoint = PowerPointServices(config)
     powerpoint.create(service_leads)
     powerpoint.save()
 
-    assert str(None) not in service_leads  # popped after use
+    assert service_leads == expected_leads  # create() does not touch its argument
 
     result = pptx.Presentation(os.fspath(tmp_path / 'output' / 'services.pptx'))
     (slide,) = result.slides
@@ -268,6 +269,91 @@ def test_services_falls_back_to_nobody_portrait(tmp_path: pathlib.Path) -> None:
         if isinstance(shape, pptx.shapes.placeholder.PlaceholderPicture)
     )
     assert picture.image.blob == JPEG_1PX
+
+
+def test_services_renders_an_unassigned_service_as_nobody(
+    tmp_path: pathlib.Path,
+) -> None:
+    template = tmp_path / 'services.pptx'
+    make_services_template(
+        template, text_services=('Preaching', 'Music'), picture_service='Welcome'
+    )
+    portraits = tmp_path / 'portraits'
+    portraits.mkdir()
+    (portraits / 'Nobody.jpeg').write_bytes(JPEG_1PX)
+    (tmp_path / 'output').mkdir()
+    config = make_powerpoint_config(tmp_path, 'Services', template)
+
+    # Nobody is assigned to 'Music' and 'Welcome' although the template names them.
+    service_leads = {
+        'Preaching': {Person('Jane Doe', 'Jane')},
+        str(None): {Person('Nobody', 'Nobody')},
+    }
+    expected_leads = copy.deepcopy(service_leads)
+    powerpoint = PowerPointServices(config)
+    powerpoint.create(service_leads)
+    powerpoint.save()
+
+    assert service_leads == expected_leads  # no entries invented for the caller
+
+    result = pptx.Presentation(os.fspath(tmp_path / 'output' / 'services.pptx'))
+    (slide,) = result.slides
+    texts = {
+        shape.placeholder_format.idx: shape.text_frame.text
+        for shape in slide.placeholders
+        if isinstance(shape, pptx.shapes.placeholder.SlidePlaceholder)
+    }
+    assert texts == {0: 'Jane', 1: 'Nobody'}
+    (picture,) = (
+        shape
+        for shape in slide.placeholders
+        if isinstance(shape, pptx.shapes.placeholder.PlaceholderPicture)
+    )
+    assert picture.image.blob == JPEG_1PX
+
+
+def test_services_survives_a_missing_fallback_portrait(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    template = tmp_path / 'services.pptx'
+    make_services_template(
+        template, text_services=('Preaching', 'Music'), picture_service='Welcome'
+    )
+    (tmp_path / 'portraits').mkdir()  # neither 'Jane Doe.jpeg' nor 'Nobody.jpeg'
+    (tmp_path / 'output').mkdir()
+    config = make_powerpoint_config(tmp_path, 'Services', template)
+
+    jane = Person('Jane Doe', 'Jane')
+    powerpoint = PowerPointServices(config)
+    with caplog.at_level(logging.ERROR):
+        powerpoint.create(
+            {
+                'Preaching': {jane},
+                'Music': {jane},
+                'Welcome': {jane},
+                str(None): {Person('Nobody', 'Nobody')},
+            }
+        )
+    powerpoint.save()
+
+    assert 'Jane Doe.jpeg' in caplog.text  # the portrait ...
+    assert 'Nobody.jpeg' in caplog.text  # ... and the fallback are both reported
+    assert 'Leaving portrait placeholder Welcome empty' in caplog.text
+
+    # The run completes: text placeholders are filled and the picture placeholder is
+    # simply left empty instead of aborting the agenda.
+    result = pptx.Presentation(os.fspath(tmp_path / 'output' / 'services.pptx'))
+    (slide,) = result.slides
+    texts = {
+        shape.placeholder_format.idx: shape.text_frame.text
+        for shape in slide.placeholders
+        if isinstance(shape, pptx.shapes.placeholder.SlidePlaceholder)
+    }
+    assert texts == {0: 'Jane', 1: 'Jane'}
+    assert not any(
+        isinstance(shape, pptx.shapes.placeholder.PlaceholderPicture)
+        for shape in slide.placeholders
+    )
 
 
 def test_appointments_distributes_and_formats_appointments(
