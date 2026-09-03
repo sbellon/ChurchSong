@@ -21,6 +21,7 @@ import reportlab.platypus
 import requests
 
 from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
+from churchsong.utils.http import DOWNLOAD_CHUNK_SIZE
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
@@ -234,8 +235,10 @@ class SongSheets:
             self._leads_pdf = PdfSheet(leads_name, subtitle, subsubtitle, toc_header)
 
     def _download_stream(self, url: str) -> io.BytesIO:
-        r = self.cta.download_url(url)
-        return io.BytesIO(r.content)
+        # Unlike the file downloads, this one does need the whole body in memory, as
+        # pypdf reads from a seekable buffer - song sheet PDFs are small enough.
+        with self.cta.download_url(url) as r:
+            return io.BytesIO(r.content)
 
     def delete_event_file(self, event_file: EventFile) -> bool:
         if event_file.title in (self._chords_file, self._leads_file):
@@ -311,8 +314,11 @@ class ChurchToolsEvent:
             (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
             filename = self._output_dir / subfolder / filename
             if overwrite:
+                # Stream the body into the file instead of accessing `r.content`,
+                # which would hold a whole video in memory for the Immich upload.
                 with filename.open(mode='wb') as fd:
-                    fd.write(r.content)
+                    for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                        fd.write(chunk)
         return os.fspath(filename)
 
     def _song_files(self, item: EventAgendaItem) -> SongFiles:

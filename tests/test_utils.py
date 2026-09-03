@@ -14,9 +14,12 @@ from churchsong.utils import (
     flattened_split,
     recursive_expand_envvars,
 )
+from churchsong.utils.file import atomic_replace
 from churchsong.utils.http import BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
+    import pathlib
+
     import responses
 
 
@@ -154,3 +157,45 @@ def test_post_is_not_retried(mocked_responses: responses.RequestsMock) -> None:
         api._post('/files')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
     assert len(mocked_responses.calls) == 1
+
+
+def test_atomic_replace_moves_the_temporary_file_onto_the_target(
+    tmp_path: pathlib.Path,
+) -> None:
+    target = tmp_path / 'Schedule.col'
+    target.write_text('previous', encoding='utf-8')
+
+    with atomic_replace(target) as temppath:
+        temppath.write_text('current', encoding='utf-8')
+        assert target.read_text(encoding='utf-8') == 'previous'  # not yet replaced
+
+    assert target.read_text(encoding='utf-8') == 'current'
+    assert list(tmp_path.iterdir()) == [target]  # no temporary file left behind
+
+
+def test_atomic_replace_keeps_the_previous_content_on_a_failing_write(
+    tmp_path: pathlib.Path,
+) -> None:
+    target = tmp_path / 'Schedule.col'
+    target.write_text('previous', encoding='utf-8')
+
+    def failing_write() -> None:
+        with atomic_replace(target) as temppath:
+            temppath.write_text('half of the', encoding='utf-8')
+            msg = 'writing blew up halfway through'
+            raise RuntimeError(msg)
+
+    with pytest.raises(RuntimeError):
+        failing_write()
+
+    assert target.read_text(encoding='utf-8') == 'previous'
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_atomic_replace_creates_the_target_directory(tmp_path: pathlib.Path) -> None:
+    target = tmp_path / 'output' / 'Schedule.col'
+
+    with atomic_replace(target) as temppath:
+        temppath.write_text('current', encoding='utf-8')
+
+    assert target.read_text(encoding='utf-8') == 'current'

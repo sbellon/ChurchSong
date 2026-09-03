@@ -294,11 +294,10 @@ class ChurchToolsSongVerification:
                         )
                         if sng_file:
                             try:
-                                arr.sng_file_content = (
-                                    self.cta.download_url(sng_file.file_url)
-                                    .text.lstrip('\ufeff')
-                                    .splitlines()
-                                )
+                                with self.cta.download_url(sng_file.file_url) as r:
+                                    arr.sng_file_content = r.text.lstrip(
+                                        '\ufeff'
+                                    ).splitlines()
                             except requests.exceptions.HTTPError:
                                 self._log.warning(
                                     f'Failed to download arrangement {arr}'

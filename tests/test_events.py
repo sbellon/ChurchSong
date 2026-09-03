@@ -10,7 +10,9 @@ import typing
 import pypdf
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
+import requests
 
+import churchsong.churchtools.events
 from churchsong.churchtools import ChurchToolsAPI, EventShort
 from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet
 from churchsong.immich import ImmichAPI
@@ -611,3 +613,55 @@ def test_get_service_info_merges_several_persons_of_one_service(
     service_items, service_leads = event.get_service_info()
     assert [item.title for item in service_items] == ['Music: Jane Doe, John Newton']
     assert {person.shortname for person in service_leads['Music']} == {'Jane', 'John'}
+
+
+def test_download_file_streams_the_body_instead_of_buffering_it(
+    monkeypatch: pytest.MonkeyPatch,
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Video.mp4',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            }
+        ],
+    )
+    body = bytes(range(256)) * 8
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', body=body)
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+
+    # Event files are videos and photos, so they go to disk chunk by chunk instead
+    # of through `Response.content`, which would hold the whole file in memory.
+    # `Response.content` itself streams with `CONTENT_CHUNK_SIZE`, hence the URL.
+    chunk_sizes: list[tuple[str, int]] = []
+    original_iter_content = requests.Response.iter_content
+
+    def spy_iter_content(
+        self: requests.Response, chunk_size: int = 1, *, decode_unicode: bool = False
+    ) -> typing.Iterator[str | bytes]:
+        chunk_sizes.append((self.url, chunk_size))
+        return original_iter_content(
+            self, chunk_size=chunk_size, decode_unicode=decode_unicode
+        )
+
+    monkeypatch.setattr(requests.Response, 'iter_content', spy_iter_content)
+    monkeypatch.setattr(churchsong.churchtools.events, 'DOWNLOAD_CHUNK_SIZE', 512)
+
+    event = make_churchtools_event(churchtools_api, config)
+    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+
+    assert item.filename == str(tmp_path / 'Files' / 'Video.mp4')
+    # Reassembled from four chunks, byte for byte.
+    assert (tmp_path / 'Files' / 'Video.mp4').read_bytes() == body
+    assert [
+        chunk_size
+        for url, chunk_size in chunk_sizes
+        if url == f'{CHURCHTOOLS_BASE_URL}/files/901'
+    ] == [512]
