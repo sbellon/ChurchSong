@@ -10,6 +10,7 @@ import typing
 
 import packaging.version
 import pytest
+import requests
 import typer.main
 import typer.testing
 
@@ -110,19 +111,28 @@ class Pipeline:
 
 
 def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
-    monkeypatch: pytest.MonkeyPatch, *, appointment_permission: bool = True
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    appointment_permission: bool = True,
+    failing_step: str | None = None,
 ) -> Pipeline:
     """Replace everything _handle_agenda() orchestrates with recording fakes."""
     pipeline = Pipeline()
 
+    def record(step: str) -> None:
+        pipeline.steps.append(step)
+        if step == failing_step:
+            msg = '502 Server Error: Bad Gateway for url: https://churchtools.test'
+            raise requests.exceptions.HTTPError(msg)
+
     class FakeChurchToolsAPI:
         def __init__(self, _config: Configuration) -> None:
-            pipeline.steps.append('api')
+            record('api')
 
         def get_next_event(
             self, from_date: datetime.datetime, *, agenda_required: bool = False
         ) -> EventShort:
-            pipeline.steps.append('get_next_event')
+            record('get_next_event')
             pipeline.requested_date = from_date
             pipeline.agenda_required = agenda_required
             return make_event_short()
@@ -130,66 +140,72 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
         def has_permissions(
             self, _required_perms: list[str], log_reason: str = ''
         ) -> bool:
-            pipeline.steps.append(f'permissions:{log_reason}')
+            record(f'permissions:{log_reason}')
             return appointment_permission
 
         def get_appointments(self, _event: EventShort) -> list[object]:
             return []
 
+    class FakeSongSheets:
+        def upload(self) -> None:
+            record('song_sheets.upload')
+
     class FakeChurchToolsEvent:
         def __init__(
             self, _cta: object, _event: EventShort, _config: Configuration
         ) -> None:
-            pipeline.steps.append('event')
+            record('event')
 
-        def download_agenda_items(self, **kwargs: object) -> list[Item]:
-            pipeline.steps.append('download')
+        def download_agenda_items(
+            self, **kwargs: object
+        ) -> tuple[list[Item], FakeSongSheets]:
+            record('download')
             pipeline.download_kwargs = kwargs
-            return AGENDA_ITEMS
+            return AGENDA_ITEMS, FakeSongSheets()
 
         def get_service_info(
             self,
         ) -> tuple[list[Item], dict[str, set[Person]]]:
-            pipeline.steps.append('service_info')
+            record('service_info')
             return SERVICE_ITEMS, SERVICE_LEADS
 
     class FakeImmichAPI:
         def __init__(self, _config: Configuration) -> None:
-            pipeline.steps.append('immich')
+            record('immich')
 
     class FakePowerPointServices:
         def __init__(self, _config: Configuration) -> None:
-            pipeline.steps.append('services')
+            record('services')
 
         def create(self, service_leads: dict[str, set[Person]]) -> None:
-            pipeline.steps.append('services.create')
+            record('services.create')
             pipeline.service_leads = service_leads
 
         def save(self) -> None:
-            pipeline.steps.append('services.save')
+            record('services.save')
 
     class FakePowerPointAppointments:
         def __init__(
             self, _config: Configuration, _event_start_date: datetime.datetime
         ) -> None:
-            pipeline.steps.append('appointments')
+            record('appointments')
 
         def create(self, _appointments: typing.Iterable[object]) -> None:
-            pipeline.steps.append('appointments.create')
+            record('appointments.create')
 
         def save(self) -> None:
-            pipeline.steps.append('appointments.save')
+            record('appointments.save')
 
     class FakeSongBeamer:
         def __init__(self, _config: Configuration) -> None:
-            pipeline.steps.append('songbeamer')
+            record('songbeamer')
 
         def create_schedule(self, **kwargs: object) -> None:
-            pipeline.steps.append('create_schedule')
+            record('create_schedule')
             pipeline.schedule_kwargs = kwargs
 
         def launch(self) -> None:
-            pipeline.steps.append('launch')
+            record('launch')
 
     monkeypatch.setattr(cli, 'ChurchToolsAPI', FakeChurchToolsAPI)
     monkeypatch.setattr(cli, 'ChurchToolsEvent', FakeChurchToolsEvent)
@@ -363,8 +379,6 @@ def test_agenda_command_runs_the_full_pipeline(
         'api',
         'get_next_event',
         'event',
-        'immich',
-        'download',
         'service_info',
         'services',
         'services.create',
@@ -373,6 +387,9 @@ def test_agenda_command_runs_the_full_pipeline(
         'appointments',
         'appointments.create',
         'appointments.save',
+        'immich',
+        'download',
+        'song_sheets.upload',
         'songbeamer',
         'create_schedule',
         'launch',
@@ -388,6 +405,76 @@ def test_agenda_command_runs_the_full_pipeline(
     assert pipeline.schedule_kwargs['agenda_items'] == AGENDA_ITEMS
     assert pipeline.schedule_kwargs['service_items'] == SERVICE_ITEMS
     assert pipeline.schedule_kwargs['event_date'] == make_event_short().start_date
+
+
+def test_agenda_writes_the_schedule_although_the_song_sheet_upload_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = install_fake_pipeline(monkeypatch, failing_step='song_sheets.upload')
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    # A 502 of the upload costs neither the schedule nor the launch, although both
+    # of them only come afterwards.
+    assert 'create_schedule' in pipeline.steps
+    assert 'launch' in pipeline.steps
+    assert 'Skipped song sheet upload: 502 Server Error' in result.output
+
+
+def test_agenda_runs_without_a_reachable_immich_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = install_fake_pipeline(monkeypatch, failing_step='immich')
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    # The download gets no Immich connector instead of never being reached at all.
+    assert pipeline.download_kwargs['immich'] is None
+    assert 'create_schedule' in pipeline.steps
+    assert 'launch' in pipeline.steps
+    assert 'Skipped Immich connector: 502 Server Error' in result.output
+
+
+def test_agenda_writes_the_schedule_although_the_service_info_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = install_fake_pipeline(monkeypatch, failing_step='service_info')
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    # The songs are what the schedule is needed for, the service items are not.
+    assert pipeline.schedule_kwargs['agenda_items'] == AGENDA_ITEMS
+    assert pipeline.schedule_kwargs['service_items'] == []
+    assert 'launch' in pipeline.steps
+    # The service slides are created from what little there is.
+    assert pipeline.service_leads == {}
+    assert 'appointments.save' in pipeline.steps
+    assert 'Skipped service team information: 502 Server Error' in result.output
+
+
+def test_agenda_launches_although_the_slides_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = install_fake_pipeline(monkeypatch, failing_step='services.create')
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    assert 'services.save' not in pipeline.steps
+    # One failing slide deck stops neither the other one nor the schedule.
+    assert 'appointments.save' in pipeline.steps
+    assert 'create_schedule' in pipeline.steps
+    assert 'launch' in pipeline.steps
+    assert 'Skipped service slides: 502 Server Error' in result.output
+
+
+def test_agenda_reports_nothing_when_no_stage_was_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_fake_pipeline(monkeypatch)
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    assert 'Skipped' not in result.output
 
 
 def test_agenda_command_rejects_an_invalid_date(
