@@ -9,6 +9,9 @@ import typing
 import pptx
 import pptx.exc
 
+from churchsong.utils import CliError
+from churchsong.utils.file import atomic_replace
+
 if typing.TYPE_CHECKING:
     import pathlib
 
@@ -33,4 +36,19 @@ class PowerPointBase(abc.ABC):  # noqa: B024
 
     def save(self) -> None:
         if self._prs:
-            self._prs.save(os.fspath(self._output_pptx))
+            try:
+                with atomic_replace(self._output_pptx) as temp_pptx:
+                    self._prs.save(os.fspath(temp_pptx))
+            except PermissionError as e:
+                # On Windows an open presentation holds the file, which makes the
+                # replace fail even though writing the temporary file succeeded.
+                msg = (
+                    f'Cannot write "{self._output_pptx}": {e}\n'
+                    'Is the presentation currently open in PowerPoint?'
+                )
+                self._log.error(msg)
+                raise CliError(msg) from None
+            except OSError as e:
+                msg = f'Cannot write "{self._output_pptx}": {e}'
+                self._log.error(msg)
+                raise CliError(msg) from None

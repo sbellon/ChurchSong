@@ -11,6 +11,7 @@ import typing
 from churchsong.churchtools.events import Item, ItemType
 from churchsong.configuration import Configuration
 from churchsong.utils import CliError, expand_envvars
+from churchsong.utils.file import atomic_replace
 
 if typing.TYPE_CHECKING:
     import datetime
@@ -302,8 +303,16 @@ class SongBeamer:
                     for insert_item in AgendaItem.parse(slide.content):
                         agenda += insert_item
 
-        with self._schedule_filepath.open(mode='w', encoding='utf-8') as fd:
-            fd.write(str(agenda))
+        try:
+            with (
+                atomic_replace(self._schedule_filepath) as temp_filepath,
+                temp_filepath.open(mode='w', encoding='utf-8', newline='\r\n') as fd,
+            ):
+                fd.write(str(agenda))
+        except OSError as e:
+            msg = f'Cannot write "{self._schedule_filepath}": {e}'
+            self._log.error(msg)
+            raise CliError(msg) from None
 
     def launch(self) -> None:
         self._log.info('Launching SongBeamer instance')

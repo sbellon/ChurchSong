@@ -7,6 +7,7 @@ import copy
 import datetime
 import logging
 import os
+import pathlib
 import typing
 
 import pptx
@@ -18,18 +19,16 @@ import pptx.shapes.graphfrm
 import pptx.shapes.placeholder
 import pptx.table
 import pptx.util
+import pytest
 
 from churchsong.churchtools import CalendarAppointmentBase
 from churchsong.churchtools.events import Person
 from churchsong.powerpoint.appointments import PowerPointAppointments
 from churchsong.powerpoint.services import PowerPointServices
+from churchsong.utils import CliError
 from tests.conftest import make_config
 
 if typing.TYPE_CHECKING:
-    import pathlib
-
-    import pytest
-
     from churchsong.configuration import Configuration
 
 # Smallest JPEG python-pptx accepts: a 1x1 pixel image.
@@ -576,3 +575,42 @@ def test_services_warns_about_an_unsupported_placeholder(
         if isinstance(shape, pptx.shapes.placeholder.SlidePlaceholder)
     ]
     assert 'Jane' in texts
+
+
+def test_save_keeps_the_previous_presentation_if_it_cannot_be_replaced(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    template = tmp_path / 'services.pptx'
+    make_services_template(
+        template, text_services=('Preaching', 'Music'), picture_service='Welcome'
+    )
+    portraits = tmp_path / 'portraits'
+    portraits.mkdir()
+    (portraits / 'Nobody.jpeg').write_bytes(JPEG_1PX)
+    output_dir = tmp_path / 'output'
+    output_dir.mkdir()
+    previous = output_dir / 'services.pptx'
+    previous.write_bytes(b'previous presentation')
+    config = make_powerpoint_config(tmp_path, 'Services', template)
+
+    def locked_replace(_self: pathlib.Path, _target: object) -> typing.NoReturn:
+        msg = 'The process cannot access the file'
+        raise PermissionError(msg)
+
+    # This is what the presentation being open in PowerPoint looks like.
+    monkeypatch.setattr(pathlib.Path, 'replace', locked_replace)
+    jane = Person('Jane Doe', 'Jane')
+    powerpoint = PowerPointServices(config)
+    powerpoint.create(
+        {
+            'Preaching': {jane},
+            'Music': {jane},
+            'Welcome': {jane},
+            str(None): {Person('Nobody', 'Nobody')},
+        }
+    )
+    with pytest.raises(CliError, match='open in PowerPoint'):
+        powerpoint.save()
+
+    assert previous.read_bytes() == b'previous presentation'
+    assert list(output_dir.iterdir()) == [previous]  # no temporary file left behind

@@ -11,6 +11,8 @@
 - reuse a single HTTP connection per API instead of reconnecting for every request
 - internally refactored the fine-grained permission checks of optional permissions
 - internally refactored to remove redundant plausibility and validity checks
+- event files are streamed to disk instead of being read into memory as a whole
+- SongBeamer and PowerPoint files are written atomically
 - lots of smaller bug fixes and improvements as suggested by Claude Code review
 - updated external dependencies
   (certifi, packaging, platformdirs, pydantic, pypdf, reportlab, typer)

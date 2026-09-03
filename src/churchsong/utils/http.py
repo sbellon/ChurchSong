@@ -20,6 +20,9 @@ if typing.TYPE_CHECKING:
 # Seconds to wait for the server to send its response.
 REQUEST_TIMEOUT = 30
 
+# Bytes to read at a time from a streamed response body.
+DOWNLOAD_CHUNK_SIZE = 64 * 1024
+
 
 class LoggingRetry(urllib3.util.Retry):
     """A `Retry` child class that logs every wait."""

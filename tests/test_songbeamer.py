@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import pathlib
 import subprocess
 import sys
 import typing
@@ -15,9 +16,6 @@ from churchsong.configuration import SongBeamerColorConfig, SongBeamerColorItemC
 from churchsong.songbeamer import Agenda, AgendaItem, SongBeamer
 from churchsong.utils import CliError
 from tests.conftest import make_config
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 
 @pytest.mark.parametrize(
@@ -267,3 +265,37 @@ def test_launch_reports_a_failing_songbeamer_start(
     install_fake_windows(monkeypatch, FakeWindows(start_error=error))
     with pytest.raises(CliError, match='Cannot start SongBeamer'):
         SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+
+
+def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    schedule = tmp_path / 'Schedule.col'
+    schedule.write_text('previous schedule', encoding='utf-8')
+
+    def failing_replace(_self: pathlib.Path, _target: object) -> typing.NoReturn:
+        msg = 'No space left on device'
+        raise OSError(msg)
+
+    monkeypatch.setattr(pathlib.Path, 'replace', failing_replace)
+    with pytest.raises(CliError, match='Cannot write'):
+        SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
+            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            service_items=[],
+        )
+
+    assert schedule.read_text(encoding='utf-8') == 'previous schedule'
+    assert list(tmp_path.iterdir()) == [schedule]  # no temporary file left behind
+
+
+def test_create_schedule_writes_crlf_line_endings(tmp_path: pathlib.Path) -> None:
+    SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
+        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+        service_items=[],
+    )
+    # SongBeamer's own line ending, independent of the platform generating it.
+    content = (tmp_path / 'Schedule.col').read_bytes()
+    assert b'\r\n' in content
+    assert b'\n' not in content.replace(b'\r\n', b'')
