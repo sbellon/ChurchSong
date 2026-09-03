@@ -91,6 +91,20 @@ def test_absolute_output_dir_is_kept() -> None:
     assert config.songbeamer.output_dir == absolute_dir
 
 
+def test_base_urls_are_stored_without_a_trailing_slash() -> None:
+    config = FakeConfiguration(
+        ChurchTools={
+            'base_url': 'https://churchtools.test/',
+            'login_token': 'token',
+        },
+        SongBeamer={'output_dir': 'output'},
+        Immich={'base_url': 'https://immich.test///', 'login_token': 'token'},
+    )
+    assert config.churchtools.base_url == 'https://churchtools.test'
+    assert config.immich is not None
+    assert config.immich.base_url == 'https://immich.test'
+
+
 def test_immich_globbings_match_case_insensitively() -> None:
     config = FakeConfiguration(**tomllib.loads(MINIMAL_TOML))
     assert config.immich is not None

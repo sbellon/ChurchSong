@@ -87,8 +87,11 @@ class GeneralConfig(BaseModel):
     )
 
 
+BaseUrl = typing.Annotated[str, pydantic.AfterValidator(lambda url: url.rstrip('/'))]
+
+
 class ChurchToolsConfig(BaseModel):
-    base_url: str
+    base_url: BaseUrl
     login_token: str
     replacements: dict[str, str] = pydantic.Field(default={}, alias='Replacements')
 
@@ -189,7 +192,7 @@ Globbing = typing.Annotated[re.Pattern[str], pydantic.BeforeValidator(compile_gl
 
 
 class ImmichConfig(BaseModel):
-    base_url: str
+    base_url: BaseUrl
     login_token: str
     include_globbings: list[Globbing] = [
         compile_glob(x) for x in ('*.jpg', '*.jpeg', '*.mp4', '*.mov', '*.heic')
