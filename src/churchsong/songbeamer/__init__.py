@@ -4,7 +4,6 @@
 
 
 import re
-import subprocess
 import sys
 import typing
 
@@ -344,7 +343,11 @@ Click OK to continue.
 
             try:
                 windows.start_songbeamer(self._output_dir)
-            except subprocess.CalledProcessError as e:
+            except FileNotFoundError:
+                msg = f'Cannot start SongBeamer: "{self._schedule_filepath}" not found'
+                self._log.error(msg)
+                raise CliError(msg) from None
+            except OSError as e:
                 msg = f'Cannot start SongBeamer: {e}'
                 self._log.error(msg)
                 raise CliError(msg) from None

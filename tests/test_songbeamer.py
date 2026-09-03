@@ -4,7 +4,6 @@
 
 import datetime
 import pathlib
-import subprocess
 import sys
 import typing
 
@@ -261,10 +260,23 @@ def test_launch_notifies_about_an_already_running_songbeamer(
 def test_launch_reports_a_failing_songbeamer_start(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
-    error = subprocess.CalledProcessError(returncode=1, cmd=['SongBeamer.exe'])
+    # os.startfile() raises OSError, e.g. if .col has no file association.
+    error = OSError('No application is associated with the specified file')
     install_fake_windows(monkeypatch, FakeWindows(start_error=error))
     with pytest.raises(CliError, match='Cannot start SongBeamer'):
         SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+
+
+def test_launch_reports_a_missing_schedule_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    # os.startfile() raises FileNotFoundError if Schedule.col is not there.
+    error = FileNotFoundError(2, 'The system cannot find the file specified')
+    install_fake_windows(monkeypatch, FakeWindows(start_error=error))
+    with pytest.raises(CliError, match='Cannot start SongBeamer') as excinfo:
+        SongBeamer(make_config(output_dir=str(tmp_path))).launch()
+    # The raw OS message is replaced by the full path of the missing file.
+    assert str(tmp_path.resolve() / 'Schedule.col') in str(excinfo.value)
 
 
 def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
