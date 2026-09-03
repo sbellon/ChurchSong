@@ -14,7 +14,7 @@ import requests
 
 import churchsong.churchtools.events
 from churchsong.churchtools import ChurchToolsAPI, EventShort
-from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet
+from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet, Person
 from churchsong.immich import ImmichAPI
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
@@ -372,6 +372,9 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     assert preacher.shortname == 'JD'
     (musician,) = service_leads['Music']
     assert musician.shortname == 'Vol'
+    # The "nobody" entry backs template placeholders for services that nobody is
+    # assigned to; the exact `service_items` above show it is not a service itself.
+    assert service_leads[str(None)] == {Person('Nobody', 'Nobody')}
 
 
 SONG_ITEM: dict[str, object] = {
