@@ -283,3 +283,16 @@ def test_upload_survives_a_malformed_immich_answer(
     with caplog.at_level(logging.ERROR):
         immich_api.upload_media_file(str(media_file))
     assert caplog.records
+
+
+def test_upload_survives_a_missing_file(
+    immich_api: ImmichAPI,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A file the caller decided not to download: the checksum of the duplicate
+    # check runs before any request, so neither endpoint is registered here and
+    # an HTTP request would fail the test.
+    with caplog.at_level(logging.ERROR):
+        immich_api.upload_media_file(str(tmp_path / 'IMG_1234.jpg'))
+    assert 'IMG_1234.jpg' in caplog.text

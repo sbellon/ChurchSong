@@ -229,6 +229,7 @@ class ImmichAPI(BaseAPI):
                 requests.RequestException,
                 pydantic.ValidationError,
                 IndexError,
+                OSError,
             ) as e:
                 # Keep flying as the Immich upload should not crash an event.
                 self._log.error(e)

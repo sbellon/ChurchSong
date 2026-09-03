@@ -295,21 +295,24 @@ class ChurchToolsEvent:
     def _download_file(
         self, name: str, url: str, subfolder: Subfolder, *, overwrite: bool = True
     ) -> str:
-        r = self.cta.download_url(url)
-        if 'Content-Disposition' in r.headers and (
-            match := re.search('filename="([^"]+)"', r.headers['Content-Disposition'])
-        ):
-            # ChurchTools apparently sends the filename="xyz" in latin1 instead of utf-8
-            filename = match.group(1).encode('latin1').decode('utf-8')
-        else:
-            filename = name
-        if (filename := pathlib.PureWindowsPath(filename).name) in ('', '.', '..'):
-            filename = 'unnamed'
-        (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
-        filename = self._output_dir / subfolder / filename
-        if overwrite:
-            with filename.open(mode='wb') as fd:
-                fd.write(r.content)
+        with self.cta.download_url(url) as r:
+            if 'Content-Disposition' in r.headers and (
+                match := re.search(
+                    'filename="([^"]+)"', r.headers['Content-Disposition']
+                )
+            ):
+                # ChurchTools apparently sends the filename="xyz"
+                # in latin1 instead of utf-8.
+                filename = match.group(1).encode('latin1').decode('utf-8')
+            else:
+                filename = name
+            if (filename := pathlib.PureWindowsPath(filename).name) in ('', '.', '..'):
+                filename = 'unnamed'
+            (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
+            filename = self._output_dir / subfolder / filename
+            if overwrite:
+                with filename.open(mode='wb') as fd:
+                    fd.write(r.content)
         return os.fspath(filename)
 
     def _song_files(self, item: EventAgendaItem) -> SongFiles:

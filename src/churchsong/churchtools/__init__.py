@@ -666,7 +666,11 @@ class ChurchToolsAPI(BaseAPI):
             stream=True,
             timeout=REQUEST_TIMEOUT,
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.exceptions.HTTPError:
+            r.close()
+            raise
         return r
 
     def delete_event_file(self, event: EventFull, file: EventFile) -> None:
