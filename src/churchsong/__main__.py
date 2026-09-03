@@ -14,6 +14,7 @@ import typing
 
 import rich
 import typer
+import typer.rich_utils
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.churchtools.events import ChurchToolsEvent
@@ -358,7 +359,14 @@ def _handle_agenda(
 
 
 def main() -> None:
-    config = Configuration()
+    try:
+        config = Configuration()
+    except CliError as e:
+        # Typer renders a CliError raised from within a command itself, but the
+        # configuration is read before app() is ever entered, so its errors have to be
+        # rendered here - in the very same way, to look identical to the user.
+        typer.rich_utils.rich_format_error(e)
+        raise SystemExit(e.exit_code) from None
     try:
         app(obj=config)
     except Exception as e:
