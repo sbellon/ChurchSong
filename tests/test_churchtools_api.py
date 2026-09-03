@@ -21,6 +21,7 @@ from churchsong.churchtools import (
 from churchsong.utils import CliError
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
+    FakeConfiguration,
     make_config,
     make_global_permissions,
 )
@@ -79,6 +80,25 @@ def test_requests_carry_authorization_header(
     request = mocked_responses.calls[0].request
     assert request.headers['Authorization'] == 'Login churchtools-test-token'
     assert request.headers['Accept'] == 'application/json'
+
+
+def test_trailing_slash_in_base_url_does_not_double_the_path_separator(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    config = FakeConfiguration(
+        ChurchTools={
+            'base_url': f'{CHURCHTOOLS_BASE_URL}/',
+            'login_token': 'churchtools-test-token',
+        },
+        SongBeamer={'output_dir': 'output'},
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions(),
+    )
+    ChurchToolsAPI(config)
+    url = mocked_responses.calls[0].request.url
+    assert url == f'{CHURCHTOOLS_BASE_URL}/api/permissions/global'
 
 
 def test_get_songs_iterates_over_all_pages(
