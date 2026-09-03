@@ -16,6 +16,7 @@ from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet
 from churchsong.immich import ImmichAPI
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
+    IMMICH_BASE_URL,
     make_config,
     make_global_permissions,
 )
@@ -252,6 +253,60 @@ def test_download_agenda_items_with_disabled_songsheets_skips_stale_sheets(
         upload_songsheets=False, immich_upload=ImmichAPI(config)
     )
     assert items == []
+
+
+def test_download_agenda_items_without_download_files_skips_immich_upload(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path), immich={})
+    mocked_responses.get(
+        f'{IMMICH_BASE_URL}/api/api-keys/me', json={'permissions': ['asset.upload']}
+    )
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Photo',
+                'domainType': 'file',
+                'domainIdentifier': 903,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
+            },
+        ],
+    )
+    # The request is made even with `download_files=False`, as the filename of
+    # the agenda item comes out of its `Content-Disposition` header; only the
+    # body is left unread.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/903',
+        body=b'jpeg content',
+        headers={'Content-Disposition': 'filename="IMG_1234.jpg"'},
+    )
+
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.ERROR):
+        items = event.download_agenda_items(
+            download_files=False,
+            upload_songsheets=False,
+            immich_upload=ImmichAPI(config),
+        )
+
+    photo = tmp_path / 'Files' / 'IMG_1234.jpg'
+    assert [(item.type, item.filename) for item in items] == [
+        (ItemType.FILE, str(photo))
+    ]
+    assert not photo.exists()
+    # The file that was never written must not abort the event: Immich sees only
+    # the permission check of its constructor, and the missing file is contained
+    # by `upload_media_file` instead of escaping as a `FileNotFoundError`.
+    assert [
+        call.request.url
+        for call in mocked_responses.calls
+        if (call.request.url or '').startswith(IMMICH_BASE_URL)
+    ] == [f'{IMMICH_BASE_URL}/api/api-keys/me']
+    assert 'IMG_1234.jpg' in caplog.text
 
 
 def test_download_agenda_items_without_edit_permission_skips_songsheets(
