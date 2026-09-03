@@ -85,9 +85,15 @@ component takes it in `__init__` and pulls out only what it needs. Notable behav
 **Command surface** lives entirely in `__main__.py` (Typer app + `songs` and `self` sub-apps). With
 no subcommand it launches the Textual TUI in `interactivescreen.py`, which returns a
 `DownloadSelection` and feeds the same `_handle_agenda()` path as the `agenda` command —
-`_handle_agenda` is the one place that orchestrates ChurchTools → PowerPoint → SongBeamer. Date and
-year-range arguments are parsed by the `parser=` callables in `utils/date.py`. Every command except
-the `self` sub-app (`version`/`info`/`update`) first hits the PyPI check in
+`_handle_agenda` is the one place that orchestrates ChurchTools → PowerPoint → SongBeamer.
+Everything optional in it — the Immich connector, the service team information, both slide decks,
+the song sheet upload — runs inside `_OptionalSteps.guard()`, which logs the failure, records it
+and lets the pipeline continue, so that no error in them can cost the run its `Schedule.col`;
+`report()` then prints one console line per skipped step before the schedule is written and
+SongBeamer is launched. A new optional step belongs in a `guard()` rather than in the bare
+sequence, and anything it assigns to needs a value before the `with`, as the guard swallows the
+exception. Date and year-range arguments are parsed by the `parser=` callables in `utils/date.py`.
+Every command except the `self` sub-app (`version`/`info`/`update`) first hits the PyPI check in
 `Configuration.later_version_available`; `self update` `exec`s `uv tool upgrade` in place, because
 it rewrites files that are currently in use.
 
@@ -116,17 +122,21 @@ compatibility patches go — dated comments mark the existing ones.
 **Permissions are two-tier**, in both clients. `ChurchToolsAPI.__init__` fetches
 `/api/permissions/global` and `ImmichAPI.__init__` fetches `/api/api-keys/me` once, then
 hard-assert what basic operation needs (raising `CliError`): the `churchservice:view*` set for
-ChurchTools, `asset.upload` for Immich. Everything optional — appointment slides, nickname lookup,
-song sheet upload/delete, and Immich's `tag.create`/`tag.read`/`tag.asset` — calls
-`has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
-new optional features this way rather than by asserting. The fetch/assert/`has_permissions` trio is
-duplicated per client because the two permission payloads have different shapes.
+ChurchTools, `asset.upload` for Immich — the Immich one only ever costs the media upload, because
+`_handle_agenda` constructs `ImmichAPI` inside a `guard()` and hands the download `None` if that
+failed. Everything optional — appointment slides, nickname lookup, song sheet upload/delete, and
+Immich's `tag.create`/`tag.read`/`tag.asset` — calls `has_permissions([...], 'reason')`, which logs
+a warning and lets the caller skip that feature. Add new optional features this way rather than by
+asserting. The fetch/assert/`has_permissions` trio is duplicated per client because the two
+permission payloads have different shapes.
 
 **Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks event
 files and agenda items, downloads `.sng` and attachments into `output_dir/{Songs,Files}`, feeds PDFs
-into `SongSheets` (chords + leads, built with reportlab/pypdf, uploaded back as event files, with a
-"MISSING" watermark page for absent songs), and hands media files to `ImmichAPI`. It returns
-`list[Item]`, the internal agenda representation shared with the SongBeamer writer.
+into `SongSheets` (chords + leads, built with reportlab/pypdf, with a "MISSING" watermark page for
+absent songs), and hands media files to the `ImmichAPI` it is given, if any. It returns the
+`list[Item]` that is the internal agenda representation shared with the SongBeamer writer, plus the
+`SongSheets` — uploading those back as event files is left to the caller, which does it as one of
+its guarded optional steps.
 
 **`ItemType` values must stay in sync with the field names of `SongBeamerColorConfig`** — the color
 lookup is `getattr(colors, item.type.value)`, which is why both are capitalized.

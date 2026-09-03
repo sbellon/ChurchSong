@@ -197,7 +197,7 @@ def test_download_agenda_items_full_pipeline(
     mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
 
     event = make_churchtools_event(churchtools_api, config)
-    items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
 
     assert [(item.type, item.title) for item in items] == [
         (ItemType.FILE, 'Notes'),
@@ -215,6 +215,13 @@ def test_download_agenda_items_full_pipeline(
     sng_file = tmp_path / 'Songs' / 'amazing-grace.sng'
     assert items[4].filename == str(sng_file)
     assert sng_file.read_bytes() == b'#Title=Amazing Grace'
+
+    # Uploading is a step of its own, so that a failure this late cannot take
+    # the agenda that was just downloaded with it.
+    assert not [
+        call for call in mocked_responses.calls if call.request.method == 'POST'
+    ]
+    song_sheets.upload()
 
     uploads = [
         call.request
@@ -251,8 +258,8 @@ def test_download_agenda_items_with_disabled_songsheets_skips_stale_sheets(
         ],
     )
     event = make_churchtools_event(churchtools_api, config)
-    items = event.download_agenda_items(
-        upload_songsheets=False, immich_upload=ImmichAPI(config)
+    items, _song_sheets = event.download_agenda_items(
+        upload_songsheets=False, immich=ImmichAPI(config)
     )
     assert items == []
 
@@ -289,10 +296,10 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
 
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.ERROR):
-        items = event.download_agenda_items(
+        items, _song_sheets = event.download_agenda_items(
             download_files=False,
             upload_songsheets=False,
-            immich_upload=ImmichAPI(config),
+            immich=ImmichAPI(config),
         )
 
     photo = tmp_path / 'Files' / 'IMG_1234.jpg'
@@ -311,6 +318,39 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     assert 'IMG_1234.jpg' in caplog.text
 
 
+def test_download_agenda_items_without_immich_still_downloads(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Photo',
+                'domainType': 'file',
+                'domainIdentifier': 903,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
+            },
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/903',
+        body=b'jpeg content',
+        headers={'Content-Disposition': 'filename="IMG_1234.jpg"'},
+    )
+    # An Immich instance that could not be reached leaves the caller without a
+    # connector at all; the event files are still downloaded.
+    event = make_churchtools_event(churchtools_api, config)
+    (item,), _song_sheets = event.download_agenda_items(
+        upload_songsheets=False, immich=None
+    )
+    photo = tmp_path / 'Files' / 'IMG_1234.jpg'
+    assert item.filename == str(photo)
+    assert photo.read_bytes() == b'jpeg content'
+
+
 def test_download_agenda_items_without_edit_permission_skips_songsheets(
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
@@ -324,7 +364,8 @@ def test_download_agenda_items_without_edit_permission_skips_songsheets(
     register_event_endpoints(mocked_responses)
     event = make_churchtools_event(api, config)
     # No DELETE/POST mocks registered: uploads would fail the test.
-    items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    song_sheets.upload()
     assert items == []
 
 
@@ -471,12 +512,48 @@ def test_download_agenda_items_survives_a_failing_file_download(
         ],
     )
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', status=500)
-    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.WARNING):
-        items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert 'Failed to download event file for Notes' in caplog.text
     # The unusable file is dropped, everything else still makes it.
+    assert [item.title for item in items] == ['Livestream']
+
+
+def test_download_agenda_items_survives_a_dropped_connection(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            },
+            {
+                'title': 'Livestream',
+                'domainType': 'link',
+                'domainIdentifier': 902,
+                'frontendUrl': 'https://stream.test/live',
+            },
+        ],
+    )
+    # Not every failed request is an HTTP error: a connection that drops mid-run
+    # must cost its own item only, just like a 500 does.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/901',
+        body=requests.exceptions.ConnectionError('connection aborted'),
+    )
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert 'Failed to download event file for Notes' in caplog.text
     assert [item.title for item in items] == ['Livestream']
 
 
@@ -501,10 +578,9 @@ def test_download_agenda_items_survives_a_failing_song_download(
         ],
     )
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/sng/7', status=500)
-    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.WARNING):
-        items = event.download_agenda_items(immich_upload=ImmichAPI(config))
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert 'Failed to download agenda file for Amazing Grace' in caplog.text
     assert [item.title for item in items] == ['Welcome']
 
@@ -528,9 +604,8 @@ def test_download_file_falls_back_to_the_item_title(
     )
     # Without a Content-Disposition header the event file title is used.
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', body=b'notes content')
-    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
     event = make_churchtools_event(churchtools_api, config)
-    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert item.filename == str(tmp_path / 'Files' / 'Notes.pdf')
 
 
@@ -557,9 +632,8 @@ def test_download_file_replaces_a_dangerous_filename(
         body=b'notes content',
         headers={'Content-Disposition': 'filename=".."'},
     )
-    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
     event = make_churchtools_event(churchtools_api, config)
-    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert item.filename == str(tmp_path / 'Files' / 'unnamed')
 
 
@@ -589,9 +663,10 @@ def test_disabled_songsheets_still_download_the_song(
     # Neither the chords PDF is downloaded nor is a song sheet uploaded: no
     # endpoint is registered for either, so both would fail the test.
     event = make_churchtools_event(churchtools_api, config)
-    (item,) = event.download_agenda_items(
-        upload_songsheets=False, immich_upload=ImmichAPI(config)
+    (item,), song_sheets = event.download_agenda_items(
+        upload_songsheets=False, immich=ImmichAPI(config)
     )
+    song_sheets.upload()
     assert item.filename == str(tmp_path / 'Songs' / 'Amazing Grace')
 
 
@@ -638,7 +713,6 @@ def test_download_file_streams_the_body_instead_of_buffering_it(
     )
     body = bytes(range(256)) * 8
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', body=body)
-    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
 
     # Event files are videos and photos, so they go to disk chunk by chunk instead
     # of through `Response.content`, which would hold the whole file in memory.
@@ -658,7 +732,7 @@ def test_download_file_streams_the_body_instead_of_buffering_it(
     monkeypatch.setattr(churchsong.churchtools.events, 'DOWNLOAD_CHUNK_SIZE', 512)
 
     event = make_churchtools_event(churchtools_api, config)
-    (item,) = event.download_agenda_items(immich_upload=ImmichAPI(config))
+    (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
 
     assert item.filename == str(tmp_path / 'Files' / 'Video.mp4')
     # Reassembled from four chunks, byte for byte.

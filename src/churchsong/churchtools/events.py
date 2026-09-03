@@ -357,13 +357,14 @@ class ChurchToolsEvent:
         download_files: bool = True,
         download_songs: bool = True,
         upload_songsheets: bool = True,
-        immich_upload: ImmichAPI,
-    ) -> list[Item]:
+        immich: ImmichAPI | None,
+    ) -> tuple[list[Item], SongSheets]:
         msg_items = (
             ['Downloading agenda items']
             + (['event files'] if download_files else [])
             + (['songs'] if download_songs else [])
             + (['uploading song sheets'] if upload_songsheets else [])
+            + (['Immich upload'] if immich else [])
         )
         self._log.info(', '.join(msg_items))
         agenda_items: list[Item] = []
@@ -395,7 +396,8 @@ class ChurchToolsEvent:
                                     Subfolder.FILES,
                                     overwrite=download_files,
                                 )
-                                immich_upload.upload_media_file(filename)
+                                if immich:
+                                    immich.upload_media_file(filename)
                                 event_file = Item(ItemType.FILE, item.title, filename)
                         case EventFileDomainType.LINK:
                             with do_progress(item):
@@ -403,7 +405,7 @@ class ChurchToolsEvent:
                                     ItemType.LINK, item.title, item.frontend_url
                                 )
                     agenda_items.append(event_file)
-                except requests.exceptions.HTTPError:
+                except requests.exceptions.RequestException:
                     self._log.warning(f'Failed to download event file for {item.title}')
             for item in self._agenda.items:
                 try:
@@ -439,12 +441,11 @@ class ChurchToolsEvent:
                                 agenda_item = Item(ItemType.SONG, item.title, filename)
                                 song_sheets.download_and_append(files)
                     agenda_items.append(agenda_item)
-                except requests.exceptions.HTTPError:
+                except requests.exceptions.RequestException:
                     self._log.warning(
                         f'Failed to download agenda file for {item.title}'
                     )
-        song_sheets.upload()
-        return agenda_items
+        return agenda_items, song_sheets
 
     def get_service_info(self) -> tuple[list[Item], dict[str, set[Person]]]:
         self._log.info('Fetching service team information')

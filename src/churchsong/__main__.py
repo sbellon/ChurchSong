@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import contextlib
 import dataclasses
 import datetime  # noqa: TC003 (used within Annotated)
 import os
@@ -32,6 +33,9 @@ from churchsong.utils.date import (
     parse_datetime_or_all,
     parse_year_range,
 )
+
+if typing.TYPE_CHECKING:
+    from churchsong.churchtools.events import Item, Person
 
 app = typer.Typer(
     add_completion=False,  # disable tab completion
@@ -273,6 +277,25 @@ def update(ctx: typer.Context) -> None:
     os.execl(uv, *cmd)  # noqa: S606
 
 
+class _OptionalSteps:
+    def __init__(self, config: Configuration) -> None:
+        self._log = config.log
+        self._skipped: list[tuple[str, str]] = []
+
+    @contextlib.contextmanager
+    def guard(self, description: str) -> typing.Generator[None]:
+        try:
+            yield
+        except Exception as e:  # noqa: BLE001 (no optional step may abort the run)
+            self._log.warning('Skipped %s: %s', description, e, exc_info=True)
+            self._skipped.append((description, str(e)))
+
+    def report(self) -> None:
+        console = rich.get_console()
+        for description, error in self._skipped:
+            console.print(f'Warning: Skipped {description}: {error}', style='yellow')
+
+
 def _handle_agenda(
     date: datetime.datetime, config: Configuration, selection: DownloadSelection
 ) -> None:
@@ -283,19 +306,19 @@ def _handle_agenda(
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
-    agenda_items = cte.download_agenda_items(
-        download_files=selection.files,
-        download_songs=selection.songs,
-        upload_songsheets=selection.songsheets,
-        immich_upload=ImmichAPI(config),
-    )
-    service_items, service_leads = cte.get_service_info()
+    optional_steps = _OptionalSteps(config)
+
+    service_items: list[Item] = []
+    service_leads: dict[str, set[Person]] = {}
+    with optional_steps.guard('service team information'):
+        service_items, service_leads = cte.get_service_info()
 
     if selection.slides:
         if config.songbeamer.powerpoint.services.template_pptx:
-            pps = PowerPointServices(config)
-            pps.create(service_leads)
-            pps.save()
+            with optional_steps.guard('service slides'):
+                pps = PowerPointServices(config)
+                pps.create(service_leads)
+                pps.save()
         if (
             config.songbeamer.powerpoint.appointments.template_pptx
             and cta.has_permissions(
@@ -303,9 +326,26 @@ def _handle_agenda(
                 'appointment slides generation',
             )
         ):
-            ppa = PowerPointAppointments(config, event.start_date)
-            ppa.create(cta.get_appointments(event))
-            ppa.save()
+            with optional_steps.guard('appointment slides'):
+                ppa = PowerPointAppointments(config, event.start_date)
+                ppa.create(cta.get_appointments(event))
+                ppa.save()
+
+    immich: ImmichAPI | None = None
+    with optional_steps.guard('Immich connector'):
+        immich = ImmichAPI(config)
+
+    agenda_items, song_sheets = cte.download_agenda_items(
+        download_files=selection.files,
+        download_songs=selection.songs,
+        upload_songsheets=selection.songsheets,
+        immich=immich,
+    )
+
+    with optional_steps.guard('song sheet upload'):
+        song_sheets.upload()
+
+    optional_steps.report()
 
     if selection.schedule:
         sb = SongBeamer(config)

@@ -210,7 +210,7 @@ class PowerPointAppointments(PowerPointBase):
             one_week_later=self._one_week_later,
         )
 
-    def _setup_tables(self) -> None:
+    def create(self, appointments: typing.Iterable[CalendarAppointmentBase]) -> None:
         if not self._prs:
             return
 
@@ -229,9 +229,6 @@ class PowerPointAppointments(PowerPointBase):
                             self._irregular_table.set_table(shape.table)
                         case _:
                             pass
-
-    def create(self, appointments: typing.Iterable[CalendarAppointmentBase]) -> None:
-        self._setup_tables()
 
         # Walk through the appointments and put them in the appropriate table.
         for appt in appointments:
