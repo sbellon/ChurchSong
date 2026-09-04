@@ -8,6 +8,7 @@ import datetime
 import enum
 import io
 import logging
+import math
 import os
 import re
 import typing
@@ -115,20 +116,6 @@ class PdfSheet:
         margin = 72
         line_spacing = 1.66
 
-        # Page header
-        y = height * 2 / 3
-        canvas.setFont(font_h1, size_h1)
-        canvas.drawCentredString(width / 2, y, self._title)
-        y -= int(size_h1 * line_spacing)
-        canvas.setFont(font, size_h2)
-        canvas.drawCentredString(width / 2, y, self._subtitle)
-        y -= int(size_h2 * line_spacing)
-        canvas.setFont(font, size_h3)
-        canvas.drawCentredString(
-            width / 2, y, self._subsubtitle.format(last_modified=last_modified)
-        )
-        y -= int(size_h3 * line_spacing) * 2
-
         # Table of Contents
         toc_table = reportlab.platypus.Table(
             [
@@ -158,7 +145,33 @@ class PdfSheet:
                 ]
             )
         )
-        _table_width, table_height = toc_table.wrap(width - 2 * margin, y - margin)
+        _table_width, table_height = toc_table.wrap(width - 2 * margin, height)
+
+        # Page header, normally starting at 2/3 of the page height, but moving up one
+        # line at a time for a table of contents that would otherwise reach below the
+        # bottom margin. The title does not move above the top margin though, so an
+        # even longer table of contents still silently loses its last songs.
+        step_h1 = int(size_h1 * line_spacing)
+        step_h2 = int(size_h2 * line_spacing)
+        step_h3 = int(size_h3 * line_spacing)
+        step_b = int(size_b * line_spacing)
+        header_height = step_h1 + step_h2 + 2 * step_h3
+        y = height * 2 / 3
+        missing_height = table_height - (y - header_height - margin)
+        if missing_height > 0:
+            y = min(y + math.ceil(missing_height / step_b) * step_b, height - margin)
+        canvas.setFont(font_h1, size_h1)
+        canvas.drawCentredString(width / 2, y, self._title)
+        y -= step_h1
+        canvas.setFont(font, size_h2)
+        canvas.drawCentredString(width / 2, y, self._subtitle)
+        y -= step_h2
+        canvas.setFont(font, size_h3)
+        canvas.drawCentredString(
+            width / 2, y, self._subsubtitle.format(last_modified=last_modified)
+        )
+        y -= 2 * step_h3
+
         toc_table.drawOn(canvas, margin, y - table_height)
 
         canvas.save()
