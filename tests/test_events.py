@@ -8,6 +8,7 @@ import logging
 import typing
 
 import pypdf
+import pytest
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 import requests
@@ -26,7 +27,6 @@ from tests.conftest import (
 if typing.TYPE_CHECKING:
     import pathlib
 
-    import pytest
     import responses
 
     from churchsong.configuration import Configuration
@@ -466,6 +466,63 @@ def register_song(
 def extract_pdf_text(content: bytes) -> str:
     reader = pypdf.PdfReader(io.BytesIO(content))
     return '\n'.join(page.extract_text() for page in reader.pages)
+
+
+def extract_pdf_text_positions(content: bytes) -> list[tuple[str, float]]:
+    positions: list[tuple[str, float]] = []
+
+    def visitor(text: str, cm: list[float], tm: list[float], *_args: object) -> None:
+        if stripped := text.strip():
+            positions.append((stripped, cm[5] + tm[5]))  # absolute y coordinate
+
+    pypdf.PdfReader(io.BytesIO(content)).pages[0].extract_text(visitor_text=visitor)
+    return positions
+
+
+def make_toc_layout(num_songs: int) -> tuple[float, list[float]]:
+    """Return the y coordinate of the title and of every table of contents entry."""
+    sheet = PdfSheet(
+        'Song Sheets Chords',
+        'Sunday Service - 2026-08-23',
+        'Last update: {last_modified:%Y-%m-%d}',
+        ('Title', 'CCLI No.', 'Arrangement'),
+    )
+    for nr in range(1, num_songs + 1):
+        song = io.BytesIO(make_pdf('x'))
+        sheet.append(f'Hymn {nr}', f'{1000 + nr}', 'Standard', song)
+    last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
+    positions = extract_pdf_text_positions(sheet.finalize(last_modified=last_modified))
+    title_y = next(y for text, y in positions if text == 'Song Sheets Chords')
+    return title_y, [y for text, y in positions if text.startswith('Hymn ')]
+
+
+def test_song_sheet_toc_moves_the_header_up_for_a_long_agenda() -> None:
+    _width, height = reportlab.lib.pagesizes.A4
+    margin = 72
+
+    # A short agenda leaves the header where it always was.
+    title_y, song_ys = make_toc_layout(5)
+    assert title_y == pytest.approx(height * 2 / 3)
+    assert min(song_ys) > margin
+
+    # A long one moves the whole header up far enough to still fit above the margin.
+    long_title_y, long_song_ys = make_toc_layout(25)
+    assert long_title_y > title_y
+    assert long_title_y <= height - margin
+    assert len(long_song_ys) == 25
+    assert min(long_song_ys) > margin
+
+
+def test_song_sheet_toc_stops_moving_the_header_at_the_top_margin() -> None:
+    _width, height = reportlab.lib.pagesizes.A4
+    margin = 72
+
+    title_y, song_ys = make_toc_layout(50)
+    assert title_y == pytest.approx(height - margin)
+    # More songs than the unshifted header had room for (21), the rest silently
+    # falls off the bottom of the page as before.
+    assert len([y for y in song_ys if y > margin]) > 21
+    assert song_ys[-1] < 0
 
 
 def test_song_sheet_marks_a_missing_song_with_a_watermark() -> None:

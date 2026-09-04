@@ -14,6 +14,7 @@
 
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones
+- move table of contents on song sheets upwards if songs would run off the page
 - reuse a single HTTP connection per API instead of reconnecting for every request
 - internally refactored the fine-grained permission checks of optional permissions
 - internally refactored to remove redundant plausibility and validity checks
