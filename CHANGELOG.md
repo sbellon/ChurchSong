@@ -9,6 +9,7 @@
 - fixed crash when a portrait picture and the fallback portrait picture are both missing
 - fixed aborting the whole agenda run on failures of non-critical steps
 - fixed missing escaping of control characters in SongBeamer schedule
+- fixed unparsable slides in the configuration vanishing without a warning
 
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones
