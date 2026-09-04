@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.13.0 (2026-09-04)
 
 ### Fixed
 - fixed crash of song verification on a song without (default) arrangement
