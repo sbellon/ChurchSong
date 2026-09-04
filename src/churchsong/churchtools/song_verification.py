@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import ast
-import inspect
 import typing
 from collections import OrderedDict, defaultdict
 
@@ -28,25 +26,39 @@ class SongChecks:
     # active checks with the arrangements to build the rows of the result table.
     type CheckFunc = typing.Callable[[Song, list[Arrangement]], list[str]]
 
-    _song_checks: typing.ClassVar[typing.OrderedDict[str, CheckFunc]] = OrderedDict()
+    class Check(typing.NamedTuple):
+        func: SongChecks.CheckFunc
+        needs_sng_file_contents: bool
+        # needs_sng_file_contents declares whether the check reads
+        # Arrangement.sng_file_content: verify_songs() downloads the .sng file of
+        # every arrangement only if at least one active check needs it, so a check
+        # that reads the content without declaring it does not fail, it silently
+        # checks an empty list. test_song_verification.py therefore verifies the
+        # declaration against what the checks actually read.
+
+    _song_checks: typing.ClassVar[typing.OrderedDict[str, Check]] = OrderedDict()
 
     @classmethod
-    def register(cls, key: str) -> typing.Callable[[CheckFunc], CheckFunc]:
+    def register(
+        cls, key: str, *, needs_sng_content: bool = False
+    ) -> typing.Callable[[CheckFunc], CheckFunc]:
         def decorator(func: SongChecks.CheckFunc) -> SongChecks.CheckFunc:
             if key in cls._song_checks:
                 msg = f'Song check {key} is already registered'
                 raise RuntimeError(msg)
-            cls._song_checks[key] = func
+            cls._song_checks[key] = cls.Check(
+                func, needs_sng_file_contents=needs_sng_content
+            )
             return func
 
         return decorator
 
     @classmethod
-    def get(cls, key: str) -> CheckFunc | None:
+    def get(cls, key: str) -> Check | None:
         return cls._song_checks.get(key)
 
     @classmethod
-    def available_checks(cls) -> typing.OrderedDict[str, CheckFunc]:
+    def available_checks(cls) -> typing.OrderedDict[str, Check]:
         return cls._song_checks
 
     @staticmethod
@@ -63,7 +75,7 @@ def check_ccli(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [SongChecks.miss_if(not song.author or not song.ccli) for _ in arrangements]
 
 
-@SongChecks.register('Tags')
+@SongChecks.register('Tags', needs_sng_content=True)
 def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         ', '.join(
@@ -123,7 +135,7 @@ def check_sng_file(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     ]
 
 
-@SongChecks.register('BGImg')
+@SongChecks.register('BGImg', needs_sng_content=True)
 def check_bgimage(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         SongChecks.miss_if(
@@ -137,7 +149,7 @@ def check_bgimage(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     ]
 
 
-@SongChecks.register('#Lang')
+@SongChecks.register('#Lang', needs_sng_content=True)
 def check_languages(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         ', '.join(
@@ -182,7 +194,7 @@ class ChurchToolsSongVerification:
         self._log = config.log
 
     @staticmethod
-    def available_checks() -> typing.OrderedDict[str, SongChecks.CheckFunc]:
+    def available_checks() -> typing.OrderedDict[str, SongChecks.Check]:
         return SongChecks.available_checks()
 
     @staticmethod
@@ -192,25 +204,6 @@ class ChurchToolsSongVerification:
                 msg = f'{val} is not a valid check'
                 raise typer.BadParameter(msg)
         return value
-
-    class MemberAccessChecker(ast.NodeVisitor):
-        def __init__(self, member_name: str) -> None:
-            self._member_name = member_name
-            self._accessed = False
-
-        def visit_Attribute(self, node: ast.Attribute) -> None:
-            if node.attr == self._member_name:
-                self._accessed = True
-                self.generic_visit(node)
-
-        def accessed(self) -> bool:
-            return self._accessed
-
-    @staticmethod
-    def _is_sng_file_content_required(func: SongChecks.CheckFunc) -> bool:
-        checker = ChurchToolsSongVerification.MemberAccessChecker('sng_file_content')
-        checker.visit(ast.parse(inspect.getsource(func).strip(), mode='exec'))
-        return checker.accessed()
 
     def verify_songs(  # noqa: C901, PLR0912
         self,
@@ -233,8 +226,7 @@ class ChurchToolsSongVerification:
             msg = 'No valid check to execute selected.'
             raise typer.BadParameter(msg)
         needs_sng_file_contents = any(
-            self._is_sng_file_content_required(check)
-            for check in active_song_checks.values()
+            check.needs_sng_file_contents for check in active_song_checks.values()
         )
 
         # Prepare the check result table.
@@ -308,7 +300,7 @@ class ChurchToolsSongVerification:
                 # Execute the actual checks.
                 check_results = zip(
                     *(
-                        check(song, arrangements)
+                        check.func(song, arrangements)
                         for check in active_song_checks.values()
                     ),
                     strict=True,

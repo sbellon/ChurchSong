@@ -157,7 +157,10 @@ which loads the template and implements `save()`; a missing or unloadable templa
 **Song verification** (`churchtools/song_verification.py`) uses a decorator registry:
 `@SongChecks.register('CCLI')` on a `(Song, list[Arrangement]) -> list[str]` function. The key
 doubles as the result-table column header and as the value accepted by `--execute_checks`, so adding
-a check is a single registered function.
+a check is a single registered function. A check that reads `Arrangement.sng_file_content` has to
+say so with `needs_sng_content=True`, as `verify_songs()` downloads the `.sng` files only when an
+active check asks for them; an undeclared read silently sees an empty list, so the declaration is
+verified against what the checks actually read in `tests/test_song_verification.py`.
 
 **Song usage statistics** (`churchtools/song_statistics.py`) counts song occurrences across the
 events of a year range and emits them through a `BaseFormatter` ABC: `RichFormatter` (console),

@@ -73,7 +73,7 @@ def make_song(
 def run_check(name: str, song: Song, arrangements: list[Arrangement]) -> list[str]:
     check = SongChecks.get(name)
     assert check is not None
-    return check(song, arrangements)
+    return check.func(song, arrangements)
 
 
 def test_ccli_check_flags_missing_author_or_ccli() -> None:
@@ -146,8 +146,8 @@ def test_every_check_returns_one_result_per_arrangement() -> None:
     # a check that returns more or fewer results breaks the whole run.
     song = make_song()
     for name, check in SongChecks.available_checks().items():
-        assert check(song, []) == [], name
-        assert len(check(song, [make_arrangement()])) == 1, name
+        assert check.func(song, []) == [], name
+        assert len(check.func(song, [make_arrangement()])) == 1, name
 
 
 def test_registry_rejects_duplicate_registration() -> None:
@@ -155,16 +155,59 @@ def test_registry_rejects_duplicate_registration() -> None:
         SongChecks.register('CCLI')(lambda _song, _arrangements: [])
 
 
-def test_sng_file_content_requirement_is_detected_from_source() -> None:
-    checks = SongChecks.available_checks()
-    needs = {
-        name: ChurchToolsSongVerification._is_sng_file_content_required(check)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
-        for name, check in checks.items()
-    }
-    assert needs['BGImg'] is True
-    assert needs['#Lang'] is True
-    assert needs['CCLI'] is False
-    assert needs['Src.'] is False
+def test_declared_sng_content_need_matches_what_the_checks_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Whether a check reads the .sng file content is declared at registration, and a
+    # wrong declaration is silent: verify_songs() skips the download when no active
+    # check asks for the content, so an undeclared read sees an empty list and
+    # produces a wrong result instead of an error. The declaration is therefore not
+    # trusted but watched - which, unlike inspecting the check source, also catches
+    # content reached through a helper, an alias or a comprehension variable.
+    # Two scenarios, because some checks only consult the content for some songs:
+    # check_languages looks at it for an EN/DE tagged song only.
+    scenarios = [
+        (
+            'untagged song',
+            make_song(),
+            [
+                make_arrangement(
+                    source={'name': 'Feiert Jesus 5', 'shorty': 'FJ5'},
+                    source_reference='123',
+                    files=[{'name': 'song.sng', 'fileUrl': 'https://ct.test/f/1'}],
+                    sng_lines=['#LangCount=2', '#Title=Amazing Grace'],
+                )
+            ],
+        ),
+        (
+            'EN/DE tagged song',
+            make_song(tags=['EN/DE']),
+            [make_arrangement(sng_lines=['#Title=Amazing Grace'])],
+        ),
+    ]
+
+    # Patch after building the arrangements, as the recording property has no setter.
+    reads: list[str] = []
+    original_fget = Arrangement.sng_file_content.fget
+    assert original_fget is not None
+
+    def recording_fget(arrangement: Arrangement) -> list[str]:
+        reads.append(arrangement.name)
+        return original_fget(arrangement)
+
+    monkeypatch.setattr(Arrangement, 'sng_file_content', property(recording_fget))
+
+    for name, check in SongChecks.available_checks().items():
+        read_content = False
+        for _label, song, arrangements in scenarios:
+            reads.clear()
+            check.func(song, arrangements)
+            read_content = read_content or bool(reads)
+        assert read_content == check.needs_sng_file_contents, (
+            f'check {name} is registered with needs_sng_content='
+            f'{check.needs_sng_file_contents}, but it '
+            f'{"reads" if read_content else "never reads"} sng_file_content'
+        )
 
 
 def test_validate_checks_accepts_known_and_rejects_unknown() -> None:
