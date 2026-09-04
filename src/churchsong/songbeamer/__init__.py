@@ -82,16 +82,18 @@ With the following known KEYs:
 
 Parsing rules for VAL:
 
-- Non-ASCII characters need escaping with the following syntax:
+- Non-ASCII and control characters need escaping with the following syntax:
 
     'some'#252'mlaut'
 
-  where chr(x) is the #x character.
+  where chr(x) is the #x character. Control characters have to be escaped as well, as an
+  unescaped newline would terminate the single-quoted value and thus break the grammar
+  for everything following it.
 
 - For multi-line values, use the following:
 
     1. "".join(line.strip("'") for line in multi_line)
-    2. handle the '#x' non-ascii characters
+    2. handle the '#x' escaped characters
 
 For importing a ChurchTools export, we most likely only have to handle:
     - Caption
@@ -181,7 +183,7 @@ class AgendaItem:
             in_quotes = not in_quotes
 
         for c in text:
-            if _needs_escape := c == "'" or c > '\x7f':
+            if _needs_escape := c == "'" or c > '\x7f' or c < ' ':
                 if in_quotes:
                     toggle_quotes()
                 result.append(f'#{ord(c)}')

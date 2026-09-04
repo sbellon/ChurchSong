@@ -8,6 +8,7 @@
 - fixed raw traceback instead of an error message when SongBeamer cannot be started
 - fixed crash when a portrait picture and the fallback portrait picture are both missing
 - fixed aborting the whole agenda run on failures of non-critical steps
+- fixed missing escaping of control characters in SongBeamer schedule
 
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones
