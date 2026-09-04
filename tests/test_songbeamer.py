@@ -26,6 +26,9 @@ from tests.conftest import make_config
         ("it's", "'it'#39's'"),
         ('äöü', '#228#246#252'),
         ('Überfluß', "#220'berflu'#223"),
+        ('line\nbreak', "'line'#10'break'"),
+        ('tab\there', "'tab'#9'here'"),
+        ('\r\n', '#13#10'),
     ],
 )
 def test_encode(decoded: str, encoded: str) -> None:
@@ -34,7 +37,15 @@ def test_encode(decoded: str, encoded: str) -> None:
 
 @pytest.mark.parametrize(
     'text',
-    ['', 'plain', 'Möge die Straße', "it's a 'quoted' text", 'äöü', '#no #escape'],
+    [
+        '',
+        'plain',
+        'Möge die Straße',
+        "it's a 'quoted' text",
+        'äöü',
+        '#no #escape',
+        'line\nbreak\tand\rmore',
+    ],
 )
 def test_encode_decode_round_trip(text: str) -> None:
     assert AgendaItem._decode(AgendaItem._encode(text)) == text  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
@@ -78,6 +89,44 @@ def test_agenda_item_str_parses_back_identically() -> None:
     assert parsed.color == item.color
     assert parsed.bgcolor == item.bgcolor
     assert parsed.filename == item.filename
+
+
+def test_agenda_item_str_keeps_control_characters_within_their_value() -> None:
+    # A round trip cannot catch this: an unescaped newline decodes back to itself, but
+    # in the file it ends the quoted value and breaks the grammar for everything after.
+    item = AgendaItem(
+        caption='caption\nwith\tcontrol\rcharacters',
+        color='clBlack',
+        filename='C:\\path\\file\nname.txt',
+    )
+    assert str(item).splitlines() == [
+        '',
+        '    item',
+        "      Caption = 'caption'#10'with'#9'control'#13'characters'",
+        '      Color = clBlack',
+        "      FileName = 'C:\\path\\file'#10'name.txt'",
+        '    end',
+    ]
+
+
+def test_create_schedule_keeps_one_line_per_grammar_element(
+    tmp_path: pathlib.Path,
+) -> None:
+    SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
+        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        agenda_items=[
+            Item(ItemType.SONG, 'Amazing\nGrace'),
+            Item(ItemType.HEADER, ' '),
+        ],
+        service_items=[],
+    )
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    # 2 lines of preamble and 1 of postamble, plus 4 lines for every one of the 3 items.
+    assert len(content.splitlines()) == 2 + 3 * 4 + 1
+    assert [item.caption for item in AgendaItem.parse(content)][1:] == [
+        'Amazing\nGrace',
+        ' ',
+    ]
 
 
 @pytest.mark.parametrize(
