@@ -299,24 +299,20 @@ def test_self_info_omits_latest_version_when_up_to_date() -> None:
     assert 'Latest version' not in result.output
 
 
-def test_update_notice_is_shown_for_regular_commands(
+def test_regular_commands_do_not_ask_pypi_for_a_newer_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    set_later_version(monkeypatch, '99.0.0')
+    # Asking PyPI blocks, so only `self info` and the interactive screen may do it.
+    def unexpected_check(_self: Configuration) -> None:
+        msg = 'no command may put the version check on its critical path'
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(
+        Configuration, 'later_version_available', property(unexpected_check)
+    )
     install_fake_verification(monkeypatch)
     result = invoke(['songs', 'verify', 'all'])
     assert result.exit_code == 0
-    assert 'Update to version 99.0.0 possible' in result.output
-    assert 'ChurchSong self update' in result.output
-
-
-def test_update_notice_is_suppressed_for_self_commands(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    set_later_version(monkeypatch, '99.0.0')
-    result = invoke(['self', 'version'])
-    assert result.exit_code == 0
-    assert 'self update' not in result.output
 
 
 def test_self_update_without_uv_aborts(monkeypatch: pytest.MonkeyPatch) -> None:

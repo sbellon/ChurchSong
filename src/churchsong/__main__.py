@@ -76,20 +76,10 @@ def callback(
         ),
     ] = None,
 ) -> None:
-    match ctx.invoked_subcommand:
-        case None:
-            ctx.obj.log.info('Starting interactive screen')
-            if selection := InteractiveScreen(ctx.obj).run():
-                _handle_agenda(now(), ctx.obj, selection)
-        case _ if ctx.invoked_subcommand != 'self':
-            if later_version := ctx.obj.later_version_available:
-                rich.get_console().print(
-                    f'Note: Update to version {later_version} possible via '
-                    f'"{Configuration.package_name} self update".',
-                    style='yellow',
-                )
-        case _:
-            pass
+    if ctx.invoked_subcommand is None:
+        ctx.obj.log.info('Starting interactive screen')
+        if selection := InteractiveScreen(ctx.obj).run():
+            _handle_agenda(now(), ctx.obj, selection)
 
 
 @app.command(help='Create SongBeamer agenda and start SongBeamer.')

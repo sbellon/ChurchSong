@@ -5,7 +5,8 @@
 import dataclasses
 import typing
 
-from textual import on
+import packaging.version
+from textual import on, work
 from textual.app import App
 from textual.color import Color
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -21,6 +22,7 @@ from churchsong.configuration import Configuration
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
 
+    import packaging.version
     from textual.app import ComposeResult
     from textual.binding import BindingType
     from textual.css.types import EdgeType
@@ -268,19 +270,32 @@ class InteractiveScreen(App[DownloadSelection]):
         self._set_mouse_over(None, None)
         super().action_focus_previous()
 
+    # The version check may have to ask PyPI, which blocks - so it must not run on the
+    # event loop, or the interactive screen does not paint until that request is
+    # through. The header shows the local version right away and is updated later, if
+    # and when a newer version turns up. A failing check must never take the whole
+    # application down, hence exit_on_error=False.
+    @work(thread=True, exit_on_error=False)
+    def check_later_version(self) -> None:
+        if later_version := self.config.later_version_available:
+            self.call_from_thread(self._show_later_version, later_version)
+
+    def _show_later_version(self, later_version: packaging.version.Version) -> None:
+        version_label = self.query_one('#header_label_right', Label)
+        version_label.styles.color = self.current_theme.accent
+        version_label.update(
+            _('Update available\nCurrent version: {}\nLatest version: {}').format(
+                self.config.version, later_version
+            )
+        )
+
     @on(Mount)
     def initialize(self) -> None:
         self.theme = 'textual-dark'
 
         self.query_one('#header_label_left', Label).update(Configuration.package_name)
-        version_label = self.query_one('#header_label_right', Label)
-        version = self.config.version
-        if later_version := self.config.later_version_available:
-            version = _(
-                'Update available\nCurrent version: {}\nLatest version: {}'
-            ).format(version, later_version)
-            version_label.styles.color = self.current_theme.accent
-        version_label.update(str(version))
+        self.query_one('#header_label_right', Label).update(str(self.config.version))
+        self.check_later_version()
         footer_text = _(
             'Please make your desired choice. By default, all actions are activated.'
         )

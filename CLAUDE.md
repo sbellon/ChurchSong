@@ -93,9 +93,11 @@ and lets the pipeline continue, so that no error in them can cost the run its `S
 SongBeamer is launched. A new optional step belongs in a `guard()` rather than in the bare
 sequence, and anything it assigns to needs a value before the `with`, as the guard swallows the
 exception. Date and year-range arguments are parsed by the `parser=` callables in `utils/date.py`.
-Every command except the `self` sub-app (`version`/`info`/`update`) first hits the PyPI check in
-`Configuration.later_version_available`; `self update` `exec`s `uv tool upgrade` in place, because
-it rewrites files that are currently in use.
+The PyPI check in `Configuration.later_version_available` blocks, so only two places ask for it:
+`self info`, where the answer is the output, and the TUI, which runs it in a Textual thread worker
+and updates its header once the answer arrives - no command puts it on its critical path.
+`self update` `exec`s `uv tool upgrade` in place, because it rewrites files that are currently in
+use.
 
 **HTTP clients** subclass `utils/http.BaseAPI`, which owns one `requests.Session` per instance
 (connection reuse, closed via `atexit`) and provides `_get/_put/_post/_delete` wrappers that prefix
