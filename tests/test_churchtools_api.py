@@ -108,17 +108,6 @@ def test_get_songs_iterates_over_all_pages(
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={
-            'data': [make_song_json(1, 'Amazing Grace', tags=tags)],
-            'meta': {
-                'count': 1,
-                'pagination': {'total': 3, 'limit': 1, 'current': 1, 'lastPage': 3},
-            },
-        },
-        match=[matchers.query_param_matcher({'page': '1', 'limit': '1'})],
-    )
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/songs',
-        json={
             'data': [
                 make_song_json(1, 'Amazing Grace', tags=tags),
                 make_song_json(2, 'How Great Thou Art', tags=tags),
@@ -161,17 +150,6 @@ def test_get_songs_survives_a_rate_limited_page(
 ) -> None:
     # Paging through the whole song database is what runs into the rate limit of
     # ChurchTools, and a 429 in the middle of it used to abort `songs verify`.
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/songs',
-        json={
-            'data': [make_song_json(1, 'Amazing Grace')],
-            'meta': {
-                'count': 1,
-                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
-            },
-        },
-        match=[matchers.query_param_matcher({'page': '1', 'limit': '1'})],
-    )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={
@@ -361,11 +339,93 @@ def test_init_reports_an_unreachable_churchtools_instance(
         ChurchToolsAPI(config)
 
 
-def test_get_songs_returns_nothing_when_the_song_database_is_inaccessible(
+def test_get_songs_reports_an_inaccessible_song_database(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # An empty result would be a false all-clear for `songs verify`, whose whole job
+    # is to find problems in the songs it did not manage to look at here.
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/songs', status=500)
+    with caplog.at_level(logging.ERROR), pytest.raises(CliError, match='Failed to get'):
+        churchtools_api.get_songs()
+    assert '500' in caplog.text
+
+
+def test_get_songs_reports_a_failing_page_in_the_middle(
     churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
 ) -> None:
-    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/songs', status=403)
-    total, songs = churchtools_api.get_songs()
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(1, 'Amazing Grace')],
+            'meta': {
+                'count': 1,
+                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+            },
+        },
+        match=[
+            matchers.query_param_matcher(
+                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        status=500,
+        match=[
+            matchers.query_param_matcher(
+                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+    _total, songs = churchtools_api.get_songs()
+    with pytest.raises(CliError, match='Failed to get'):
+        list(songs)
+
+
+def test_get_songs_reports_a_missing_page_of_an_existing_agenda(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # The first page proved the agenda exists, so a 404 on the second one is not an
+    # event without an agenda but a failure that must not silently cut the songs short.
+    event = EventShort.model_validate(
+        make_event_json(42, 'Service', '2026-08-16T09:00:00Z', '2026-08-16T11:00:00Z')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/42/agenda/songs',
+        json={
+            'data': [make_song_json(1, 'Amazing Grace')],
+            'meta': {
+                'count': 1,
+                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+            },
+        },
+        match=[matchers.query_param_matcher({'page': '1'})],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/42/agenda/songs',
+        status=404,
+        match=[matchers.query_param_matcher({'page': '2'})],
+    )
+    total, songs = churchtools_api.get_songs(event, require_tags=False)
+    assert total == 2
+    with pytest.raises(CliError, match='Failed to get'):
+        list(songs)
+
+
+def test_get_songs_treats_an_event_without_agenda_as_songless(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # Walking a year range of events for the song statistics hits events that never
+    # had an agenda, which is not a failure worth aborting the whole run for.
+    event = EventShort.model_validate(
+        make_event_json(42, 'Service', '2026-08-16T09:00:00Z', '2026-08-16T11:00:00Z')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/42/agenda/songs', status=404
+    )
+    total, songs = churchtools_api.get_songs(event)
     assert total == 0
     assert list(songs) == []
 

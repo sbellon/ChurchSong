@@ -218,7 +218,7 @@ def make_song_json(
 def register_all_songs(
     mocked_responses: responses.RequestsMock, songs: list[dict[str, object]]
 ) -> None:
-    """Register the size probe and the single result page of GET /api/songs."""
+    """Register the single result page of GET /api/songs."""
     meta = {
         'count': len(songs),
         'pagination': {
@@ -228,11 +228,6 @@ def register_all_songs(
             'lastPage': 1,
         },
     }
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/songs',
-        json={'data': songs[:1], 'meta': meta},
-        match=[matchers.query_param_matcher({'page': '1', 'limit': '1'})],
-    )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={'data': songs, 'meta': meta},
@@ -365,6 +360,25 @@ def test_verify_songs_reports_nothing_to_complain_about(
         all_arrangements=False,
     )
     assert 'No problems found.' in capsys.readouterr().out
+
+
+def test_verify_songs_distinguishes_no_findings_from_no_songs(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    config: Configuration,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Claiming there are no problems with songs that were never examined would be a
+    # false all-clear from the command whose job is finding problems.
+    register_all_songs(mocked_responses, [])
+    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['CCLI'],
+        all_arrangements=False,
+    )
+    assert 'No songs to verify.' in capsys.readouterr().out
 
 
 def test_verify_songs_downloads_sng_files_for_checks_that_need_them(
@@ -638,11 +652,10 @@ def test_verify_songs_of_an_event_fetches_tags_separately(
         f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda',
         json={'data': {'id': 1, 'items': []}},
     )
-    for _probe_and_page in range(2):
-        mocked_responses.get(
-            f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda/songs',
-            json={'data': [song], 'meta': {'count': 1}},
-        )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda/songs',
+        json={'data': [song], 'meta': {'count': 1}},
+    )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={

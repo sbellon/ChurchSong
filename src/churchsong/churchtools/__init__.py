@@ -6,7 +6,6 @@ import datetime
 import enum
 import io
 import re
-import sys
 import typing
 import warnings
 
@@ -490,6 +489,28 @@ class ChurchToolsAPI(BaseAPI):
         result = SongsData(**r.json())
         return result.data[0].tags
 
+    def _get_songs_page(
+        self, api_url: str, page: int, params: dict[str, str], event: EventShort | None
+    ) -> SongsData:
+        try:
+            r = self._get(api_url, params={'page': str(page), **params})
+        except requests.exceptions.HTTPError as e:
+            if (
+                event
+                and page == 1
+                and e.response is not None
+                and e.response.status_code == requests.codes['not_found']
+            ):
+                # An event may be without songs, so an error on page 1 is not fatal.
+                self._log.info(
+                    f'No songs in agenda for event on {event.start_date:%Y-%m-%d}'
+                )
+                return SongsData(data=[], meta=SongsMeta(count=0))
+            self._log.error(e)
+            msg = f'Failed to get songs from ChurchTools: {e}'
+            raise CliError(msg) from None
+        return SongsData(**r.json())
+
     def get_songs(
         self, event: EventShort | None = None, *, require_tags: bool = True
     ) -> tuple[int, typing.Generator[Song]]:
@@ -503,36 +524,28 @@ class ChurchToolsAPI(BaseAPI):
             params = {'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
             require_tags = False  # Tags are already included in the result by default.
 
-        def empty_generator() -> typing.Generator[Song]:
-            yield from []
-
-        def inner_generator() -> typing.Generator[Song]:
-            current_page = 0
-            last_page = sys.maxsize
-            while current_page < last_page:
-                r = self._get(api_url, params={'page': str(current_page + 1), **params})
-                tmp = SongsData(**r.json())
-                if tmp.meta.pagination:
-                    current_page = tmp.meta.pagination.current
-                    last_page = tmp.meta.pagination.last_page
-                else:
-                    current_page = last_page
-                for song in tmp.data:
+        def inner_generator(page: SongsData) -> typing.Generator[Song]:
+            while True:
+                for song in page.data:
                     if require_tags and not song.tags:
                         song.tags = self._get_song_tags(song.id)
                     yield song
+                pagination = page.meta.pagination
+                if not pagination or pagination.current >= pagination.last_page:
+                    return
+                page = self._get_songs_page(
+                    api_url, pagination.current + 1, params, event
+                )
 
-        try:
-            r = self._get(api_url, params={'page': '1', 'limit': '1'})
-            result = SongsData(**r.json())
-        except requests.exceptions.HTTPError:
-            return (0, empty_generator())
-
+        # The first page is fetched eagerly: its pagination metadata carries the total
+        # number of songs the caller needs for its progress bar, and a failure has to
+        # surface here instead of from within the generator.
+        first_page = self._get_songs_page(api_url, 1, params, event)
         return (
-            result.meta.pagination.total
-            if result.meta.pagination
-            else result.meta.count,
-            inner_generator(),
+            first_page.meta.pagination.total
+            if first_page.meta.pagination
+            else first_page.meta.count,
+            inner_generator(first_page),
         )
 
     def get_song(self, song_id: int) -> Song:
