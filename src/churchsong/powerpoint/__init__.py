@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import abc
+import logging
 import os
 import typing
 
@@ -18,20 +19,22 @@ if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
 
 
+logger = logging.getLogger(__name__)
+
+
 class PowerPointBase(abc.ABC):  # noqa: B024
     def __init__(
         self, config: Configuration, template_pptx: pathlib.Path | None
     ) -> None:
-        self._log = config.log
         if template_pptx:
             self._output_pptx = config.songbeamer.output_dir / template_pptx.name
             try:
                 self._prs = pptx.Presentation(os.fspath(template_pptx))
             except pptx.exc.PackageNotFoundError as e:
-                self._log.error(f'Cannot load PowerPoint template: {e}')
+                logger.error('Cannot load PowerPoint template: %s', e)
                 self._prs = None
         else:
-            self._log.warning('No PowerPoint template configured, skipping')
+            logger.warning('No PowerPoint template configured, skipping')
             self._prs = None
 
     def save(self) -> None:
@@ -46,9 +49,9 @@ class PowerPointBase(abc.ABC):  # noqa: B024
                     f'Cannot write "{self._output_pptx}": {e}\n'
                     'Is the presentation currently open in PowerPoint?'
                 )
-                self._log.error(msg)
+                logger.error(msg)
                 raise CliError(msg) from None
             except OSError as e:
                 msg = f'Cannot write "{self._output_pptx}": {e}'
-                self._log.error(msg)
+                logger.error(msg)
                 raise CliError(msg) from None

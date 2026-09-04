@@ -7,6 +7,7 @@ import dataclasses
 import datetime
 import enum
 import io
+import logging
 import os
 import re
 import typing
@@ -38,6 +39,9 @@ if typing.TYPE_CHECKING:
     from churchsong.immich import ImmichAPI
 
     _: Callable[[str], str]
+
+
+logger = logging.getLogger(__name__)
 
 
 # The values of ItemType need to match those in configuration.SongBeamerColorConfig:
@@ -287,7 +291,6 @@ class ChurchToolsEvent:
         self, cta: ChurchToolsAPI, event: EventShort, config: Configuration
     ) -> None:
         self.cta = cta
-        self._log = config.log
         self._event = self.cta.get_full_event(event)
         self._agenda = self.cta.get_event_agenda(event)
         self._output_dir = config.songbeamer.output_dir
@@ -364,7 +367,7 @@ class ChurchToolsEvent:
             + (['uploading song sheets'] if upload_songsheets else [])
             + (['Immich upload'] if immich else [])
         )
-        self._log.info(', '.join(msg_items))
+        logger.info(', '.join(msg_items))
         agenda_items: list[Item] = []
         song_sheets = SongSheets(
             self.cta, self._event, self._datetime_format, enabled=upload_songsheets
@@ -404,7 +407,7 @@ class ChurchToolsEvent:
                                 )
                     agenda_items.append(event_file)
                 except requests.exceptions.RequestException:
-                    self._log.warning(f'Failed to download event file for {item.title}')
+                    logger.warning('Failed to download event file for %s', item.title)
             for item in self._agenda.items:
                 try:
                     match item.type:
@@ -417,9 +420,7 @@ class ChurchToolsEvent:
                         case EventAgendaItemType.SONG:
                             if not item.song:
                                 with do_progress(item):
-                                    self._log.warning(
-                                        'Song event item without song data'
-                                    )
+                                    logger.warning('Song event item without song data')
                                 continue
                             files = self._song_files(item)
                             # item.title may not be the song title itself,
@@ -440,13 +441,11 @@ class ChurchToolsEvent:
                                 song_sheets.download_and_append(files)
                     agenda_items.append(agenda_item)
                 except requests.exceptions.RequestException:
-                    self._log.warning(
-                        f'Failed to download agenda file for {item.title}'
-                    )
+                    logger.warning('Failed to download agenda file for %s', item.title)
         return agenda_items, song_sheets
 
     def get_service_info(self) -> tuple[list[Item], dict[str, set[Person]]]:
-        self._log.info('Fetching service team information')
+        logger.info('Fetching service team information')
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
         }

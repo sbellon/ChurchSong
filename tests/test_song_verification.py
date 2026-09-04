@@ -21,7 +21,6 @@ if typing.TYPE_CHECKING:
     import responses
 
     from churchsong.churchtools import ChurchToolsAPI
-    from churchsong.configuration import Configuration
 
 
 def make_arrangement(
@@ -288,7 +287,6 @@ SNG_FILE = {'name': 'song.sng', 'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/1/song
 def test_verify_songs_lists_only_songs_with_findings(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -298,7 +296,7 @@ def test_verify_songs_lists_only_songs_with_findings(
             make_song_json(43, 'Be Thou My Vision', ccli=None),
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -315,13 +313,12 @@ def test_verify_songs_lists_only_songs_with_findings(
 def test_verify_songs_reports_a_song_without_any_arrangement(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
         mocked_responses, [make_song_json(42, 'Amazing Grace', arrangements=[])]
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -336,7 +333,6 @@ def test_verify_songs_reports_a_song_without_any_arrangement(
 def test_verify_songs_reports_a_song_without_a_default_arrangement(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -349,7 +345,7 @@ def test_verify_songs_reports_a_song_without_a_default_arrangement(
             )
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -364,7 +360,6 @@ def test_verify_songs_reports_a_song_without_a_default_arrangement(
 def test_verify_songs_checks_a_non_default_arrangement_on_demand(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     # The very same song is complete once every arrangement is considered.
@@ -378,7 +373,7 @@ def test_verify_songs_checks_a_non_default_arrangement_on_demand(
             )
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -391,11 +386,10 @@ def test_verify_songs_checks_a_non_default_arrangement_on_demand(
 def test_verify_songs_reports_nothing_to_complain_about(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(mocked_responses, [make_song_json(42, 'Amazing Grace')])
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -408,13 +402,12 @@ def test_verify_songs_reports_nothing_to_complain_about(
 def test_verify_songs_distinguishes_no_findings_from_no_songs(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     # Claiming there are no problems with songs that were never examined would be a
     # false all-clear from the command whose job is finding problems.
     register_all_songs(mocked_responses, [])
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -427,7 +420,6 @@ def test_verify_songs_distinguishes_no_findings_from_no_songs(
 def test_verify_songs_downloads_sng_files_for_checks_that_need_them(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -441,7 +433,7 @@ def test_verify_songs_downloads_sng_files_for_checks_that_need_them(
         ],
     )
     mocked_responses.get(SNG_FILE['fileUrl'], body='#Title=Amazing Grace')
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -456,7 +448,6 @@ def test_verify_songs_downloads_sng_files_for_checks_that_need_them(
 def test_verify_songs_strips_the_byte_order_mark_of_sng_files(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -476,7 +467,7 @@ def test_verify_songs_strips_the_byte_order_mark_of_sng_files(
         body='\ufeff#BackgroundImage=bg.jpg\n#Title=Amazing Grace',
         content_type='text/plain; charset=utf-8',
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -489,7 +480,6 @@ def test_verify_songs_strips_the_byte_order_mark_of_sng_files(
 def test_verify_songs_skips_sng_download_for_checks_that_do_not_need_it(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
 ) -> None:
     # No download endpoint is registered: downloading the .sng file for a check
     # that never looks at its content would fail the test.
@@ -503,7 +493,7 @@ def test_verify_songs_skips_sng_download_for_checks_that_do_not_need_it(
             )
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -515,7 +505,6 @@ def test_verify_songs_skips_sng_download_for_checks_that_do_not_need_it(
 def test_verify_songs_warns_about_undownloadable_sng_files(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     caplog: pytest.LogCaptureFixture,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -531,7 +520,7 @@ def test_verify_songs_warns_about_undownloadable_sng_files(
     )
     mocked_responses.get(SNG_FILE['fileUrl'], status=404)
     with caplog.at_level(logging.WARNING):
-        ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
             date=None,
             include_tags=[],
             exclude_tags=[],
@@ -546,7 +535,6 @@ def test_verify_songs_warns_about_undownloadable_sng_files(
 def test_verify_songs_applies_include_and_exclude_tags(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -557,7 +545,7 @@ def test_verify_songs_applies_include_and_exclude_tags(
             make_song_json(44, 'Rock Of Ages', ccli=None, tags=['German', 'Archive']),
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=['German'],
         exclude_tags=['Archive'],
@@ -573,7 +561,6 @@ def test_verify_songs_applies_include_and_exclude_tags(
 def test_verify_songs_reports_duplicate_ccli_numbers(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -584,7 +571,7 @@ def test_verify_songs_reports_duplicate_ccli_numbers(
             make_song_json(44, 'Be Thou My Vision', ccli='12345'),
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -600,7 +587,6 @@ def test_verify_songs_reports_duplicate_ccli_numbers(
 def test_verify_songs_checks_only_the_default_arrangement_by_default(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -621,7 +607,7 @@ def test_verify_songs_checks_only_the_default_arrangement_by_default(
             )
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -636,7 +622,6 @@ def test_verify_songs_checks_only_the_default_arrangement_by_default(
 def test_verify_songs_checks_every_arrangement_on_demand(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_all_songs(
@@ -657,7 +642,7 @@ def test_verify_songs_checks_every_arrangement_on_demand(
             )
         ],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=None,
         include_tags=[],
         exclude_tags=[],
@@ -672,7 +657,6 @@ def test_verify_songs_checks_every_arrangement_on_demand(
 def test_verify_songs_of_an_event_fetches_tags_separately(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     # The agenda songs endpoint does not support including tags, so they have
@@ -707,7 +691,7 @@ def test_verify_songs_of_an_event_fetches_tags_separately(
         },
         match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
     )
-    ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC),
         include_tags=['German'],
         exclude_tags=[],
@@ -718,10 +702,10 @@ def test_verify_songs_of_an_event_fetches_tags_separately(
 
 
 def test_verify_songs_rejects_a_selection_without_any_valid_check(
-    churchtools_api: ChurchToolsAPI, config: Configuration
+    churchtools_api: ChurchToolsAPI,
 ) -> None:
     with pytest.raises(typer.BadParameter, match='No valid check'):
-        ChurchToolsSongVerification(churchtools_api, config).verify_songs(
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
             date=None,
             include_tags=[],
             exclude_tags=[],

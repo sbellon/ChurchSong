@@ -4,6 +4,7 @@
 
 import abc
 import enum
+import logging
 import typing
 from collections import defaultdict
 
@@ -21,7 +22,9 @@ if typing.TYPE_CHECKING:
     import pathlib
 
     from churchsong.churchtools import ChurchToolsAPI
-    from churchsong.configuration import Configuration
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseFormatter(abc.ABC):
@@ -125,9 +128,8 @@ class ChurchToolsSongStatistics:
         MEDIAWIKI = 'mediawiki'
         XLSX = 'xlsx'
 
-    def __init__(self, cta: ChurchToolsAPI, config: Configuration) -> None:
+    def __init__(self, cta: ChurchToolsAPI) -> None:
         self.cta = cta
-        self._log = config.log
 
     def song_usage(
         self,
@@ -137,7 +139,7 @@ class ChurchToolsSongStatistics:
         output_file: pathlib.Path | None = None,
         output_format: FormatType,
     ) -> None:
-        self._log.info(
+        logger.info(
             'Building song usage statistics FROM_DATE=%s TO_DATE=%s', from_date, to_date
         )
 

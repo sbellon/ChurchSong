@@ -80,7 +80,12 @@ component takes it in `__init__` and pulls out only what it needs. Notable behav
   (`recursive_expand_envvars`); unknown vars are left literal.
 - `DataDirPath` / `OptionalDataDirPath` resolve relative paths against the platform data dir.
 - It also owns logging setup (stderr until the config is read, then a rotating file handler) and
-  installs the gettext translation.
+  installs the gettext translation. The handlers go onto the `churchsong` root logger and
+  `__init__` clears them first, so building a `Configuration` twice does not log everything
+  twice. Nothing else takes a logger from the config: every module has its own
+  `logger = logging.getLogger(__name__)`, propagation carries the records up to those handlers,
+  and `%(name)s` in the formatter names the component in the log file. `utils/http.BaseAPI` is
+  the exception - it is shared infrastructure and takes the logger to use from its subclass.
 
 **Command surface** lives entirely in `__main__.py` (Typer app + `songs` and `self` sub-apps). With
 no subcommand it launches the Textual TUI in `interactivescreen.py`, which returns a
@@ -177,7 +182,11 @@ value plus, unless prettytable already renders it, a formatter.
 - **Ruff with `select = ["ALL"]`**, line length 88, single quotes, LF endings. Only isort violations
   are auto-fixable — everything else is fixed by hand or suppressed with a targeted
   `# noqa: CODE (reason)`. Follow the existing per-line suppression style rather than widening the
-  global ignore list.
+  global ignore list — the `ignore` list in `pyproject.toml` is for rules rejected as a policy for
+  the whole project, not for individual findings. `TRY400` is there deliberately: foreseen errors
+  (a missing file, a rejected token, an unreachable host) are logged with `logger.error()` and no
+  traceback, so the message has to carry the reason itself — pass the exception into it rather
+  than dropping it.
 - **pyright strict.** Untyped third-party surfaces are handled with narrow
   `# pyright: ignore[reportUnknownMemberType]` comments (Typer options are full of them) or local
   stubs under `typings/`.

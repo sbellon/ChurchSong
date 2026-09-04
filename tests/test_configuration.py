@@ -189,6 +189,31 @@ def test_configuration_switches_over_to_file_logging(config_toml: pathlib.Path) 
     assert not any(type(h) is logging.StreamHandler for h in handlers)
 
 
+def test_configuration_does_not_duplicate_log_handlers(
+    config_toml: pathlib.Path,
+) -> None:
+    config_toml.write_text(MINIMAL_TOML, encoding='utf-8')
+    Configuration()
+    config = Configuration()
+    # Without the reset in __init__, a second Configuration would log every record
+    # twice: once through its own handler and once through the first one's.
+    assert len(config.log.handlers) == 1
+
+
+def test_log_file_records_name_their_component(config_toml: pathlib.Path) -> None:
+    config_toml.write_text(MINIMAL_TOML, encoding='utf-8')
+    config = Configuration()
+    # The components log through their own child loggers, the handlers sit on the
+    # `churchsong` parent, and the formatter names whoever emitted the record.
+    logging.getLogger('churchsong.immich').warning('cannot reach Immich')
+    for handler in config.log.handlers:
+        handler.flush()
+    log_file = BaseModel.data_dir / 'Logs' / 'ChurchSong.log'
+    assert 'churchsong.immich - cannot reach Immich' in log_file.read_text(
+        encoding='utf-8'
+    )
+
+
 def test_configuration_honors_a_configured_log_file(config_toml: pathlib.Path) -> None:
     config_toml.write_text(LOG_FILE_TOML, encoding='utf-8')
     Configuration()
