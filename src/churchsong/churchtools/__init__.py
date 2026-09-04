@@ -5,6 +5,7 @@
 import datetime
 import enum
 import io
+import logging
 import re
 import typing
 import warnings
@@ -18,6 +19,9 @@ from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
+
+logger = logging.getLogger(__name__)
+
 
 # The bigger the page, the fewer requests it takes to walk the whole song database.
 # 200 is the maximum, a limit of 201 is already answered with a 400 Bad Request.
@@ -412,7 +416,7 @@ class ChurchToolsAPI(BaseAPI):
         # `CSRF-Token` header with a 401 "CSRF-Token is invalid". So keep the token
         # the only means of authentication and drop the cookie.
         # See https://churchtools.academy/de/help/system-einstellungen/api/api-authentifizierung/
-        super().__init__(config.log, persist_cookies=False)
+        super().__init__(logger, persist_cookies=False)
         self._base_url = config.churchtools.base_url
         self._headers = {
             'Accept': 'application/json',
@@ -442,20 +446,20 @@ class ChurchToolsAPI(BaseAPI):
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
         ) as e:
-            self._log.error(e)
             msg = (
                 f'{e}\n\n'
                 'Did you configure the URL of your ChurchTools instance correctly?'
             )
+            logger.error(msg)
             raise CliError(msg) from None
         except requests.exceptions.HTTPError as e:
-            self._log.error(e)
             msg = f'{e}'
             if e.response is not None and e.response.status_code in (
                 requests.codes['forbidden'],
                 requests.codes['unauthorized'],
             ):
                 msg += '\n\nDid you configure your ChurchTools API token correctly?'
+            logger.error(msg)
             raise CliError(msg) from None
         return PermissionsGlobalData(**r.json())
 
@@ -471,13 +475,13 @@ class ChurchToolsAPI(BaseAPI):
             msg = 'Missing required permissions for ChurchTools token user: {}'.format(
                 ', '.join(f'"{perm}"' for perm in missing_perms)
             )
-            self._log.error(msg)
+            logger.error(msg)
             raise CliError(msg) from None
 
     def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
         missing_perms = self._get_missing_permissions(*required_perms)
         if missing_perms and log_reason:
-            self._log.warning(
+            logger.warning(
                 f'Skipping {log_reason} due to missing permissions: {{}}'.format(
                     ', '.join(f'"{perm}"' for perm in missing_perms)
                 )
@@ -502,12 +506,12 @@ class ChurchToolsAPI(BaseAPI):
                 and e.response.status_code == requests.codes['not_found']
             ):
                 # An event may be without songs, so an error on page 1 is not fatal.
-                self._log.info(
-                    f'No songs in agenda for event on {event.start_date:%Y-%m-%d}'
+                logger.info(
+                    'No songs in agenda for event on %s', event.start_date.date()
                 )
                 return SongsData(data=[], meta=SongsMeta(count=0))
-            self._log.error(e)
             msg = f'Failed to get songs from ChurchTools: {e}'
+            logger.error(msg)
             raise CliError(msg) from None
         return SongsData(**r.json())
 
@@ -515,11 +519,11 @@ class ChurchToolsAPI(BaseAPI):
         self, event: EventShort | None = None, *, require_tags: bool = True
     ) -> tuple[int, typing.Generator[Song]]:
         if event:
-            self._log.info(f'Getting songs for {event.start_date:%Y-%m-%d}')
+            logger.info('Getting songs for %s', event.start_date.date())
             api_url = f'/api/events/{event.id}/agenda/songs'
             params = {}  # {'include': 'tags'} is sadly not supported by that API.
         else:
-            self._log.info('Getting all songs')
+            logger.info('Getting all songs')
             api_url = '/api/songs'
             params = {'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
             require_tags = False  # Tags are already included in the result by default.
@@ -573,7 +577,7 @@ class ChurchToolsAPI(BaseAPI):
             raise
         result = PersonsData(**r.json())
         if result.data.nickname is None:
-            self._log.warning(
+            logger.warning(
                 'Skipping nickname due to missing permission: '
                 '"churchdb:security level person"'
             )
@@ -639,7 +643,7 @@ class ChurchToolsAPI(BaseAPI):
         except StopIteration:
             date = f'{from_date.date():%Y-%m-%d}'
             msg = f'No events present after {date} in ChurchTools.'
-            self._log.error(msg)
+            logger.error(msg)
             raise CliError(msg) from None
         if agenda_required:
             try:
@@ -651,7 +655,7 @@ class ChurchToolsAPI(BaseAPI):
                 ):
                     date = f'{event.start_date.date():%Y-%m-%d}'
                     msg = f'No event agenda present for {date} in ChurchTools.'
-                    self._log.error(msg)
+                    logger.error(msg)
                     raise CliError(msg) from None
                 raise
         return event
@@ -667,7 +671,7 @@ class ChurchToolsAPI(BaseAPI):
         return result.data
 
     def download_url(self, full_url: str) -> requests.Response:
-        self._log.debug('Request GET %s', full_url)
+        logger.debug('Request GET %s', full_url)
         # We do need the authentication headers even for "public" URLs of the
         # ChurchTools instance, as otherwise we get back status code 200 OK but a HTML
         # page telling us that we do not have sufficient permissions. If we are not
@@ -692,7 +696,7 @@ class ChurchToolsAPI(BaseAPI):
         ):
             return
         msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'
-        self._log.debug(msg)
+        logger.debug(msg)
         self._delete(f'/api/files/{file.domain_identifier}')
 
     def upload_event_file(
@@ -701,6 +705,6 @@ class ChurchToolsAPI(BaseAPI):
         if not self.has_permissions(['churchservice:edit events'], 'song sheet upload'):
             return
         msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
-        self._log.debug(msg)
+        logger.debug(msg)
         files = {'files[]': (filename, io.BytesIO(content), 'application/pdf')}
         self._post(f'/api/files/service/{event.id}', files=files)

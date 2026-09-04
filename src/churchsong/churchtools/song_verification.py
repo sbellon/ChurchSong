@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import logging
 import typing
 from collections import OrderedDict, defaultdict
 
@@ -17,7 +18,9 @@ if typing.TYPE_CHECKING:
     import datetime
 
     from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
-    from churchsong.configuration import Configuration
+
+
+logger = logging.getLogger(__name__)
 
 
 class SongChecks:
@@ -189,9 +192,8 @@ def check_languages(song: Song, arrangements: list[Arrangement]) -> list[str]:
 
 
 class ChurchToolsSongVerification:
-    def __init__(self, cta: ChurchToolsAPI, config: Configuration) -> None:
+    def __init__(self, cta: ChurchToolsAPI) -> None:
         self.cta = cta
-        self._log = config.log
 
     @staticmethod
     def available_checks() -> typing.OrderedDict[str, SongChecks.Check]:
@@ -214,7 +216,7 @@ class ChurchToolsSongVerification:
         execute_checks: list[str],
         all_arrangements: bool,
     ) -> None:
-        self._log.info('Verifying ChurchTools song database for DATE=%s', date)
+        logger.info('Verifying ChurchTools song database for DATE=%s', date)
 
         # Use activated checks from command line or all as default.
         active_song_checks = OrderedDict(
@@ -293,9 +295,7 @@ class ChurchToolsSongVerification:
                                         '\ufeff'
                                     ).splitlines()
                             except requests.exceptions.HTTPError:
-                                self._log.warning(
-                                    f'Failed to download arrangement {arr}'
-                                )
+                                logger.warning('Failed to download arrangement %s', arr)
 
                 # Execute the actual checks.
                 check_results = zip(

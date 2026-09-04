@@ -81,6 +81,7 @@ ignore = [
     "S603",   # subprocess-without-shell-equals-true
     "FBT001", # boolean-type-hint-positional-argument
     "FBT002", # boolean-default-value-positional-argument
+    "TRY400", # error-instead-of-exception
 ]
 
 [tool.ruff.lint.per-file-ignores]

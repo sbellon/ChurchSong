@@ -46,6 +46,15 @@ def test_init_rejects_token_without_upload_permission(
         ImmichAPI(make_config(immich={}))
 
 
+def test_log_records_name_the_immich_component(
+    immich_api: ImmichAPI, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert not immich_api.has_permissions(['tag.create'], 'tagging')
+    # The log file has to be able to tell an Immich warning from a ChurchTools one.
+    assert [record.name for record in caplog.records] == ['churchsong.immich']
+
+
 def test_upload_skips_files_not_matching_include_globbings(
     immich_api: ImmichAPI,
 ) -> None:

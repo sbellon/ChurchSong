@@ -569,6 +569,22 @@ def test_missing_appointments_template_skips_powerpoint(
     assert list(tmp_path.iterdir()) == []
 
 
+def test_log_records_name_the_powerpoint_module_they_come_from(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    with caplog.at_level(logging.INFO):
+        PowerPointAppointments(
+            config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+        )
+    # The subclass and PowerPointBase live in different modules, so a logger held by
+    # the base class would report both of these records under the same name.
+    assert [record.name for record in caplog.records] == [
+        'churchsong.powerpoint.appointments',
+        'churchsong.powerpoint',
+    ]
+
+
 def test_duplicate_table_is_ignored_and_unknown_table_untouched(
     tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
 ) -> None:

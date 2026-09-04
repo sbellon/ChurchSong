@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 
+import logging
 import re
 import sys
 import typing
@@ -21,6 +22,9 @@ if typing.TYPE_CHECKING:
     from churchsong.configuration import SongBeamerColorConfig
 
     _: Callable[[str], str]
+
+logger = logging.getLogger(__name__)
+
 
 r"""
 SongBeamer agenda items look something like this:
@@ -279,7 +283,6 @@ class Agenda:
 
 class SongBeamer:
     def __init__(self, config: Configuration) -> None:
-        self._log = config.log
         self._output_dir = config.songbeamer.output_dir.resolve()
         self._schedule_filepath = self._output_dir / 'Schedule.col'
         self._datetime_format = config.songbeamer.slides.datetime_format
@@ -293,7 +296,7 @@ class SongBeamer:
         if unparsed := AgendaItem.unparsed(content):
             oneline = ' '.join(unparsed.split())
             msg = f'Ignoring unparsable content of slide "{name}": {oneline}'
-            self._log.warning(msg)
+            logger.warning(msg)
             # Markup off: the leftover is arbitrary user text, and a stray
             # closing tag like `[/x]` in it would raise a `MarkupError`.
             rich.get_console().print(f'Warning: {msg}', style='yellow', markup=False)
@@ -306,7 +309,7 @@ class SongBeamer:
         agenda_items: list[Item],
         service_items: list[Item],
     ) -> None:
-        self._log.info('Creating SongBeamer Schedule.col')
+        logger.info('Creating SongBeamer Schedule.col')
 
         # Parse the configured slides once up front, so that a warning about a
         # malformed one is emitted once and not per matching agenda item.
@@ -348,11 +351,11 @@ class SongBeamer:
                 fd.write(str(agenda))
         except OSError as e:
             msg = f'Cannot write "{self._schedule_filepath}": {e}'
-            self._log.error(msg)
+            logger.error(msg)
             raise CliError(msg) from None
 
     def launch(self) -> None:
-        self._log.info('Launching SongBeamer instance')
+        logger.info('Launching SongBeamer instance')
         if sys.platform == 'win32':
             from churchsong.songbeamer import windows  # noqa: PLC0415
 
@@ -383,11 +386,11 @@ Click OK to continue.
                 windows.start_songbeamer(self._output_dir)
             except FileNotFoundError:
                 msg = f'Cannot start SongBeamer: "{self._schedule_filepath}" not found'
-                self._log.error(msg)
+                logger.error(msg)
                 raise CliError(msg) from None
             except OSError as e:
                 msg = f'Cannot start SongBeamer: {e}'
-                self._log.error(msg)
+                logger.error(msg)
                 raise CliError(msg) from None
         else:
             msg = f'Starting SongBeamer not supported on {sys.platform}.'

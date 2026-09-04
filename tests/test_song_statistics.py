@@ -25,7 +25,6 @@ if typing.TYPE_CHECKING:
     import responses
 
     from churchsong.churchtools import ChurchToolsAPI
-    from churchsong.configuration import Configuration
 
 FROM_DATE = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
 TO_DATE = datetime.datetime(2026, 12, 31, tzinfo=datetime.UTC)
@@ -74,12 +73,11 @@ def register_usage_endpoints(
 def test_song_usage_counts_and_sorts_into_text_file(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     tmp_path: pathlib.Path,
 ) -> None:
     register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
     output_file = tmp_path / 'usage.txt'
-    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
         FROM_DATE,
         TO_DATE,
         output_file=output_file,
@@ -98,11 +96,10 @@ def test_song_usage_counts_and_sorts_into_text_file(
 def test_song_usage_rich_output_with_single_year_title(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_usage_endpoints(mocked_responses, '2026-01-01', '2026-12-31')
-    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
         datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
         datetime.datetime(2026, 12, 31, tzinfo=datetime.UTC),
         output_format=ChurchToolsSongStatistics.FormatType.RICH,
@@ -113,11 +110,9 @@ def test_song_usage_rich_output_with_single_year_title(
     assert 'Be Thou' in out
 
 
-def test_song_usage_xlsx_requires_output_file(
-    churchtools_api: ChurchToolsAPI, config: Configuration
-) -> None:
+def test_song_usage_xlsx_requires_output_file(churchtools_api: ChurchToolsAPI) -> None:
     with pytest.raises(typer.BadParameter, match='requires'):
-        ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+        ChurchToolsSongStatistics(churchtools_api).song_usage(
             FROM_DATE,
             TO_DATE,
             output_format=ChurchToolsSongStatistics.FormatType.XLSX,
@@ -160,11 +155,10 @@ def test_excel_formatter_writes_workbook(tmp_path: pathlib.Path) -> None:
 def test_song_usage_text_output_goes_to_the_console(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
-    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
         FROM_DATE,
         TO_DATE,
         output_format=ChurchToolsSongStatistics.FormatType.TEXT,
@@ -177,12 +171,11 @@ def test_song_usage_text_output_goes_to_the_console(
 def test_song_usage_writes_an_xlsx_workbook(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
-    config: Configuration,
     tmp_path: pathlib.Path,
 ) -> None:
     register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
     output_file = tmp_path / 'usage.xlsx'
-    ChurchToolsSongStatistics(churchtools_api, config).song_usage(
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
         FROM_DATE,
         TO_DATE,
         output_file=output_file,

@@ -26,6 +26,8 @@ import requests
 
 from churchsong.utils import CliError, JsonValue, recursive_expand_envvars
 
+logger = logging.getLogger(__name__)
+
 
 class CalendarSubtitleField(enum.StrEnum):
     SUBTITLE = 'subtitle'
@@ -239,12 +241,24 @@ def format_validation_error(e: pydantic.ValidationError) -> str:
 
 
 class Configuration(TomlConfig):
-    log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(__name__)
+    # The handlers live on the package's root logger, so that every module can log
+    # through its own `logging.getLogger(__name__)` and have the records propagate
+    # up to here - `%(name)s` in the formatter then tells the components apart.
+    log: typing.ClassVar[typing.Final[logging.Logger]] = logging.getLogger(
+        BaseModel.package_name.lower()
+    )
 
     def __init__(self) -> None:
+        # Constructing a second Configuration in one process re-does the setup below
+        # instead of logging everything twice through the handlers of the first one.
+        for handler in self.log.handlers[:]:
+            self.log.removeHandler(handler)
+            handler.close()  # the rotating file handler keeps the log file open
+
         self.log.setLevel(logging.INFO)
         log_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+            '%(asctime)s - %(levelname)-8s - %(name)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
         )
 
         # Log to stderr before we have the log_file name from the .ini file.
@@ -273,7 +287,7 @@ class Configuration(TomlConfig):
             )
             raise CliError(msg) from None
         except Exception as e:
-            self.log.fatal(e, exc_info=True)
+            logger.fatal(e, exc_info=True)
             raise
 
         # Switch to configured logging.

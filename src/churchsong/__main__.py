@@ -5,6 +5,7 @@
 import contextlib
 import dataclasses
 import datetime  # noqa: TC003 (used within Annotated)
+import logging
 import os
 import pathlib  # noqa: TC003 (used within Annotated)
 import shutil
@@ -37,6 +38,9 @@ from churchsong.utils.date import (
 
 if typing.TYPE_CHECKING:
     from churchsong.churchtools.events import Item, Person
+
+logger = logging.getLogger(__name__)
+
 
 app = typer.Typer(
     add_completion=False,  # disable tab completion
@@ -77,7 +81,7 @@ def callback(
     ] = None,
 ) -> None:
     if ctx.invoked_subcommand is None:
-        ctx.obj.log.info('Starting interactive screen')
+        logger.info('Starting interactive screen')
         if selection := InteractiveScreen(ctx.obj).run():
             _handle_agenda(now(), ctx.obj, selection)
 
@@ -156,11 +160,11 @@ def verify(  # noqa: PLR0913
         ),
     ] = False,
 ) -> None:
-    ctx.obj.log.info(
+    logger.info(
         'Starting %s song verification with DATE=%s', Configuration.package_name, date
     )
     cta = ChurchToolsAPI(ctx.obj)
-    ctsv = ChurchToolsSongVerification(cta, ctx.obj)
+    ctsv = ChurchToolsSongVerification(cta)
     ctsv.verify_songs(
         date=date,
         include_tags=flattened_split(include_tags),
@@ -206,14 +210,14 @@ def usage(
         ),
     ] = ChurchToolsSongStatistics.FormatType.RICH,
 ) -> None:
-    ctx.obj.log.info(
+    logger.info(
         'Starting %s song usage statistics for %s-%s',
         Configuration.package_name,
         year_range.from_date.year,
         year_range.to_date.year,
     )
     cta = ChurchToolsAPI(ctx.obj)
-    ctss = ChurchToolsSongStatistics(cta, ctx.obj)
+    ctss = ChurchToolsSongStatistics(cta)
     ctss.song_usage(
         from_date=year_range.from_date,
         to_date=year_range.to_date,
@@ -237,19 +241,19 @@ def info(ctx: typer.Context) -> None:
 
 
 @cmd_self.command(help=f'Update the {Configuration.package_name} application.')
-def update(ctx: typer.Context) -> None:
-    ctx.obj.log.info('Starting %s update', Configuration.package_name)
+def update() -> None:
+    logger.info('Starting %s update', Configuration.package_name)
     uv = shutil.which('uv')
     if not uv:
         msg = 'Cannot find "uv", aborting self update'
-        ctx.obj.log.fatal(msg)
+        logger.fatal(msg)
         raise CliError(msg)
     # "uv self update" does not touch any files of our application, so we can use
     # subprocess.run(). A failure to update `uv` is not fatal for ChurchSong however.
     cmd = [uv, 'self', 'update', '--no-config']
-    ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+    logger.info('Executing: %s', subprocess.list2cmdline(cmd))
     if subprocess.run(cmd, check=False).returncode != 0:
-        ctx.obj.log.warning('"uv self update" failed, continuing with installed uv')
+        logger.warning('"uv self update" failed, continuing with installed uv')
     # However "uv tool upgrade" modifies files of our application that are in use,
     # so we have to "exec" instead of starting a subprocess.
     cmd = [
@@ -262,23 +266,22 @@ def update(ctx: typer.Context) -> None:
         'only-managed',
         Configuration.package_name,
     ]
-    ctx.obj.log.info('Executing: %s', subprocess.list2cmdline(cmd))
+    logger.info('Executing: %s', subprocess.list2cmdline(cmd))
     rich.print(f'Updating {Configuration.package_name} ...')
     sys.stdout.flush()  # os.execl does not flush the buffers of the replaced process
     os.execl(uv, *cmd)  # noqa: S606
 
 
 class _OptionalSteps:
-    def __init__(self, config: Configuration) -> None:
-        self._log = config.log
+    def __init__(self) -> None:
         self._skipped: list[tuple[str, str]] = []
 
     @contextlib.contextmanager
     def guard(self, description: str) -> typing.Generator[None]:
         try:
             yield
-        except Exception as e:  # noqa: BLE001 (no optional step may abort the run)
-            self._log.warning('Skipped %s: %s', description, e, exc_info=True)
+        except Exception as e:  # no optional step may abort the run
+            logger.warning('Skipped %s: %s', description, e, exc_info=True)
             self._skipped.append((description, str(e)))
 
     def report(self) -> None:
@@ -291,13 +294,13 @@ def _handle_agenda(
     date: datetime.datetime, config: Configuration, selection: DownloadSelection
 ) -> None:
     sel = '' if all(dataclasses.asdict(selection).values()) else f' and {selection}'
-    config.log.info(
+    logger.info(
         'Starting %s agenda with DATE=%s%s', Configuration.package_name, date, sel
     )
     cta = ChurchToolsAPI(config)
     event = cta.get_next_event(date, agenda_required=True)
     cte = ChurchToolsEvent(cta, event, config)
-    optional_steps = _OptionalSteps(config)
+    optional_steps = _OptionalSteps()
 
     service_items: list[Item] = []
     service_leads: dict[str, set[Person]] = {}
@@ -360,7 +363,7 @@ def main() -> None:
     try:
         app(obj=config)
     except Exception as e:
-        config.log.fatal(e, exc_info=True)
+        logger.fatal(e, exc_info=True)
         raise
 
 

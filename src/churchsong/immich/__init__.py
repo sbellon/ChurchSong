@@ -5,6 +5,7 @@
 import datetime
 import enum
 import hashlib
+import logging
 import mimetypes
 import pathlib
 import sys
@@ -19,6 +20,9 @@ from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseModel(pydantic.BaseModel):
@@ -66,7 +70,7 @@ class AssetBulkUploadCheckResults(BaseModel):
 
 class ImmichAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
-        super().__init__(config.log)
+        super().__init__(logger)
         if config.immich:
             self._enable_immich = True
             self._base_url = config.immich.base_url
@@ -95,12 +99,12 @@ class ImmichAPI(BaseAPI):
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
         ) as e:
-            self._log.error(e)
             msg = f'{e}\n\nDid you configure the URL of your Immich instance correctly?'
+            logger.error(msg)
             raise CliError(msg) from None
         except requests.exceptions.HTTPError as e:
-            self._log.error(e)
             msg = f'{e}'
+            logger.error(msg)
             if e.response is not None and e.response.status_code in (
                 requests.codes['forbidden'],
                 requests.codes['unauthorized'],
@@ -119,13 +123,13 @@ class ImmichAPI(BaseAPI):
             msg = 'Missing required permissions for Immich token user: {}'.format(
                 ', '.join(f'"{perm}"' for perm in missing_perms)
             )
-            self._log.error(msg)
+            logger.error(msg)
             raise CliError(msg) from None
 
     def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
         missing_perms = self._get_missing_permissions(*required_perms)
         if missing_perms and log_reason:
-            self._log.warning(
+            logger.warning(
                 f'Skipping {log_reason} due to missing permissions: {{}}'.format(
                     ', '.join(f'"{perm}"' for perm in missing_perms)
                 )
@@ -185,13 +189,13 @@ class ImmichAPI(BaseAPI):
             fn = filename.name
             match result.results[0].reason:
                 case AssetRejectReason.DUPLICATE:
-                    self._log.info(f'Skipping upload of existing file "{fn}" to Immich')
+                    logger.info('Skipping upload of existing file "%s" to Immich', fn)
                 case AssetRejectReason.UNSUPPORTED_FORMAT:
-                    self._log.info(
-                        f'Skipping upload of unsupported file "{fn}" to Immich'
+                    logger.info(
+                        'Skipping upload of unsupported file "%s" to Immich', fn
                     )
                 case _:
-                    self._log.info(f'Skipping upload of file "{fn}" to Immich')
+                    logger.info('Skipping upload of file "%s" to Immich', fn)
             return True
         return False
 
@@ -222,7 +226,7 @@ class ImmichAPI(BaseAPI):
             try:
                 fn = pathlib.Path(filename)
                 if not self._media_file_exists_or_rejected(fn):
-                    self._log.info(f'Uploading new media file "{fn.name}" to Immich')
+                    logger.info('Uploading new media file "%s" to Immich', fn.name)
                     if asset_id := self._upload_media_file(fn):
                         self._tag_asset(asset_id)
             except (
@@ -232,4 +236,4 @@ class ImmichAPI(BaseAPI):
                 OSError,
             ) as e:
                 # Keep flying as the Immich upload should not crash an event.
-                self._log.error(e)
+                logger.error('Failed to upload "%s" to Immich: %s', filename, e)

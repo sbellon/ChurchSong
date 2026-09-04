@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import logging
 import os
 import typing
 
@@ -36,9 +37,12 @@ pptx.parts.image.Image.ext = ext
 #######################################################################################
 
 
+logger = logging.getLogger(__name__)
+
+
 class PowerPointServices(PowerPointBase):
     def __init__(self, config: Configuration) -> None:
-        config.log.info('Creating PowerPoint services slides')
+        logger.info('Creating PowerPoint services slides')
         super().__init__(config, config.songbeamer.powerpoint.services.template_pptx)
         self._portraits_dir = config.songbeamer.powerpoint.services.portraits_dir
 
@@ -51,7 +55,7 @@ class PowerPointServices(PowerPointBase):
                 os.fspath(portrait)
             )
         except OSError as e:
-            self._log.error('Cannot embed portrait picture: %s', e)
+            logger.error('Cannot embed portrait picture: %s', e)
             return False
         return True
 
@@ -68,7 +72,7 @@ class PowerPointServices(PowerPointBase):
                 getattr(ph, '_base_placeholder', None),
             )
             if not base_placeholder:
-                self._log.warning('Skipping unrecognized placeholder')
+                logger.warning('Skipping unrecognized placeholder')
                 continue
             service_name = base_placeholder.name
             sorted_persons = sorted(
@@ -78,7 +82,7 @@ class PowerPointServices(PowerPointBase):
             person_shortnames = ' + '.join(p.shortname for p in sorted_persons)
             match ph:
                 case pptx.shapes.placeholder.PicturePlaceholder():
-                    self._log.debug(
+                    logger.debug(
                         'Replacing image placeholder %s with %s',
                         service_name,
                         person_fullnames,
@@ -86,18 +90,18 @@ class PowerPointServices(PowerPointBase):
                     if not self._insert_portrait(ph, person_fullnames):
                         no_persons = ' + '.join(sorted(p.fullname for p in nobody))
                         if not self._insert_portrait(ph, no_persons):
-                            self._log.error(
+                            logger.error(
                                 'Leaving portrait placeholder %s empty', service_name
                             )
                 case pptx.shapes.placeholder.SlidePlaceholder() if ph.has_text_frame:
-                    self._log.debug(
+                    logger.debug(
                         'Replacing text placeholder %s with %s',
                         service_name,
                         person_shortnames,
                     )
                     ph.text_frame.paragraphs[0].text = person_shortnames
                 case _:
-                    self._log.warning(
+                    logger.warning(
                         'Skipping unsupported placeholder type %s',
                         ph.placeholder_format.type,
                     )

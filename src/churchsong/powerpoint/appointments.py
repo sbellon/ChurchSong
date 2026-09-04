@@ -4,6 +4,7 @@
 
 import datetime
 import enum
+import logging
 import typing
 
 import pptx.enum.dml
@@ -21,6 +22,9 @@ if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
 
 
+logger = logging.getLogger(__name__)
+
+
 class TableType(enum.StrEnum):
     WEEKLY = 'Weekly Table'
     IRREGULAR = 'Irregular Table'
@@ -33,7 +37,6 @@ class TableFiller:
         table_type: TableType,
         one_week_later: datetime.datetime,
     ) -> None:
-        self._log = config.log
         self._appointments_config = config.songbeamer.powerpoint.appointments
         self._table_type = table_type
         self._one_week_later = one_week_later
@@ -54,7 +57,7 @@ class TableFiller:
 
     def set_table(self, table: pptx.table.Table) -> None:
         if self._table:
-            self._log.warning('%s already set, not setting again', self._table_type)
+            logger.warning('%s already set, not setting again', self._table_type)
             return
         self._table = table
         self._total_rows = len(table.rows)
@@ -162,13 +165,11 @@ class TableFiller:
             # Safeguard, no table registered.
             if not self._unset_table_warning:
                 self._unset_table_warning = True
-                self._log.warning(
-                    '%s unset, ignoring all appointments', self._table_type
-                )
+                logger.warning('%s unset, ignoring all appointments', self._table_type)
             return
         if self._current_row >= self._total_rows:
             # All available table rows have been filled.
-            self._log.info('%s is full, dropping "%s"', self._table_type, appt.title)
+            logger.info('%s is full, dropping "%s"', self._table_type, appt.title)
             return
         self._set_cell_text(
             self._table.cell(self._current_row, 0),
@@ -194,7 +195,7 @@ class PowerPointAppointments(PowerPointBase):
     def __init__(
         self, config: Configuration, event_start_date: datetime.datetime
     ) -> None:
-        config.log.info('Creating PowerPoint appointments slides')
+        logger.info('Creating PowerPoint appointments slides')
         super().__init__(
             config, config.songbeamer.powerpoint.appointments.template_pptx
         )
