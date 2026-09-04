@@ -7,6 +7,8 @@ import re
 import sys
 import typing
 
+import rich
+
 from churchsong.churchtools.events import Item, ItemType
 from churchsong.configuration import Configuration
 from churchsong.utils import CliError, expand_envvars
@@ -213,8 +215,14 @@ class AgendaItem:
                 if (fn := match.group('filename'))
                 else None,
             )
-            for match in re.finditer(cls._RE_AGENDA_ITEM, content)
+            for match in re.finditer(cls._RE_AGENDA_ITEM, content + '\n')
         ]
+
+    @classmethod
+    def unparsed(cls, content: str) -> str:
+        # Whatever `parse()` did not understand, i.e. what silently vanishes from the
+        # schedule: `sub()` removes exactly the blocks `finditer()` above yields.
+        return cls._RE_AGENDA_ITEM.sub('', content + '\n').strip()
 
     def __str__(self) -> str:
         result = '\n    item'
@@ -278,6 +286,19 @@ class SongBeamer:
         self._slides = config.songbeamer.slides
         self._colors = config.songbeamer.color
 
+    def _parse_slide(self, name: str, content: str) -> list[AgendaItem]:
+        # The `item ... end` blocks are hand-authored in the configuration, so a typo
+        # in them is likely - and the regex just skips what it cannot match, which
+        # would make the slide silently disappear from the schedule.
+        if unparsed := AgendaItem.unparsed(content):
+            oneline = ' '.join(unparsed.split())
+            msg = f'Ignoring unparsable content of slide "{name}": {oneline}'
+            self._log.warning(msg)
+            # Markup off: the leftover is arbitrary user text, and a stray
+            # closing tag like `[/x]` in it would raise a `MarkupError`.
+            rich.get_console().print(f'Warning: {msg}', style='yellow', markup=False)
+        return AgendaItem.parse(content)
+
     def create_schedule(
         self,
         *,
@@ -287,21 +308,36 @@ class SongBeamer:
     ) -> None:
         self._log.info('Creating SongBeamer Schedule.col')
 
+        # Parse the configured slides once up front, so that a warning about a
+        # malformed one is emitted once and not per matching agenda item.
+        opening_items = self._parse_slide('Opening', self._slides.opening.content)
+        closing_items = self._parse_slide('Closing', self._slides.closing.content)
+        insert_slides = [
+            (
+                slide.keywords,
+                self._parse_slide(
+                    f'Insert after keywords: {", ".join(slide.keywords)}',
+                    slide.content,
+                ),
+            )
+            for slide in self._slides.insert
+        ]
+
         agenda = Agenda(colors=self._colors)
         for agenda_item in [
             Item(
                 type=ItemType.SERVICE,
                 title=f'{event_date.astimezone():{self._datetime_format}}',
             ),
-            *AgendaItem.parse(self._slides.opening.content),
+            *opening_items,
             *agenda_items,
-            *AgendaItem.parse(self._slides.closing.content),
+            *closing_items,
             *service_items,
         ]:
             agenda += agenda_item
-            for slide in self._slides.insert:
-                if any(keyword in agenda[-1].caption for keyword in slide.keywords):
-                    for insert_item in AgendaItem.parse(slide.content):
+            for keywords, insert_items in insert_slides:
+                if any(keyword in agenda[-1].caption for keyword in keywords):
+                    for insert_item in insert_items:
                         agenda += insert_item
 
         try:

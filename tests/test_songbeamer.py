@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import logging
 import pathlib
 import sys
 import typing
@@ -231,6 +232,102 @@ def test_create_schedule_assembles_slides_agenda_and_services(
         'Closing',
         'Music: Jane Doe',
     ]
+
+
+def test_create_schedule_warns_about_an_unparsable_slide(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = make_config(
+        output_dir=str(tmp_path),
+        songbeamer={
+            'Slides': {
+                # The grammar wants Caption before Color, so nothing parses at all.
+                'Opening': {
+                    'content': "item\n  Color = clBlack\n  Caption = 'Opening'\nend\n"
+                }
+            }
+        },
+    )
+    with caplog.at_level(logging.WARNING):
+        SongBeamer(config).create_schedule(
+            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            service_items=[],
+        )
+    assert 'unparsable content of slide "Opening"' in caplog.text
+    assert 'Warning: Ignoring unparsable content' in capsys.readouterr().out
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    captions = [item.caption for item in AgendaItem.parse(content)]
+    assert captions[1:] == ['Amazing Grace']
+
+
+def test_create_schedule_warns_once_about_the_broken_block_of_a_slide_only(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = make_config(
+        output_dir=str(tmp_path),
+        songbeamer={
+            'Slides': {
+                'Insert': [
+                    {
+                        'keywords': ['Infos'],
+                        'content': (
+                            "item\n  Caption = 'Good'\n  Color = clRed\nend\n"
+                            "item\n  Color = clRed\n  Caption = 'Broken'\nend\n"
+                        ),
+                    }
+                ]
+            }
+        },
+    )
+    with caplog.at_level(logging.WARNING):
+        SongBeamer(config).create_schedule(
+            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            agenda_items=[
+                Item(ItemType.HEADER, 'Infos'),
+                Item(ItemType.HEADER, 'More Infos'),
+            ],
+            service_items=[],
+        )
+    # Parsed up front, so the slide is reported once, not once per matching item.
+    assert len(caplog.records) == 1
+    assert 'Insert after keywords: Infos' in caplog.text
+    assert 'Broken' in caplog.text
+    assert 'Good' not in caplog.text
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    captions = [item.caption for item in AgendaItem.parse(content)]
+    assert captions[1:] == ['Infos', 'Good', 'More Infos', 'Good']
+
+
+def test_create_schedule_does_not_warn_about_a_valid_slide(
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = make_config(
+        output_dir=str(tmp_path),
+        songbeamer={
+            'Slides': {
+                # Without trailing newline, as a single-line TOML string yields it.
+                'Opening': {
+                    'content': "item\n  Caption = 'Opening'\n  Color = clBlack\nend"
+                }
+            }
+        },
+    )
+    with caplog.at_level(logging.WARNING):
+        SongBeamer(config).create_schedule(
+            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            service_items=[],
+        )
+    assert caplog.records == []
+    assert 'Warning' not in capsys.readouterr().out
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    captions = [item.caption for item in AgendaItem.parse(content)]
+    assert captions[1:] == ['Opening', 'Amazing Grace']
 
 
 def test_agenda_is_iterable() -> None:
