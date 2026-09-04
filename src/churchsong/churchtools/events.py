@@ -8,7 +8,6 @@ import datetime
 import enum
 import io
 import os
-import pathlib
 import re
 import typing
 
@@ -20,6 +19,7 @@ import reportlab.platypus
 import requests
 
 from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
+from churchsong.utils.file import safe_filename
 from churchsong.utils.http import DOWNLOAD_CHUNK_SIZE
 from churchsong.utils.progress import Progress
 
@@ -308,10 +308,8 @@ class ChurchToolsEvent:
                 filename = match.group(1).encode('latin1').decode('utf-8')
             else:
                 filename = name
-            if (filename := pathlib.PureWindowsPath(filename).name) in ('', '.', '..'):
-                filename = 'unnamed'
             (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
-            filename = self._output_dir / subfolder / filename
+            filename = self._output_dir / subfolder / safe_filename(filename)
             if overwrite:
                 # Stream the body into the file instead of accessing `r.content`,
                 # which would hold a whole video in memory for the Immich upload.
