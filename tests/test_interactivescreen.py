@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 import asyncio
+import threading
+import time
 import typing
 
 import packaging.version
@@ -34,6 +36,10 @@ TERMINAL_SIZE = (80, 30)
 
 CHECKBOX_IDS = ('schedule', 'songs', 'files', 'slides', 'songsheets')
 
+# Long enough to bridge a busy machine, short enough to not stall the suite if the
+# version check never reaches the header at all.
+VERSION_CHECK_TIMEOUT = 5.0
+
 
 @pytest.fixture(autouse=True)
 def offline_version_check(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -54,6 +60,16 @@ def run_scenario(scenario: Scenario) -> InteractiveScreen:
 
     asyncio.run(main())
     return app
+
+
+async def wait_for_update_notice(pilot: AppPilot, label: Label) -> str:
+    """Wait for the version check, which runs in its own thread, to reach the header."""
+    deadline = time.monotonic() + VERSION_CHECK_TIMEOUT
+    while 'Update available' not in (text := str(label.content)):
+        assert time.monotonic() < deadline, 'version check never updated the header'
+        await asyncio.sleep(0.01)
+        await pilot.pause()
+    return text
 
 
 def has_visible_border(widget: Widget) -> bool:
@@ -290,11 +306,37 @@ def test_header_points_out_an_available_update(
     )
 
     async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
-        await pilot.pause()
         version_label = app.query_one('#header_label_right', Label)
-        text = str(version_label.content)
-        assert 'Update available' in text
+        text = await wait_for_update_notice(pilot, version_label)
+        assert str(app.config.version) in text
         assert '99.0.0' in text
         assert version_label.styles.color == Color.parse(app.current_theme.accent)
+
+    run_scenario(scenario)
+
+
+def test_screen_is_usable_while_the_version_check_still_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    answered = threading.Event()
+
+    def blocking_check(_self: Configuration) -> packaging.version.Version:
+        assert answered.wait(timeout=VERSION_CHECK_TIMEOUT), 'check was never released'
+        return packaging.version.Version('99.0.0')
+
+    monkeypatch.setattr(
+        Configuration, 'later_version_available', property(blocking_check)
+    )
+
+    async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
+        # The check has not answered yet, but the screen is painted and takes keys.
+        version_label = app.query_one('#header_label_right', Label)
+        assert str(version_label.content) == str(app.config.version)
+        await pilot.press('up')
+        await pilot.pause()
+        assert app.focused is app.query_one('#songsheets', FocusCheckbox)
+
+        answered.set()
+        assert '99.0.0' in await wait_for_update_notice(pilot, version_label)
 
     run_scenario(scenario)

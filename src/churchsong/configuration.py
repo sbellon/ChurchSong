@@ -313,7 +313,12 @@ class Configuration(TomlConfig):
     def version(self) -> packaging.version.Version:
         # If we have access to the pyproject.toml, we are in development mode.
         with (
-            contextlib.suppress(FileNotFoundError, KeyError),
+            contextlib.suppress(
+                FileNotFoundError,
+                KeyError,
+                tomllib.TOMLDecodeError,
+                packaging.version.InvalidVersion,
+            ),
             (pathlib.Path(__file__).parent.parent.parent / 'pyproject.toml').open(
                 'rb'
             ) as f,
@@ -321,7 +326,9 @@ class Configuration(TomlConfig):
             return packaging.version.Version(tomllib.load(f)['project']['version'])
         # Otherwise we are in Distribution Package mode.
         with contextlib.suppress(
-            importlib.metadata.PackageNotFoundError, AssertionError
+            importlib.metadata.PackageNotFoundError,
+            AssertionError,
+            packaging.version.InvalidVersion,
         ):
             return packaging.version.Version(
                 importlib.metadata.version(self.package_name)
@@ -340,8 +347,13 @@ class Configuration(TomlConfig):
             r = requests.get(
                 f'https://pypi.org/pypi/{self.package_name}/json', timeout=5
             )
+            r.raise_for_status()
             later = packaging.version.Version(PyPIInfo(**r.json()).info.version)
-        except requests.RequestException, pydantic.ValidationError:
+        except (
+            requests.RequestException,
+            pydantic.ValidationError,
+            packaging.version.InvalidVersion,
+        ):
             return None
         else:
             return later if later > self.version else None

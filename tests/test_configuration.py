@@ -54,6 +54,11 @@ LOG_FILE_TOML = MINIMAL_TOML.replace(
 
 PYPI_URL = 'https://pypi.org/pypi/ChurchSong/json'
 
+UNPARSABLE_VERSION_TOML = """
+[project]
+version = "one point two"
+"""
+
 
 def test_toml_sections_map_onto_snake_case_fields() -> None:
     config = FakeConfiguration(**tomllib.loads(MINIMAL_TOML))
@@ -302,6 +307,21 @@ def test_later_version_available_ignores_a_malformed_answer(
     assert make_config().later_version_available is None
 
 
+def test_later_version_available_ignores_an_unparsable_version(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    mocked_responses.get(PYPI_URL, json={'info': {'version': 'one point two'}})
+    assert make_config().later_version_available is None
+
+
+def test_later_version_available_ignores_an_error_response(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    # The payload is a perfectly fine answer - only the status code says it is none.
+    mocked_responses.get(PYPI_URL, json={'info': {'version': '99.0.0'}}, status=503)
+    assert make_config().later_version_available is None
+
+
 def hide_pyproject_toml(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
@@ -309,6 +329,18 @@ def hide_pyproject_toml(
     monkeypatch.setattr(
         churchsong.configuration, '__file__', str(tmp_path / 'churchsong' / 'x.py')
     )
+
+
+def fake_pyproject_toml(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, content: str
+) -> None:
+    """Pretend to be a working tree whose pyproject.toml holds `content`."""
+    monkeypatch.setattr(
+        churchsong.configuration,
+        '__file__',
+        str(tmp_path / 'src' / 'churchsong' / 'configuration.py'),
+    )
+    (tmp_path / 'pyproject.toml').write_text(content, encoding='utf-8')
 
 
 def test_version_falls_back_to_the_installed_distribution(
@@ -327,4 +359,34 @@ def test_version_without_any_version_information_is_zero(
 
     hide_pyproject_toml(monkeypatch, tmp_path)
     monkeypatch.setattr(importlib.metadata, 'version', not_installed)
+    assert make_config().version == packaging.version.Version('0')
+
+
+def test_version_survives_a_broken_pyproject(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    fake_pyproject_toml(monkeypatch, tmp_path, 'this is not [valid toml')
+    installed = importlib.metadata.version(Configuration.package_name)
+    assert make_config().version == packaging.version.Version(installed)
+
+
+def test_version_survives_an_unparsable_version_in_pyproject(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    def not_installed(_name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError
+
+    fake_pyproject_toml(monkeypatch, tmp_path, UNPARSABLE_VERSION_TOML)
+    monkeypatch.setattr(importlib.metadata, 'version', not_installed)
+    assert make_config().version == packaging.version.Version('0')
+
+
+def test_version_survives_an_unparsable_installed_version(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    def broken_version(_name: str) -> str:
+        return 'one point two'
+
+    hide_pyproject_toml(monkeypatch, tmp_path)
+    monkeypatch.setattr(importlib.metadata, 'version', broken_version)
     assert make_config().version == packaging.version.Version('0')
