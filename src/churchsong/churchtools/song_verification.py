@@ -250,6 +250,7 @@ class ChurchToolsSongVerification:
         # execute selected checks.
         event = self.cta.get_next_event(date, agenda_required=True) if date else None
         number_songs, songs = self.cta.get_songs(event)
+        number_verified_songs = 0
         with Progress(description='Verifying Songs', total=number_songs) as progress:
             for song in progress.iterate(songs):
                 # Apply include and exclude tag switches.
@@ -264,6 +265,7 @@ class ChurchToolsSongVerification:
                 ):
                     continue
 
+                number_verified_songs += 1
                 if song.ccli:
                     ccli2ids[song.ccli].add(song.id)
 
@@ -329,7 +331,9 @@ class ChurchToolsSongVerification:
                 output_duplicates += f'\n  CCLI {ccli_no}: {ids}'
 
         # Output nicely formatted result table.
-        if not table.rows and not output_duplicates:
+        if number_verified_songs == 0:
+            rich.print('No songs to verify.')
+        elif not table.rows and not output_duplicates:
             rich.print('No problems found.')
         if table.rows:
             rich.print(table)
