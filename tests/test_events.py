@@ -742,3 +742,48 @@ def test_download_file_streams_the_body_instead_of_buffering_it(
         for url, chunk_size in chunk_sizes
         if url == f'{CHURCHTOOLS_BASE_URL}/files/901'
     ] == [512]
+
+
+def test_download_file_sanitises_a_windows_illegal_filename(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            },
+            {
+                'title': 'Handout',
+                'domainType': 'file',
+                'domainIdentifier': 902,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/902',
+            },
+        ],
+    )
+    # A reserved Windows device name and a name with an illegal character in it -
+    # writing either of them verbatim would fail on the runtime target.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/901',
+        body=b'notes content',
+        headers={'Content-Disposition': 'filename="COM1.pdf"'},
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/902',
+        body=b'handout content',
+        headers={'Content-Disposition': 'filename="What now?.pdf"'},
+    )
+    event = make_churchtools_event(churchtools_api, config)
+    items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert [item.filename for item in items] == [
+        str(tmp_path / 'Files' / '_COM1.pdf'),
+        str(tmp_path / 'Files' / 'What now_.pdf'),
+    ]
+    assert (tmp_path / 'Files' / '_COM1.pdf').read_bytes() == b'notes content'
+    assert (tmp_path / 'Files' / 'What now_.pdf').read_bytes() == b'handout content'

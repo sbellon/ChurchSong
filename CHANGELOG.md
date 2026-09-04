@@ -10,6 +10,7 @@
 - fixed aborting the whole agenda run on failures of non-critical steps
 - fixed missing escaping of control characters in SongBeamer schedule
 - fixed unparsable slides in the configuration vanishing without a warning
+- fixed aborting on downloaded files whose name is illegal on Windows
 
 ### Changed
 - irregular appointments in the next week use same datetime format as regular ones

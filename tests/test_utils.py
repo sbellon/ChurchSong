@@ -14,7 +14,7 @@ from churchsong.utils import (
     flattened_split,
     recursive_expand_envvars,
 )
-from churchsong.utils.file import atomic_replace
+from churchsong.utils.file import MAX_FILENAME_LENGTH, atomic_replace, safe_filename
 from churchsong.utils.http import BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
@@ -199,3 +199,47 @@ def test_atomic_replace_creates_the_target_directory(tmp_path: pathlib.Path) -> 
         temppath.write_text('current', encoding='utf-8')
 
     assert target.read_text(encoding='utf-8') == 'current'
+
+
+@pytest.mark.parametrize(
+    ('filename', 'expected'),
+    [
+        ('Notes.pdf', 'Notes.pdf'),  # unremarkable names are left alone
+        ('a<b>c:d"e|f?g*h.pdf', 'a_b_c_d_e_f_g_h.pdf'),
+        ('bell\x07.pdf', 'bell_.pdf'),
+        ('../../evil.pdf', 'evil.pdf'),  # traversal is defused
+        (r'C:\Windows\System32\evil.dll', 'evil.dll'),
+        ('/etc/passwd', 'passwd'),
+        ('', 'unnamed'),
+        ('.', 'unnamed'),
+        ('..', 'unnamed'),
+        ('...', 'unnamed'),
+        ('   ', 'unnamed'),
+        ('trailing.  ', 'trailing'),  # Windows would strip these silently
+        ('CON', '_CON'),  # reserved device names
+        ('nul.pdf', '_nul.pdf'),
+        ('COM1.tar.gz', '_COM1.tar.gz'),
+        ('LPT9', '_LPT9'),
+        ('CONTRACT.pdf', 'CONTRACT.pdf'),  # merely starts like one
+        ('COM0.pdf', 'COM0.pdf'),
+        ('.gitignore', '.gitignore'),  # leading dot is not an extension
+    ],
+)
+def test_safe_filename_sanitises_the_name(filename: str, expected: str) -> None:
+    assert safe_filename(filename) == expected
+
+
+def test_safe_filename_truncates_but_keeps_the_extension() -> None:
+    result = safe_filename(f'{"long" * 100}.pdf')
+    assert len(result) == MAX_FILENAME_LENGTH
+    assert result.endswith('.pdf')
+    assert result.startswith('long')
+
+
+def test_safe_filename_truncates_a_name_without_an_extension() -> None:
+    result = safe_filename('x' * 500)
+    assert result == 'x' * MAX_FILENAME_LENGTH
+
+
+def test_safe_filename_does_not_truncate_into_a_trailing_dot() -> None:
+    assert safe_filename('a.b.' + 'c' * 20, max_length=4) == 'a.b'
