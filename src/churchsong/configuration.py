@@ -300,12 +300,18 @@ class Configuration(TomlConfig):
         log_to_stderr.setFormatter(log_formatter)
         self.log.addHandler(log_to_stderr)
 
-        # Read the configuration .toml file.
+        # Read the configuration .toml file. Unlike everywhere else, the failures
+        # below are not logged before they are raised: the log level and the log file
+        # come out of the very file that could not be read, so a record would still go
+        # to stderr, where the CliError itself ends up anyway.
         try:
             with self.config_toml.open('rb') as fd:
                 super().__init__(**tomllib.load(fd))
         except FileNotFoundError:
             msg = f'Configuration file "{self.config_toml}" not found.'
+            raise CliError(msg) from None
+        except OSError as e:
+            msg = f'Cannot read configuration file "{self.config_toml}": {e}'
             raise CliError(msg) from None
         except UnicodeDecodeError as e:
             msg = f'Configuration file "{self.config_toml}" is invalid: {e}'
