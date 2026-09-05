@@ -491,6 +491,9 @@ class ChurchToolsAPI(BaseAPI):
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
         result = SongsData(**r.json())
+        if not result.data:
+            logger.warning('No tags available for song #%s', song_id)
+            return []
         return result.data[0].tags
 
     def _get_songs_page(

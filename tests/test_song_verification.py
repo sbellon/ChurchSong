@@ -281,6 +281,35 @@ def register_all_songs(
     )
 
 
+def register_event_songs(
+    mocked_responses: responses.RequestsMock, songs: list[dict[str, object]]
+) -> None:
+    """Register the next event and the songs of its agenda."""
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events',
+        json={
+            'data': [
+                {
+                    'id': 7,
+                    'name': 'Sunday Service',
+                    'startDate': '2026-08-23T10:00:00Z',
+                    'endDate': '2026-08-23T12:00:00Z',
+                }
+            ]
+        },
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda',
+        json={'data': {'id': 1, 'items': []}},
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda/songs',
+        json={'data': songs, 'meta': {'count': len(songs)}},
+    )
+
+
+EVENT_DATE = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+
 SNG_FILE = {'name': 'song.sng', 'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/1/song.sng'}
 
 
@@ -688,44 +717,60 @@ def test_verify_songs_of_an_event_fetches_tags_separately(
 ) -> None:
     # The agenda songs endpoint does not support including tags, so they have
     # to be fetched per song - which the tag filtering then relies on.
-    song = make_song_json(42, 'Amazing Grace', ccli=None)
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/events',
-        json={
-            'data': [
-                {
-                    'id': 7,
-                    'name': 'Sunday Service',
-                    'startDate': '2026-08-23T10:00:00Z',
-                    'endDate': '2026-08-23T12:00:00Z',
-                }
-            ]
-        },
-    )
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda',
-        json={'data': {'id': 1, 'items': []}},
-    )
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/events/7/agenda/songs',
-        json={'data': [song], 'meta': {'count': 1}},
+    register_event_songs(
+        mocked_responses, [make_song_json(42, 'Amazing Grace', ccli=None)]
     )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={
-            'data': [make_song_json(42, 'Amazing Grace', tags=['German'])],
+            'data': [make_song_json(42, 'Amazing Grace', ccli=None, tags=['German'])],
             'meta': {'count': 1},
         },
         match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
     )
     ChurchToolsSongVerification(churchtools_api).verify_songs(
-        date=datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC),
+        date=EVENT_DATE,
         include_tags=['German'],
         exclude_tags=[],
         execute_checks=['CCLI'],
         all_arrangements=False,
     )
     assert 'Amazing Grace' in capsys.readouterr().out
+
+
+def test_verify_songs_of_an_event_survives_a_song_without_tag_information(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The per-song tag lookup filters by what the token may see, and
+    # "churchservice:view songcategory" is a list of permitted category ids rather
+    # than a boolean - so a song of another category is answered with no song at
+    # all, as is one deleted between the agenda call and this one.
+    register_event_songs(
+        mocked_responses, [make_song_json(42, 'Amazing Grace', ccli=None)]
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={'data': [], 'meta': {'count': 0}},
+        match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
+    )
+    with caplog.at_level(logging.WARNING):
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
+            date=EVENT_DATE,
+            include_tags=[],
+            exclude_tags=[],
+            execute_checks=['CCLI', 'Tags'],
+            all_arrangements=False,
+        )
+    assert 'No tags available for song #42' in caplog.text
+    # The song is still verified by the other checks, and the tags that could not be
+    # read must not turn into a finding of their own.
+    out = capsys.readouterr().out
+    assert 'Amazing Grace' in out
+    assert 'miss' in out
+    assert 'miss "' not in out
 
 
 def test_verify_songs_rejects_a_selection_without_any_valid_check(
