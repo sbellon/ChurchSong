@@ -12,6 +12,7 @@
 - fixed raw traceback instead of an error message on an off-shape API response
 - fixed an invalid date/time format in the configuration aborting the agenda run
 - fixed raw traceback instead of an error message on an unknown log level
+- fixed a failing tag lookup of one song aborting the whole song verification run
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase
