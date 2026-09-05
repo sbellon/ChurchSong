@@ -14,6 +14,7 @@
 - fixed raw traceback instead of an error message on an unknown log level
 - fixed a failing tag lookup of one song aborting the whole song verification run
 - fixed a song sheet that is not a valid PDF aborting the whole agenda run
+- fixed square brackets in a path garbling or aborting the `self info` output
 - fixed raw traceback instead of an error message on an unreadable configuration file
 
 ### Changed

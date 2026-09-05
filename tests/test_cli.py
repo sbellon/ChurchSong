@@ -18,7 +18,7 @@ from churchsong import __main__ as cli
 from churchsong.churchtools import EventShort
 from churchsong.churchtools.events import Item, ItemType, Person
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
-from churchsong.configuration import Configuration
+from churchsong.configuration import BaseModel, Configuration
 from churchsong.interactivescreen import DownloadSelection
 from churchsong.utils import CliError
 from tests.conftest import make_config
@@ -298,6 +298,32 @@ def test_self_info_omits_latest_version_when_up_to_date() -> None:
     result = invoke(['self', 'info'])
     assert result.exit_code == 0
     assert 'Latest version' not in result.output
+
+
+@pytest.mark.parametrize(
+    'dirs',
+    [
+        # An unknown-but-well-formed tag is swallowed, silently corrupting the path.
+        ['sb[eta]'],
+        # These two components render as ".../sb[/x]" on POSIX, i.e. as a closing tag
+        # without an open one, which raises MarkupError. On Windows the separator is a
+        # backslash, so the same names are merely inert there.
+        ['sb[', 'x]'],
+    ],
+)
+def test_self_info_does_not_interpret_markup_in_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, dirs: list[str]
+) -> None:
+    # Both paths embed the user name, which may well contain brackets.
+    user_dir = tmp_path.joinpath(*dirs)
+    config_toml = user_dir / 'config.toml'
+    data_dir = user_dir / 'data'
+    monkeypatch.setattr(BaseModel, 'config_toml', config_toml)
+    monkeypatch.setattr(BaseModel, 'data_dir', data_dir)
+    result = invoke(['self', 'info'])
+    assert result.exit_code == 0
+    assert str(config_toml) in result.output
+    assert str(data_dir) in result.output
 
 
 def test_regular_commands_do_not_ask_pypi_for_a_newer_version(

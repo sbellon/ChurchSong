@@ -233,11 +233,13 @@ def version(ctx: typer.Context) -> None:
 
 @cmd_self.command(help=f'Show info about the {Configuration.package_name} application.')
 def info(ctx: typer.Context) -> None:
-    rich.print(f'Installed version:   {ctx.obj.version}')
+    # The paths below embed the user name, which may contain markup characters.
+    console = rich.get_console()
+    console.print(f'Installed version:   {ctx.obj.version}', markup=False)
     if later_version := ctx.obj.later_version_available:
-        rich.print(f'Latest version:      {later_version}')
-    rich.print(f'Configuration file:  {ctx.obj.config_toml}')
-    rich.print(f'User data directory: {ctx.obj.data_dir}')
+        console.print(f'Latest version:      {later_version}', markup=False)
+    console.print(f'Configuration file:  {ctx.obj.config_toml}', markup=False)
+    console.print(f'User data directory: {ctx.obj.data_dir}', markup=False)
 
 
 @cmd_self.command(help=f'Update the {Configuration.package_name} application.')
