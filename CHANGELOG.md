@@ -4,6 +4,8 @@
 
 ### Fixed
 - fixed aborting on markup (square brackets) in text in various places
+- fixed a song missing from the schedule if its song sheet could not be downloaded
+- fixed the two song sheets getting out of step if only one of them could be downloaded
 
 ## 0.13.0 (2026-09-04)
 
