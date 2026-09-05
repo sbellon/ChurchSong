@@ -14,7 +14,7 @@ import pydantic
 import requests
 import requests.exceptions
 
-from churchsong.utils import CliError, JsonObject, JsonValue
+from churchsong.utils import CliError, JsonValue
 from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, is_same_host
 
 if typing.TYPE_CHECKING:
@@ -36,7 +36,9 @@ class DeprecationAwareModel(pydantic.BaseModel):
 
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _warn_deprecated_fields(cls, data: JsonObject) -> JsonObject:
+    def _warn_deprecated_fields(cls, data: JsonValue) -> JsonValue:
+        if not isinstance(data, dict):
+            return data
         model_fields = [field.alias or name for name, field in cls.model_fields.items()]
         deprecated_fields = data.get(cls._DEPRECATION_KEY, {})
         if isinstance(deprecated_fields, str):
@@ -146,7 +148,9 @@ class CalendarAppointmentAppointment(DeprecationAwareModel):
 
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _patch_base_dates(cls, data: JsonObject) -> JsonObject:
+    def _patch_base_dates(cls, data: JsonValue) -> JsonValue:
+        if not isinstance(data, dict):
+            return data
         if (
             (base := data.get('base'))
             and (calculated := data.get('calculated'))
@@ -230,7 +234,9 @@ class EventService(DeprecationAwareModel):
     # if set, over `person.title`.
     @pydantic.model_validator(mode='before')
     @classmethod
-    def _flatten_person_name(cls, data: JsonObject) -> JsonObject:
+    def _flatten_person_name(cls, data: JsonValue) -> JsonValue:
+        if not isinstance(data, dict):
+            return data
         person = data.get('person')
         if isinstance(person, dict):
             attrs = person.get('domainAttributes')
