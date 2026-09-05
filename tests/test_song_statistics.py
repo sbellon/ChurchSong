@@ -5,11 +5,14 @@
 import csv
 import datetime
 import io
+import pathlib
 import typing
 import zipfile
 
 import pytest
 import typer
+import xlsxwriter
+import xlsxwriter.exceptions
 from responses import matchers
 
 from churchsong.churchtools.song_statistics import (
@@ -17,11 +20,10 @@ from churchsong.churchtools.song_statistics import (
     ChurchToolsSongStatistics,
     ExcelFormatter,
 )
+from churchsong.utils import CliError
 from tests.conftest import CHURCHTOOLS_BASE_URL
 
 if typing.TYPE_CHECKING:
-    import pathlib
-
     import responses
 
     from churchsong.churchtools import ChurchToolsAPI
@@ -220,3 +222,110 @@ def test_song_usage_writes_an_xlsx_workbook(
     )
     with zipfile.ZipFile(output_file) as archive:
         assert '<t>Amazing Grace</t>' in archive.read('xl/sharedStrings.xml').decode()
+
+
+def test_song_usage_creates_a_missing_output_directory(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
+    output_file = tmp_path / 'no' / 'such' / 'dir' / 'usage.csv'
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
+        FROM_DATE,
+        TO_DATE,
+        output_file=output_file,
+        output_format=ChurchToolsSongStatistics.FormatType.CSV,
+    )
+    assert 'Amazing Grace' in output_file.read_text(encoding='utf-8')
+
+
+@pytest.mark.parametrize(
+    'output_format',
+    [
+        ChurchToolsSongStatistics.FormatType.CSV,
+        ChurchToolsSongStatistics.FormatType.XLSX,
+    ],
+)
+def test_song_usage_reports_an_unwritable_output_file_before_the_walk(
+    churchtools_api: ChurchToolsAPI,
+    tmp_path: pathlib.Path,
+    output_format: ChurchToolsSongStatistics.FormatType,
+) -> None:
+    # A file where a directory is expected makes the mkdir fail the same way a
+    # missing permission or an unavailable network share does on a real installation.
+    # No endpoint beyond the permissions of the fixture is registered, so a request
+    # for the events would raise instead of reaching the assertions below - which is
+    # what pins the check to run before the walk rather than after it.
+    (tmp_path / 'blocker').write_text('not a directory', encoding='utf-8')
+    output_file = tmp_path / 'blocker' / 'dir' / f'usage.{output_format.value}'
+    with pytest.raises(CliError, match='Cannot write') as exc_info:
+        ChurchToolsSongStatistics(churchtools_api).song_usage(
+            FROM_DATE,
+            TO_DATE,
+            output_file=output_file,
+            output_format=output_format,
+        )
+    assert str(output_file) in exc_info.value.format_message()
+
+
+def test_song_usage_reports_an_output_file_that_breaks_during_the_walk(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The backstop for the file becoming unwritable after the check passed, e.g. by
+    # Excel opening it. xlsxwriter raises FileCreateError, which is not an OSError.
+    register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
+    output_file = tmp_path / 'usage.xlsx'
+
+    def fail_to_close(_self: object) -> None:
+        msg = f'[Errno 13] {output_file}'
+        raise xlsxwriter.exceptions.FileCreateError(msg)
+
+    monkeypatch.setattr(xlsxwriter.Workbook, 'close', fail_to_close)
+    with pytest.raises(CliError, match='Cannot write') as exc_info:
+        ChurchToolsSongStatistics(churchtools_api).song_usage(
+            FROM_DATE,
+            TO_DATE,
+            output_file=output_file,
+            output_format=ChurchToolsSongStatistics.FormatType.XLSX,
+        )
+    assert str(output_file) in exc_info.value.format_message()
+
+
+def test_song_usage_hints_at_an_open_spreadsheet_on_a_refused_write(
+    churchtools_api: ChurchToolsAPI,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse_touch(_self: object) -> None:
+        raise PermissionError(13, 'Permission denied')
+
+    monkeypatch.setattr(pathlib.Path, 'touch', refuse_touch)
+    with pytest.raises(CliError, match='open in Excel'):
+        ChurchToolsSongStatistics(churchtools_api).song_usage(
+            FROM_DATE,
+            TO_DATE,
+            output_file=tmp_path / 'usage.xlsx',
+            output_format=ChurchToolsSongStatistics.FormatType.XLSX,
+        )
+
+
+def test_song_usage_rich_format_does_not_create_the_output_file(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    # The rich formatter ignores `output_file`, so the check must not leave an empty
+    # file behind for it.
+    register_usage_endpoints(mocked_responses, '2024-01-01', '2026-12-31')
+    output_file = tmp_path / 'usage.txt'
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
+        FROM_DATE,
+        TO_DATE,
+        output_file=output_file,
+        output_format=ChurchToolsSongStatistics.FormatType.RICH,
+    )
+    assert not output_file.exists()

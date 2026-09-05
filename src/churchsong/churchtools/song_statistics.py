@@ -15,7 +15,9 @@ import rich.table
 import rich.text
 import typer
 import xlsxwriter
+import xlsxwriter.exceptions
 
+from churchsong.utils import CliError
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
@@ -26,6 +28,24 @@ if typing.TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _write_error(filename: pathlib.Path, e: Exception) -> CliError:
+    msg = f'Cannot write "{filename}": {e}'
+    if isinstance(e, PermissionError):
+        # On Windows an open workbook holds the file, and a spreadsheet left open in
+        # Excel is the likeliest reason for the write to be refused.
+        msg += '\nIs the file currently open in Excel?'
+    logger.error(msg)
+    return CliError(msg)
+
+
+def _ensure_writable(filename: pathlib.Path) -> None:
+    try:
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        filename.touch()
+    except OSError as e:
+        raise _write_error(filename, e) from None
 
 
 class BaseFormatter(abc.ABC):
@@ -150,6 +170,12 @@ class ChurchToolsSongStatistics:
             else f'{from_date.year}'
         )
         title = f'Song statistics for {year_range}'
+
+        # The rich formatter always goes to the console and ignores `output_file`,
+        # so checking it would only leave a stray empty file behind.
+        if output_file and output_format is not self.FormatType.RICH:
+            _ensure_writable(output_file)
+
         match output_format:
             case self.FormatType.XLSX:
                 if not output_file:
@@ -177,4 +203,12 @@ class ChurchToolsSongStatistics:
             formatter.add_row([f'#{song_id}', song_name, f'{count}'])
 
         # Output according to the selected formatter.
-        formatter.done()
+        try:
+            # During statistics calculation, properties of the underlying file system
+            # could have changed, so even if opening the file was possible above, the
+            # file could not be writable now (e.g. disk full, etc.).
+            formatter.done()
+        except (OSError, xlsxwriter.exceptions.XlsxWriterException) as e:
+            if not output_file:  # a console formatter failing is not a write error
+                raise
+            raise _write_error(output_file, e) from None
