@@ -21,10 +21,12 @@ from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import BaseModel, Configuration
 from churchsong.interactivescreen import DownloadSelection
 from churchsong.utils import CliError
-from tests.conftest import make_config
+from tests.conftest import CHURCHTOOLS_BASE_URL, make_config, make_global_permissions
 
 if typing.TYPE_CHECKING:
     import pathlib
+
+    import responses
 
 runner = typer.testing.CliRunner()
 
@@ -669,6 +671,26 @@ def test_songs_usage_accepts_an_open_start_year_range(
     assert to_date.year == 2020
     assert recorded['output_file'] is None
     assert recorded['output_format'] == ChurchToolsSongStatistics.FormatType.RICH
+
+
+def test_songs_usage_reports_an_unwritable_output_file(
+    mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
+) -> None:
+    # The real statistics run, not the fake one: only the permissions request the
+    # ChurchToolsAPI constructor makes is registered, so walking the events would
+    # fail on an unregistered URL instead of producing the message asserted below.
+    # That is what pins the check to happen before the walk, whose work it saves.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global', json=make_global_permissions()
+    )
+    (tmp_path / 'blocker').write_text('not a directory', encoding='utf-8')
+    output_file = tmp_path / 'blocker' / 'dir' / 'usage.csv'
+    result = invoke(
+        ['songs', 'usage', '2024-2026', '--format', 'csv', '--output', str(output_file)]
+    )
+    assert result.exit_code == 1
+    assert 'Cannot write' in result.output
+    assert str(output_file) in result.output
 
 
 def test_main_passes_the_configuration_as_context_object(
