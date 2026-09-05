@@ -7,6 +7,7 @@ import importlib.metadata
 import locale
 import logging
 import logging.handlers
+import sys
 import tomllib
 import typing
 
@@ -50,6 +51,15 @@ login_token = "immich-test-token"
 
 LOG_FILE_TOML = MINIMAL_TOML.replace(
     'log_level = "INFO"', 'log_level = "INFO"\nlog_file = "logs/custom.log"'
+)
+
+# `strftime` rejects a directive it does not know on Windows, but renders it on POSIX,
+# so `%-d` - the POSIX "no leading zero" idiom that Linux examples on the web use - is
+# only invalid on the platform ChurchSong actually runs on. That difference is the whole
+# reason for the validator, and it makes the tests for its rejection Windows-only.
+windows_only_strftime = pytest.mark.skipif(
+    sys.platform != 'win32',
+    reason='only Windows strftime rejects an unknown format directive',
 )
 
 PYPI_URL = 'https://pypi.org/pypi/ChurchSong/json'
@@ -127,6 +137,58 @@ def test_base_url_with_a_non_http_scheme_is_rejected() -> None:
                 'login_token': 'token',
             },
             SongBeamer={'output_dir': 'output'},
+        )
+
+
+def test_log_level_is_normalized_to_uppercase() -> None:
+    # `logging` only knows the uppercase names, and a lowercase level in the TOML file
+    # used to abort every command before it started.
+    config = FakeConfiguration(
+        General={'log_level': 'warning'},
+        ChurchTools={'base_url': 'https://churchtools.test', 'login_token': 'token'},
+        SongBeamer={'output_dir': 'output'},
+    )
+    assert config.general.log_level == 'WARNING'
+
+
+def test_unknown_log_level_is_rejected() -> None:
+    with pytest.raises(pydantic.ValidationError, match='log_level'):
+        FakeConfiguration(
+            General={'log_level': 'nonsense'},
+            ChurchTools={
+                'base_url': 'https://churchtools.test',
+                'login_token': 'token',
+            },
+            SongBeamer={'output_dir': 'output'},
+        )
+
+
+def test_valid_datetime_formats_are_kept_as_they_are() -> None:
+    config = FakeConfiguration(
+        ChurchTools={'base_url': 'https://churchtools.test', 'login_token': 'token'},
+        SongBeamer={
+            'output_dir': 'output',
+            'Slides': {'datetime_format': '%d.%m.%Y'},
+        },
+    )
+    assert config.songbeamer.slides.datetime_format == '%d.%m.%Y'
+
+
+@windows_only_strftime
+def test_invalid_appointments_datetime_format_is_rejected() -> None:
+    # Only read inside the guarded appointment slides step, but the same validator.
+    with pytest.raises(pydantic.ValidationError, match='regular_datetime_format'):
+        FakeConfiguration(
+            ChurchTools={
+                'base_url': 'https://churchtools.test',
+                'login_token': 'token',
+            },
+            SongBeamer={
+                'output_dir': 'output',
+                'PowerPoint': {
+                    'Appointments': {'Weekly': {'regular_datetime_format': '%-d.%-m.'}}
+                },
+            },
         )
 
 
@@ -293,6 +355,39 @@ def test_invalid_configuration_reports_the_offending_section_and_field(
     message = exc_info.value.format_message()
     assert 'ChurchTools.login_token' in message
     assert 'SongBeamer' in message
+
+
+def test_bad_log_level_is_reported(config_toml: pathlib.Path) -> None:
+    config_toml.write_text(
+        MINIMAL_TOML.replace('log_level = "INFO"', 'log_level = "nonsense"'),
+        encoding='utf-8',
+    )
+    with pytest.raises(CliError) as exc_info:
+        Configuration()
+    assert 'General.log_level' in exc_info.value.format_message()
+
+
+def test_lowercase_log_level_is_accepted(config_toml: pathlib.Path) -> None:
+    config_toml.write_text(
+        MINIMAL_TOML.replace('log_level = "INFO"', 'log_level = "warning"'),
+        encoding='utf-8',
+    )
+    config = Configuration()
+    assert config.general.log_level == 'WARNING'
+    assert config.log.level == logging.WARNING
+
+
+@windows_only_strftime
+def test_invalid_datetime_format_is_reported(config_toml: pathlib.Path) -> None:
+    # Without the validator this only surfaces from an f-string in create_schedule(),
+    # which runs outside any guard, so the run ends without a Schedule.col.
+    config_toml.write_text(
+        MINIMAL_TOML + '[SongBeamer.Slides]\ndatetime_format = "%a. %-d.%-m.%Y"\n',
+        encoding='utf-8',
+    )
+    with pytest.raises(CliError) as exc_info:
+        Configuration()
+    assert 'SongBeamer.Slides.datetime_format' in exc_info.value.format_message()
 
 
 def test_unexpected_configuration_errors_are_logged_and_reraised(
