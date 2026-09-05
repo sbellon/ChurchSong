@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
+import datetime
 import enum
 import fnmatch
 import gettext
@@ -82,8 +83,23 @@ class GeneralInteractiveConfig(BaseModel):
     use_unicode_font: bool = False
 
 
+def validate_log_level(level: str) -> str:
+    # `logging` only knows the uppercase level names, so a lowercase `log_level` in the
+    # configuration file would abort every command before it starts. Accept any casing
+    # and normalize, and let only a genuinely unknown name be an error, reported here
+    # with its configuration field instead of surfacing from `setLevel` as a ValueError.
+    if level.upper() not in logging.getLevelNamesMapping():
+        names = ', '.join(f'"{name}"' for name in logging.getLevelNamesMapping())
+        msg = f'must be one of {names}, got "{level}"'
+        raise ValueError(msg)
+    return level.upper()
+
+
+LogLevel = typing.Annotated[str, pydantic.AfterValidator(validate_log_level)]
+
+
 class GeneralConfig(BaseModel):
-    log_level: str = 'WARNING'
+    log_level: LogLevel = 'WARNING'
     log_file: BaseModel.OptionalDataDirPath = None
     interactive: GeneralInteractiveConfig = pydantic.Field(
         default=GeneralInteractiveConfig(), alias='Interactive'
@@ -105,6 +121,24 @@ def validate_base_url(url: str) -> str:
 BaseUrl = typing.Annotated[str, pydantic.AfterValidator(validate_base_url)]
 
 
+def validate_datetime_format(fmt: str) -> str:
+    # `strftime` rejects an unknown directive on Windows but not on Linux, so a format
+    # using e.g. the POSIX `%-d` idiom works in development and still aborts the run on
+    # the target platform. Reject it here, where the error can name the offending
+    # configuration field instead of surfacing from an f-string three modules away.
+    try:
+        datetime.datetime.now(tz=datetime.UTC).strftime(fmt)
+    except ValueError as e:
+        msg = f'is not a valid date/time format: {e}'
+        raise ValueError(msg) from None
+    return fmt
+
+
+DateTimeFormat = typing.Annotated[
+    str, pydantic.AfterValidator(validate_datetime_format)
+]
+
+
 class ChurchToolsConfig(BaseModel):
     base_url: BaseUrl
     login_token: str
@@ -117,9 +151,9 @@ class SongBeamerPowerPointServicesConfig(BaseModel):
 
 
 class SongBeamerPowerPointAppointmentsTableConfig(BaseModel):
-    regular_datetime_format: str = '%a. %d.%m. %H:%M'
-    allday_datetime_format: str = '%a. %d.%m.'
-    multiday_datetime_format: str = '%d.%m.'
+    regular_datetime_format: DateTimeFormat = '%a. %d.%m. %H:%M'
+    allday_datetime_format: DateTimeFormat = '%a. %d.%m.'
+    multiday_datetime_format: DateTimeFormat = '%d.%m.'
     subtitle_priority: list[CalendarSubtitleField] = [
         CalendarSubtitleField.SUBTITLE,
         CalendarSubtitleField.DESCRIPTION,
@@ -158,7 +192,7 @@ class SongBeamerSlidesDynamicConfig(BaseModel):
 
 
 class SongBeamerSlidesConfig(BaseModel):
-    datetime_format: str = '%a. %d.%m.%Y %H:%M'
+    datetime_format: DateTimeFormat = '%a. %d.%m.%Y %H:%M'
     opening: SongBeamerSlidesStaticConfig = pydantic.Field(
         default=SongBeamerSlidesStaticConfig(), alias='Opening'
     )
