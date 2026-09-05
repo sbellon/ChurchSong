@@ -220,6 +220,48 @@ def test_configuration_honors_a_configured_log_file(config_toml: pathlib.Path) -
     assert (BaseModel.data_dir / 'logs' / 'custom.log').is_file()
 
 
+def test_unusable_log_file_is_reported(
+    config_toml: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # A file where a directory is expected makes the mkdir fail the same way an
+    # unavailable network share or a missing permission does on a real installation.
+    BaseModel.data_dir.mkdir(parents=True, exist_ok=True)
+    (BaseModel.data_dir / 'blocker').write_text('not a directory', encoding='utf-8')
+    config_toml.write_text(
+        LOG_FILE_TOML.replace('logs/custom.log', 'blocker/logs/custom.log'),
+        encoding='utf-8',
+    )
+    with (
+        caplog.at_level(logging.ERROR),
+        pytest.raises(CliError, match='Cannot create log file') as exc_info,
+    ):
+        Configuration()
+    log_file = BaseModel.data_dir / 'blocker' / 'logs' / 'custom.log'
+    assert str(log_file) in exc_info.value.format_message()
+    # This fails midway through switching the logging over, so the message has to be
+    # logged while the stderr handler is still the attached one.
+    assert 'Cannot create log file' in caplog.text
+    assert not any(
+        isinstance(handler, logging.handlers.RotatingFileHandler)
+        for handler in Configuration.log.handlers
+    )
+
+
+def test_unusable_output_dir_is_reported(config_toml: pathlib.Path) -> None:
+    BaseModel.data_dir.mkdir(parents=True, exist_ok=True)
+    (BaseModel.data_dir / 'blocker').write_text('not a directory', encoding='utf-8')
+    config_toml.write_text(
+        MINIMAL_TOML.replace('output_dir = "output"', 'output_dir = "blocker/output"'),
+        encoding='utf-8',
+    )
+    with pytest.raises(
+        CliError, match='Cannot create SongBeamer output directory'
+    ) as exc_info:
+        Configuration()
+    output_dir = BaseModel.data_dir / 'blocker' / 'output'
+    assert str(output_dir) in exc_info.value.format_message()
+
+
 def test_missing_configuration_file_is_reported(config_toml: pathlib.Path) -> None:
     assert not config_toml.exists()
     with pytest.raises(CliError, match='not found'):
