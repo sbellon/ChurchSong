@@ -248,7 +248,7 @@ class Configuration(TomlConfig):
         BaseModel.package_name.lower()
     )
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # noqa: PLR0915, C901
         # Constructing a second Configuration in one process re-does the setup below
         # instead of logging everything twice through the handlers of the first one.
         for handler in self.log.handlers[:]:
@@ -295,16 +295,29 @@ class Configuration(TomlConfig):
         log_file = self.general.log_file or self.data_dir / pathlib.Path(
             f'./Logs/{self.package_name}.log'
         )
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        log_to_file = logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=5 * 1024 * 1024, backupCount=7
-        )
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            log_to_file = logging.handlers.RotatingFileHandler(
+                log_file, maxBytes=5 * 1024 * 1024, backupCount=7
+            )
+        except OSError as e:
+            msg = f'Cannot create log file "{log_file}": {e}'
+            logger.error(msg)
+            raise CliError(msg) from None
         log_to_file.setFormatter(log_formatter)
         self.log.addHandler(log_to_file)
         self.log.removeHandler(log_to_stderr)
 
         # Ensure the configured output directory exists from now on.
-        self.songbeamer.output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.songbeamer.output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            msg = (
+                'Cannot create SongBeamer output directory '
+                f'"{self.songbeamer.output_dir}": {e}'
+            )
+            logger.error(msg)
+            raise CliError(msg) from None
 
         # Setup locale specific settings and translations.
         try:
