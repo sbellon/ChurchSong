@@ -110,6 +110,43 @@ def test_song_usage_rich_output_with_single_year_title(
     assert 'Be Thou' in out
 
 
+@pytest.mark.parametrize(
+    'output_format',
+    [
+        ChurchToolsSongStatistics.FormatType.RICH,
+        ChurchToolsSongStatistics.FormatType.TEXT,
+    ],
+)
+def test_song_usage_prints_markup_in_a_song_name_verbatim(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    capsys: pytest.CaptureFixture[str],
+    output_format: ChurchToolsSongStatistics.FormatType,
+) -> None:
+    # Both console formatters put arbitrary song names in front of rich.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events',
+        json={
+            'data': [
+                {
+                    'id': 1,
+                    'name': 'Sunday Service',
+                    'startDate': '2026-08-16T10:00:00Z',
+                    'endDate': '2026-08-16T12:00:00Z',
+                }
+            ]
+        },
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/1/agenda/songs',
+        json={'data': [make_song_json(10, 'Lied [/x] Schluss')], 'meta': {'count': 1}},
+    )
+    ChurchToolsSongStatistics(churchtools_api).song_usage(
+        FROM_DATE, TO_DATE, output_format=output_format
+    )
+    assert 'Lied [/x] Schluss' in capsys.readouterr().out
+
+
 def test_song_usage_xlsx_requires_output_file(churchtools_api: ChurchToolsAPI) -> None:
     with pytest.raises(typer.BadParameter, match='requires'):
         ChurchToolsSongStatistics(churchtools_api).song_usage(

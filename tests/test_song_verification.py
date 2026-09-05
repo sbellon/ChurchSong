@@ -584,6 +584,33 @@ def test_verify_songs_reports_duplicate_ccli_numbers(
     assert '12345' not in out  # only used once, so not a duplicate
 
 
+def test_verify_songs_reports_markup_in_song_data_verbatim(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Song names and CCLI numbers are arbitrary ChurchTools text, and both end up
+    # in console output that would otherwise be parsed as markup.
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(42, 'Lied [/x] Schluss', ccli=None),
+            make_song_json(43, 'Be Thou', ccli='[/y]'),
+            make_song_json(44, 'Amazing Grace', ccli='[/y]'),
+        ],
+    )
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['CCLI'],
+        all_arrangements=False,
+    )
+    out = capsys.readouterr().out
+    assert 'Lied [/x] Schluss' in out
+    assert 'CCLI [/y]: #43, #44' in out
+
+
 def test_verify_songs_checks_only_the_default_arrangement_by_default(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,

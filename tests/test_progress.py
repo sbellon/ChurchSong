@@ -36,6 +36,18 @@ def test_description_is_truncated_to_the_length_of_the_first_one() -> None:
     assert str(column.render(make_task('Downloading: A song'))) == 'Downloadin…'
 
 
+def test_description_with_markup_is_not_interpreted() -> None:
+    # The description carries arbitrary ChurchTools text, while the text format
+    # around it has to stay markup. A locked length long enough to keep the tag,
+    # as a truncated one would hide it.
+    column = CustomTextColumn(
+        '[progress.description]{task.description}', max_description_length=40
+    )
+    text = column.render(make_task('Downloading: Lied [/x] Schluss'))
+    assert text.plain == 'Downloading: Lied [/x] Schluss'
+    assert text.spans  # the format string is still applied as markup
+
+
 def test_elapsed_time_of_a_task_that_never_started() -> None:
     assert str(CustomTimeElapsedColumn().render(make_task())) == '-s'
 

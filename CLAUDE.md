@@ -43,17 +43,14 @@ framework (`.pre-commit-config.yaml`, local hooks calling `uvx`/`uv run`, cross-
 One-time setup after cloning: `uv sync && uv run pre-commit install`. Bypass with
 `git commit --no-verify` when committing intentionally red work-in-progress.
 
-**Tests** live in `tests/` (pytest). Pure logic is tested directly; the ChurchTools/Immich HTTP
-clients are tested with the `responses` library mocking `requests` at the adapter level —
-endpoints are registered with realistic JSON, and `responses.RequestsMock` also fails the test on
-any unexpected or unfired request (used to assert that e.g. missing permissions skip an upload).
-`tests/conftest.py` provides `FakeConfiguration`, which validates a dict through the real config
-model tree while bypassing `Configuration.__init__`'s file/logging/gettext side effects — reach for
-it through the `make_config()` helper or the `config` / `mocked_responses` / `churchtools_api`
-fixtures instead of constructing `Configuration` in tests. CLI commands are driven end-to-end with
-Typer's `CliRunner` and `obj=make_config()` (`test_cli.py`), the TUI with Textual's `app.run_test()`
-pilot (`test_interactivescreen.py`). Tests are held to the same ruff/pyright gates as the source (a
-few relaxations in `[tool.ruff.lint.per-file-ignores]`). Full end-to-end behaviour (SongBeamer
+**Tests** live in `tests/` (pytest). The ChurchTools/Immich clients are tested with `responses`
+mocking `requests` at the adapter level; `responses.RequestsMock` also fails a test on any
+unexpected *or unfired* request, which is how "a missing permission skips the upload" is asserted.
+Build configurations through `tests/conftest.py`'s `make_config()` — a `FakeConfiguration` that
+validates a dict through the real config model tree but bypasses `Configuration.__init__`'s
+file/logging/gettext side effects — rather than constructing `Configuration`. CLI commands run
+through Typer's `CliRunner` with `obj=make_config()` (`test_cli.py`), the TUI through Textual's
+`app.run_test()` pilot (`test_interactivescreen.py`). Full end-to-end behaviour (SongBeamer
 launch, real API quirks) still needs a real run against a configured ChurchTools instance.
 
 Regenerate translation catalogs after touching any `_('...')` string:
@@ -79,30 +76,26 @@ component takes it in `__init__` and pulls out only what it needs. Notable behav
 - `${ENVVAR}` is expanded recursively across all string values before validation
   (`recursive_expand_envvars`); unknown vars are left literal.
 - `DataDirPath` / `OptionalDataDirPath` resolve relative paths against the platform data dir.
-- It also owns logging setup (stderr until the config is read, then a rotating file handler) and
-  installs the gettext translation. The handlers go onto the `churchsong` root logger and
-  `__init__` clears them first, so building a `Configuration` twice does not log everything
-  twice. Nothing else takes a logger from the config: every module has its own
-  `logger = logging.getLogger(__name__)`, propagation carries the records up to those handlers,
-  and `%(name)s` in the formatter names the component in the log file. `utils/http.BaseAPI` is
-  the exception - it is shared infrastructure and takes the logger to use from its subclass.
+- It also installs the gettext translation and owns logging: stderr until the config is read,
+  then a rotating file handler, both on the `churchsong` parent logger, which `__init__` clears
+  first so a second `Configuration` does not log everything twice. Nothing takes a logger from
+  the config — every module has its own `logger = logging.getLogger(__name__)` and `%(name)s`
+  names it in the log file. `utils/http.BaseAPI` is the exception: shared infrastructure, so it
+  takes the logger to use from its subclass.
 
 **Command surface** lives entirely in `__main__.py` (Typer app + `songs` and `self` sub-apps). With
 no subcommand it launches the Textual TUI in `interactivescreen.py`, which returns a
-`DownloadSelection` and feeds the same `_handle_agenda()` path as the `agenda` command —
-`_handle_agenda` is the one place that orchestrates ChurchTools → PowerPoint → SongBeamer.
-Everything optional in it — the Immich connector, the service team information, both slide decks,
-the song sheet upload — runs inside `_OptionalSteps.guard()`, which logs the failure, records it
-and lets the pipeline continue, so that no error in them can cost the run its `Schedule.col`;
-`report()` then prints one console line per skipped step before the schedule is written and
-SongBeamer is launched. A new optional step belongs in a `guard()` rather than in the bare
-sequence, and anything it assigns to needs a value before the `with`, as the guard swallows the
-exception. Date and year-range arguments are parsed by the `parser=` callables in `utils/date.py`.
-The PyPI check in `Configuration.later_version_available` blocks, so only two places ask for it:
-`self info`, where the answer is the output, and the TUI, which runs it in a Textual thread worker
-and updates its header once the answer arrives - no command puts it on its critical path.
-`self update` `exec`s `uv tool upgrade` in place, because it rewrites files that are currently in
-use.
+`DownloadSelection` into the same `_handle_agenda()` path as the `agenda` command — the one place
+that orchestrates ChurchTools → PowerPoint → SongBeamer. Everything optional in it runs inside
+`_OptionalSteps.guard()`, which logs the failure, records it and lets the pipeline continue, so
+that no error in them can cost the run its `Schedule.col`; `report()` then prints one console line
+per skipped step before the schedule is written. A new optional step belongs in a `guard()` rather
+than in the bare sequence, and anything it assigns to needs a value *before* the `with`, as the
+guard swallows the exception and pyright does not flag the unbound case. Date and year-range
+arguments are parsed by the `parser=` callables in `utils/date.py`. The blocking PyPI check
+(`Configuration.later_version_available`) is asked for in exactly two places — `self info`, where
+the answer is the output, and the TUI's thread worker — so no command has it on its critical path.
+`self update` `exec`s `uv tool upgrade` in place, because it rewrites files that are in use.
 
 **HTTP clients** subclass `utils/http.BaseAPI`, which owns one `requests.Session` per instance
 (connection reuse, closed via `atexit`) and provides `_get/_put/_post/_delete` wrappers that prefix
@@ -110,14 +103,10 @@ use.
 per-request and deliberately *not* put on the session, so downloads from a foreign host can drop
 them (`is_same_host()`). `ChurchToolsAPI` and `ImmichAPI` both subclass it.
 
-`BaseAPI` stays service-agnostic: it defaults to normal `requests` cookie handling and only *offers*
-`persist_cookies=False`, which blocks the session jar from storing and sending cookies (cookies
-within a single redirect chain still work). Whether to use it is each client's decision, taken with
-the reason next to the `super().__init__()` call — `ChurchToolsAPI` opts out because a login token
-authenticates every request on its own, but ChurchTools still answers with a `ChurchToolsV2_*`
-session cookie; sending that back switches it to session authentication, which then rejects every
-state-changing request lacking a `CSRF-Token` header with a 401. `ImmichAPI` keeps the default. Add
-service-specific HTTP behaviour this way rather than by putting it into `BaseAPI`.
+`BaseAPI` stays service-agnostic: it *offers* `persist_cookies=False` but takes no position on it —
+each client decides at its `super().__init__()` call and states the reason in a comment there
+(`ChurchToolsAPI` opts out over a CSRF interaction, `ImmichAPI` keeps the default). Add
+service-specific HTTP behaviour that way rather than by putting it into `BaseAPI`.
 
 **ChurchTools API models** (`churchtools/__init__.py`) are Pydantic models mirroring the JSON, with
 camelCase aliases and `DeprecationAwareModel` as base — it inspects the `@deprecated` key ChurchTools
@@ -126,24 +115,20 @@ carry `model_validator(mode='before')` shims for ChurchTools quirks (null titles
 item type, all-day appointment dates without timezone). When the upstream API changes, that is where
 compatibility patches go — dated comments mark the existing ones.
 
-**Permissions are two-tier**, in both clients. `ChurchToolsAPI.__init__` fetches
-`/api/permissions/global` and `ImmichAPI.__init__` fetches `/api/api-keys/me` once, then
-hard-assert what basic operation needs (raising `CliError`): the `churchservice:view*` set for
-ChurchTools, `asset.upload` for Immich — the Immich one only ever costs the media upload, because
-`_handle_agenda` constructs `ImmichAPI` inside a `guard()` and hands the download `None` if that
-failed. Everything optional — appointment slides, nickname lookup, song sheet upload/delete, and
-Immich's `tag.create`/`tag.read`/`tag.asset` — calls `has_permissions([...], 'reason')`, which logs
-a warning and lets the caller skip that feature. Add new optional features this way rather than by
-asserting. The fetch/assert/`has_permissions` trio is duplicated per client because the two
-permission payloads have different shapes.
+**Permissions are two-tier**, in both clients: each constructor fetches the token's permissions
+once and hard-asserts what basic operation needs (`CliError`), while every optional feature calls
+`has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
+new optional features that way rather than by asserting. Note that a ChurchTools `view *` permission
+is often a *list of ids*, not a boolean, so holding it does not mean seeing every object. The
+fetch/assert/`has_permissions` trio is duplicated per client because the two payloads differ in
+shape.
 
-**Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks event
-files and agenda items, downloads `.sng` and attachments into `output_dir/{Songs,Files}`, feeds PDFs
-into `SongSheets` (chords + leads, built with reportlab/pypdf, with a "MISSING" watermark page for
-absent songs), and hands media files to the `ImmichAPI` it is given, if any. It returns the
-`list[Item]` that is the internal agenda representation shared with the SongBeamer writer, plus the
-`SongSheets` — uploading those back as event files is left to the caller, which does it as one of
-its guarded optional steps.
+**Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks
+event files and agenda items into `output_dir/{Songs,Files}`, feeds PDFs into `SongSheets` (chords
++ leads via reportlab/pypdf, "MISSING" watermark page for absent songs) and hands media files to
+the `ImmichAPI` it is given, if any. It returns `(list[Item], SongSheets)` — the `list[Item]` is
+the internal agenda representation shared with the SongBeamer writer, and *uploading* the sheets
+is deliberately left to the caller, which does it as a guarded optional step.
 
 **`ItemType` values must stay in sync with the field names of `SongBeamerColorConfig`** — the color
 lookup is `getattr(colors, item.type.value)`, which is why both are capitalized.
@@ -170,10 +155,9 @@ active check asks for them; an undeclared read silently sees an empty list, so t
 verified against what the checks actually read in `tests/test_song_verification.py`.
 
 **Song usage statistics** (`churchtools/song_statistics.py`) counts song occurrences across the
-events of a year range and emits them through a `BaseFormatter` ABC: `RichFormatter` (console),
-`AsciiFormatter` (prettytable, covering `text`/`html`/`json`/`csv`/`latex`/`mediawiki`) and
-`ExcelFormatter` (xlsxwriter, which requires `--output`). A new format is an added `FormatType`
-value plus, unless prettytable already renders it, a formatter.
+events of a year range and emits them through a `BaseFormatter` ABC (`RichFormatter`,
+`AsciiFormatter` on prettytable, `ExcelFormatter` on xlsxwriter, which requires `--output`). A new
+format is an added `FormatType` value plus, unless prettytable already renders it, a formatter.
 
 ## Conventions
 
@@ -198,4 +182,14 @@ value plus, unless prettytable already renders it, a formatter.
   Catalogs are `.po` files loaded at runtime with polib — they are never compiled to `.mo`.
 - **Errors reaching the user** are raised as `CliError` (alias of Click's `ClickException`) after
   logging; unexpected exceptions are logged with traceback in `main()` and re-raised.
+- **Text from ChurchTools or from an exception must never reach rich's markup parser** — a song
+  title or a server message containing `[/x]` raises `MarkupError` and takes the run down. There
+  is no single mechanism; pick by the shape of the call: `markup=False` where the call owns the
+  whole string (`console.print`; `rich.print` has no such parameter, so it becomes
+  `rich.get_console().print`), `rich.text.Text(...)` cells where rich parses per cell
+  (`Table.add_row`), and `rich.markup.escape()` only where a markup template has to survive
+  around the untrusted part (`utils/progress.CustomTextColumn`) — it is the last resort, as it
+  doubles a trailing backslash. Regression tests for the progress display need
+  `monkeypatch.setenv('TTY_COMPATIBLE', '1')`, as rich renders nothing off a terminal and the
+  test would pass vacuously.
 - Long-running loops report progress through `utils/progress.Progress`.

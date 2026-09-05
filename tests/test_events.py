@@ -642,6 +642,29 @@ def test_download_agenda_items_survives_a_failing_song_download(
     assert [item.title for item in items] == ['Welcome']
 
 
+def test_download_agenda_items_survives_markup_in_an_item_title(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        agenda_items=[
+            {'title': 'Welcome', 'type': 'header', 'meta': META},
+            {'title': 'Lied [/x] Schluss', 'type': 'header', 'meta': META},
+        ],
+    )
+    # The item titles reach the progress bar, but rich renders nothing at all off
+    # a terminal, so without this the description never gets to the markup parser
+    # and a stray closing tag in it stays invisible to the test.
+    monkeypatch.setenv('TTY_COMPATIBLE', '1')
+    event = make_churchtools_event(churchtools_api, config)
+    items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert [item.title for item in items] == ['Welcome', 'Lied [/x] Schluss']
+
+
 def test_download_file_falls_back_to_the_item_title(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
