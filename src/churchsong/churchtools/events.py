@@ -14,6 +14,7 @@ import re
 import typing
 
 import pypdf
+import pypdf.errors
 import reportlab.lib.colors
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
@@ -282,12 +283,22 @@ class SongSheets:
                 'Failed to download song sheet for %s: %s', song_files.title, e
             )
             return
-        self._chords_pdf.append(
-            song_files.title, song_files.ccli, song_files.arrangement, chords_content
-        )
-        self._leads_pdf.append(
-            song_files.title, song_files.ccli, song_files.arrangement, leads_content
-        )
+        try:
+            self._chords_pdf.append(
+                song_files.title,
+                song_files.ccli,
+                song_files.arrangement,
+                chords_content,
+            )
+            self._leads_pdf.append(
+                song_files.title,
+                song_files.ccli,
+                song_files.arrangement,
+                leads_content,
+            )
+        except pypdf.errors.PyPdfError as e:
+            logger.warning('Failed to add song sheet for %s: %s', song_files.title, e)
+            return
         self._last_modified = max(self._last_modified, song_files.last_modified)
 
     def upload(self) -> None:
