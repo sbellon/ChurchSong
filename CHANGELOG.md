@@ -9,6 +9,7 @@
 - fixed crash of song verification on a song with missing tag information
 - fixed raw traceback instead of an error message on an unusable log file or output directory
 - fixed a dropped connection aborting the whole song verification run
+- fixed raw traceback instead of an error message on an off-shape API response
 
 ## 0.13.0 (2026-09-04)
 

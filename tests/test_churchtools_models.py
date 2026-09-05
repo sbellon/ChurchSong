@@ -5,10 +5,12 @@
 import datetime
 import warnings
 
+import pydantic
 import pytest
 
 from churchsong.churchtools import (
     CalendarAppointmentAppointment,
+    CalendarAppointmentBase,
     EventAgendaItem,
     EventAgendaItemType,
     EventService,
@@ -32,25 +34,27 @@ def test_agenda_item_legacy_type_normal_maps_to_text() -> None:
     assert item.type is EventAgendaItemType.TEXT
 
 
+def make_appointment_base_json(**overrides: object) -> dict[str, object]:
+    return {
+        'title': 'Prayer Meeting',
+        'subtitle': None,
+        'description': None,
+        'image': None,
+        'link': None,
+        'isInternal': False,
+        'startDate': '2026-08-16T10:00:00Z',
+        'endDate': '2026-08-16T12:00:00Z',
+        'allDay': False,
+        'repeatId': 7,
+        'repeatFrequency': 1,
+        'address': None,
+    } | overrides
+
+
 def make_appointment_json(
     *, all_day: bool, calculated: dict[str, str] | None
 ) -> dict[str, object]:
-    data: dict[str, object] = {
-        'base': {
-            'title': 'Prayer Meeting',
-            'subtitle': None,
-            'description': None,
-            'image': None,
-            'link': None,
-            'isInternal': False,
-            'startDate': '2026-08-16T10:00:00Z',
-            'endDate': '2026-08-16T12:00:00Z',
-            'allDay': all_day,
-            'repeatId': 7,
-            'repeatFrequency': 1,
-            'address': None,
-        },
-    }
+    data: dict[str, object] = {'base': make_appointment_base_json(allDay=all_day)}
     if calculated is not None:
         data['calculated'] = calculated
     return data
@@ -92,6 +96,30 @@ def test_appointment_without_calculated_dates_keeps_base_dates() -> None:
     )
     assert appointment.base.start_date.day == 16
     assert appointment.base.end_date.day == 16
+
+
+def test_appointment_scalar_where_object_expected_stays_a_validation_error() -> None:
+    # ChurchTools sends '' or a plain string where an object is documented; the model
+    # validators have to leave that to pydantic instead of tripping over it themselves.
+    with pytest.raises(pydantic.ValidationError) as excinfo:
+        CalendarAppointmentBase.model_validate(
+            make_appointment_base_json(image='', address='Somewhere 1')
+        )
+    assert {error['loc'] for error in excinfo.value.errors()} == {
+        ('image',),
+        ('address',),
+    }
+
+
+@pytest.mark.parametrize(
+    'model',
+    [CalendarAppointmentAppointment, CalendarAppointmentBase, EventService, Person],
+)
+def test_scalar_instead_of_model_stays_a_validation_error(
+    model: type[pydantic.BaseModel],
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        model.model_validate('not an object')
 
 
 def test_event_service_prefers_person_domain_attributes_over_name() -> None:
