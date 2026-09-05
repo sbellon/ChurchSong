@@ -326,8 +326,22 @@ def test_unusable_output_dir_is_reported(config_toml: pathlib.Path) -> None:
 
 def test_missing_configuration_file_is_reported(config_toml: pathlib.Path) -> None:
     assert not config_toml.exists()
+    # FileNotFoundError is an OSError, so the arm raising this has to stay ahead of
+    # the generic one below it - matching the wording is what pins that order.
     with pytest.raises(CliError, match='not found'):
         Configuration()
+
+
+def test_unreadable_configuration_file_is_reported(config_toml: pathlib.Path) -> None:
+    # A directory where the configuration file is expected fails the open with a
+    # PermissionError on Windows and an IsADirectoryError on Linux - both OSError, so
+    # this stands in for a denying ACL or a locked file on either platform. It is the
+    # inverse of the trick the two tests above use, and portability is the reason for
+    # both.
+    config_toml.mkdir()
+    with pytest.raises(CliError, match='Cannot read configuration file') as exc_info:
+        Configuration()
+    assert str(config_toml) in exc_info.value.format_message()
 
 
 def test_configuration_file_with_invalid_encoding_is_reported(
@@ -398,13 +412,15 @@ def test_unexpected_configuration_errors_are_logged_and_reraised(
     config_toml.write_text(MINIMAL_TOML, encoding='utf-8')
 
     def raise_boom(*_args: object, **_kwargs: object) -> None:
-        msg = 'disk on fire'
-        raise OSError(msg)
+        # Deliberately not an OSError: failing to read the file is a foreseen error
+        # with an arm of its own, so it never reaches the fallback under test here.
+        msg = 'maximum recursion depth exceeded'
+        raise RecursionError(msg)
 
     monkeypatch.setattr(tomllib, 'load', raise_boom)
     with (
         caplog.at_level(logging.CRITICAL),
-        pytest.raises(OSError, match='disk on fire'),
+        pytest.raises(RecursionError, match='maximum recursion depth'),
     ):
         Configuration()
     assert any(record.levelno == logging.CRITICAL for record in caplog.records)
