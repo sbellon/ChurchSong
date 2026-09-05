@@ -287,7 +287,11 @@ class _OptionalSteps:
     def report(self) -> None:
         console = rich.get_console()
         for description, error in self._skipped:
-            console.print(f'Warning: Skipped {description}: {error}', style='yellow')
+            console.print(
+                f'Warning: Skipped {description}: {error}',
+                style='yellow',
+                markup=False,
+            )
 
 
 def _handle_agenda(

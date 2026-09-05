@@ -12,6 +12,7 @@ import prettytable
 import rich
 import rich.box
 import rich.table
+import rich.text
 import typer
 import xlsxwriter
 
@@ -48,7 +49,7 @@ class RichFormatter(BaseFormatter):
         self._table.add_column('Performed', justify='right')
 
     def add_row(self, row: list[str]) -> None:
-        self._table.add_row(*row)
+        self._table.add_row(*(rich.text.Text(cell) for cell in row))
 
     def done(self) -> None:
         rich.print(self._table)
@@ -87,7 +88,7 @@ class AsciiFormatter(BaseFormatter):
             with self._filename.open('w', encoding='utf-8') as fd:
                 fd.write(f'{text}\n')
         else:
-            rich.print(text)
+            rich.get_console().print(text, markup=False)
 
 
 class ExcelFormatter(BaseFormatter):

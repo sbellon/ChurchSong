@@ -5,6 +5,7 @@
 import contextlib
 import typing
 
+import rich.markup
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -54,7 +55,9 @@ class CustomTextColumn(TextColumn):
         if self._locked_length is not None and len(desc) > self._locked_length:
             desc = desc[: self._locked_length - 1] + '…'
 
-        text = self.text_format.format(task=task).replace(task.description, desc, 1)
+        text = self.text_format.format(task=task).replace(
+            task.description, rich.markup.escape(desc) if self.markup else desc, 1
+        )
         return (
             Text.from_markup(text)
             if self.markup

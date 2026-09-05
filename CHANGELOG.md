@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Fixed
+- fixed aborting on markup (square brackets) in text in various places
+
 ## 0.13.0 (2026-09-04)
 
 ### Fixed

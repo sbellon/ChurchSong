@@ -10,6 +10,7 @@ import requests
 import rich
 import rich.box
 import rich.table
+import rich.text
 import typer
 
 from churchsong.utils.progress import Progress
@@ -237,6 +238,9 @@ class ChurchToolsSongVerification:
         for column_name in ['Song', 'Arrangement', *active_song_checks.keys()]:
             table.add_column(column_name, justify='left')
 
+        def add_row(*cells: str) -> None:
+            table.add_row(*(rich.text.Text(cell) for cell in cells))
+
         # Check whether there are duplicates regarding the CCLI number.
         ccli2ids: defaultdict[str | None, set[int]] = defaultdict(set)
 
@@ -271,7 +275,7 @@ class ChurchToolsSongVerification:
 
                 # Report if there is no arrangement at all, then skip further checks.
                 if not arrangements:
-                    table.add_row(
+                    add_row(
                         f'#{song.id}',
                         song.name or f'#{song.id}',
                         'miss',
@@ -309,7 +313,7 @@ class ChurchToolsSongVerification:
                 # Create the result table row(s) for later output.
                 for arr, check_result in zip(arrangements, check_results, strict=True):
                     if any(res for res in check_result):
-                        table.add_row(
+                        add_row(
                             f'#{song.id}',
                             song.name or f'#{song.id}',
                             arr.name or f'#{arr.id}',
@@ -330,4 +334,6 @@ class ChurchToolsSongVerification:
         if table.rows:
             rich.print(table)
         if output_duplicates:
-            rich.print('\nDuplicate songs:' + output_duplicates)
+            rich.get_console().print(
+                '\nDuplicate songs:' + output_duplicates, markup=False
+            )

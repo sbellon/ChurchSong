@@ -116,6 +116,8 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
     *,
     appointment_permission: bool = True,
     failing_step: str | None = None,
+    failure_message: str = '502 Server Error: Bad Gateway for url: '
+    'https://churchtools.test',
 ) -> Pipeline:
     """Replace everything _handle_agenda() orchestrates with recording fakes."""
     pipeline = Pipeline()
@@ -123,8 +125,7 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
     def record(step: str) -> None:
         pipeline.steps.append(step)
         if step == failing_step:
-            msg = '502 Server Error: Bad Gateway for url: https://churchtools.test'
-            raise requests.exceptions.HTTPError(msg)
+            raise requests.exceptions.HTTPError(failure_message)
 
     class FakeChurchToolsAPI:
         def __init__(self, _config: Configuration) -> None:
@@ -462,6 +463,23 @@ def test_agenda_launches_although_the_slides_fail(
     assert 'create_schedule' in pipeline.steps
     assert 'launch' in pipeline.steps
     assert 'Skipped service slides: 502 Server Error' in result.output
+
+
+def test_agenda_reports_a_skipped_step_with_markup_in_its_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # An exception message is arbitrary text, and reporting it must not become the
+    # thing that costs the run its schedule.
+    pipeline = install_fake_pipeline(
+        monkeypatch,
+        failing_step='song_sheets.upload',
+        failure_message='500 Server Error: [/x] for url: https://churchtools.test',
+    )
+    config = make_config(songbeamer=TEMPLATES)
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    assert 'create_schedule' in pipeline.steps
+    assert 'Skipped song sheet upload: 500 Server Error: [/x] for url:' in result.output
 
 
 def test_agenda_reports_nothing_when_no_stage_was_skipped(
