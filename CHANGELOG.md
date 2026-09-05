@@ -8,6 +8,7 @@
 - fixed the two song sheets getting out of step if only one of them could be downloaded
 - fixed crash of song verification on a song with missing tag information
 - fixed raw traceback instead of an error message on an unusable log file or output directory
+- fixed a dropped connection aborting the whole song verification run
 
 ## 0.13.0 (2026-09-04)
 

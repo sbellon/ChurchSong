@@ -7,6 +7,7 @@ import logging
 import typing
 
 import pytest
+import requests
 import typer
 from responses import matchers
 
@@ -559,6 +560,54 @@ def test_verify_songs_warns_about_undownloadable_sng_files(
     assert 'Failed to download arrangement' in caplog.text
     # A failed download must not turn into a false positive finding.
     assert 'No problems found.' in capsys.readouterr().out
+
+
+def test_verify_songs_survives_a_dropped_connection_during_sng_download(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    other_sng_file = {
+        'name': 'song.sng',
+        'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/2/song.sng',
+    }
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(
+                42,
+                'Amazing Grace',
+                arrangements=[make_arrangement_json(files=[SNG_FILE])],
+            ),
+            make_song_json(
+                43,
+                'Be Thou My Vision',
+                arrangements=[make_arrangement_json(files=[other_sng_file])],
+            ),
+        ],
+    )
+    # A dropped connection is no HTTPError, so it used to escape the download loop
+    # and cost the whole run - possibly thousands of songs in - instead of a single
+    # arrangement.
+    mocked_responses.get(
+        SNG_FILE['fileUrl'], body=requests.exceptions.ConnectionError()
+    )
+    mocked_responses.get(other_sng_file['fileUrl'], body='#Title=Be Thou My Vision')
+    with caplog.at_level(logging.WARNING):
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
+            date=None,
+            include_tags=[],
+            exclude_tags=[],
+            execute_checks=['BGImg'],
+            all_arrangements=False,
+        )
+    assert 'Failed to download arrangement' in caplog.text
+    out = capsys.readouterr().out
+    # The songs behind the dropped connection are still downloaded and verified.
+    assert '#43' in out
+    assert 'Be Thou My Vision' in out
+    assert 'miss' in out
 
 
 def test_verify_songs_applies_include_and_exclude_tags(
