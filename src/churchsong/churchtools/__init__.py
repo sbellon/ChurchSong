@@ -495,8 +495,14 @@ class ChurchToolsAPI(BaseAPI):
         return not missing_perms
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
-        r = self._get('/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'})
-        result = SongsData(**r.json())
+        try:
+            r = self._get(
+                '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
+            )
+            result = SongsData(**r.json())
+        except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
+            logger.warning('Failed to get tags for song #%s: %s', song_id, e)
+            return []
         if not result.data:
             logger.warning('No tags available for song #%s', song_id)
             return []

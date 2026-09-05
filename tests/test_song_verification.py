@@ -822,6 +822,61 @@ def test_verify_songs_of_an_event_survives_a_song_without_tag_information(
     assert 'miss "' not in out
 
 
+@pytest.mark.parametrize(
+    'failing_tag_fetch',
+    [
+        pytest.param({'body': requests.exceptions.ConnectionError()}, id='connection'),
+        pytest.param({'status': 403}, id='forbidden'),
+        pytest.param({'json': {'not': 'a SongsData'}}, id='off-shape'),
+    ],
+)
+def test_verify_songs_survives_a_failing_tag_fetch(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+    failing_tag_fetch: dict[str, typing.Any],
+) -> None:
+    # The per-song tag lookup happens inside the song generator, so a failure of it
+    # used to bypass the per-song error handling of the verification loop and cost
+    # the whole run - and with it every song after the failing one.
+    register_event_songs(
+        mocked_responses,
+        [
+            make_song_json(42, 'Amazing Grace', ccli=None),
+            make_song_json(43, 'Be Thou My Vision', ccli=None),
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
+        **failing_tag_fetch,
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(43, 'Be Thou My Vision', ccli=None)],
+            'meta': {'count': 1},
+        },
+        match=[matchers.query_param_matcher({'ids[]': '43', 'include': 'tags'})],
+    )
+    with caplog.at_level(logging.WARNING):
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
+            date=EVENT_DATE,
+            include_tags=[],
+            exclude_tags=[],
+            execute_checks=['CCLI', 'Tags'],
+            all_arrangements=False,
+        )
+    assert 'Failed to get tags for song #42' in caplog.text
+    out = capsys.readouterr().out
+    # The song whose tags could not be read is still verified by the checks that do
+    # not read tags, and the walk continues with the songs after it.
+    assert '#42' in out
+    assert '#43' in out
+    assert 'Be Thou My Vision' in out
+
+
 def test_verify_songs_rejects_a_selection_without_any_valid_check(
     churchtools_api: ChurchToolsAPI,
 ) -> None:
