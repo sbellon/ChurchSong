@@ -741,6 +741,92 @@ def test_failing_song_sheet_keeps_the_song_and_both_sheets_in_step(
     assert [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads] == [2, 2]
 
 
+@pytest.mark.parametrize(
+    'chords_body',
+    [
+        # 200 OK, but the "PDF" is a renamed something else or an HTML error page.
+        pytest.param(
+            b'<html><body>insufficient permissions</body></html>', id='no-pdf'
+        ),
+        pytest.param(b'', id='empty'),
+    ],
+)
+def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    chords_body: bytes,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses, agenda_items=[SONG_ITEM, SECOND_SONG_ITEM]
+    )
+    for song_id, slug, ccli in [(7, 'amazing-grace', '22025'), (8, 'be-thou', '12345')]:
+        register_song(
+            mocked_responses,
+            [
+                {
+                    'name': f'{slug}.sng',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/{song_id}',
+                },
+                {
+                    'name': f'{slug}-chords-sheet.pdf',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/chords/{song_id}',
+                },
+                {
+                    'name': f'{slug}-lead-sheet.pdf',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/leads/{song_id}',
+                },
+            ],
+            song_id=song_id,
+            arrangement_id=song_id * 10,
+            name='Amazing Grace' if song_id == 7 else 'Be Thou My Vision',
+            ccli=ccli,
+        )
+        mocked_responses.get(
+            f'{CHURCHTOOLS_BASE_URL}/files/sng/{song_id}', body=b'#Title=Song'
+        )
+    # The first song downloads both its sheets, but its chords sheet is not a PDF -
+    # and it is the first of the two appends, so a per-call guard would append the
+    # leads sheet alone.
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/chords/7', body=chords_body)
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/leads/7', body=make_pdf('leads 1')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/chords/8', body=make_pdf('chords 2')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/leads/8', body=make_pdf('leads 2')
+    )
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    # The song sheet is optional output, the schedule is not: both songs are there.
+    assert [item.title for item in items] == ['Amazing Grace', 'Be Thou My Vision']
+    # The unusable content is a different operator problem than a failed download.
+    assert 'Failed to add song sheet for Amazing Grace' in caplog.text
+
+    # And the song whose sheet could not be parsed is in neither of them, so that
+    # the two tables of contents keep numbering the same song alike.
+    song_sheets.upload()
+    uploads = [
+        extract_uploaded_pdf(typing.cast('bytes', call.request.body))
+        for call in mocked_responses.calls
+        if call.request.method == 'POST'
+    ]
+    assert len(uploads) == 2
+    for pdf in uploads:
+        text = extract_pdf_text(pdf)
+        assert 'Be Thou My Vision' in text
+        assert 'Amazing Grace' not in text
+    # One title page with the table of contents plus one page for the one song.
+    assert [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads] == [2, 2]
+
+
 def test_download_agenda_items_survives_markup_in_an_item_title(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
