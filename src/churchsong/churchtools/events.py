@@ -266,21 +266,27 @@ class SongSheets:
     def download_and_append(self, song_files: SongFiles) -> None:
         if not self._enabled:
             return
+        try:
+            chords_content = (
+                self._download_stream(cf.file_url)
+                if (cf := song_files.chords_file)
+                else None
+            )
+            leads_content = (
+                self._download_stream(lf.file_url)
+                if (lf := song_files.leads_file)
+                else None
+            )
+        except requests.exceptions.RequestException as e:
+            logger.warning(
+                'Failed to download song sheet for %s: %s', song_files.title, e
+            )
+            return
         self._chords_pdf.append(
-            song_files.title,
-            song_files.ccli,
-            song_files.arrangement,
-            self._download_stream(cf.file_url)
-            if (cf := song_files.chords_file)
-            else None,
+            song_files.title, song_files.ccli, song_files.arrangement, chords_content
         )
         self._leads_pdf.append(
-            song_files.title,
-            song_files.ccli,
-            song_files.arrangement,
-            self._download_stream(lf.file_url)
-            if (lf := song_files.leads_file)
-            else None,
+            song_files.title, song_files.ccli, song_files.arrangement, leads_content
         )
         self._last_modified = max(self._last_modified, song_files.last_modified)
 

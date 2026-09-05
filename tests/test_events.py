@@ -433,20 +433,41 @@ SONG_ITEM: dict[str, object] = {
 }
 
 
-def register_song(
-    mocked_responses: responses.RequestsMock, files: list[dict[str, str]]
+SECOND_SONG_ITEM: dict[str, object] = {
+    'title': 'Song 2',
+    'type': 'song',
+    'meta': META,
+    'song': {
+        'songId': 8,
+        'arrangementId': 80,
+        'title': 'Be Thou My Vision',
+        'arrangement': 'Standard',
+        'key': 'D',
+        'isDefault': True,
+    },
+}
+
+
+def register_song(  # noqa: PLR0913 (one keyword per field of a song a test varies)
+    mocked_responses: responses.RequestsMock,
+    files: list[dict[str, str]],
+    *,
+    song_id: int = 7,
+    arrangement_id: int = 70,
+    name: str = 'Amazing Grace',
+    ccli: str = '22025',
 ) -> None:
     mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/songs/7',
+        f'{CHURCHTOOLS_BASE_URL}/api/songs/{song_id}',
         json={
             'data': {
-                'id': 7,
-                'name': 'Amazing Grace',
+                'id': song_id,
+                'name': name,
                 'author': 'John Newton',
-                'ccli': '22025',
+                'ccli': ccli,
                 'arrangements': [
                     {
-                        'id': 70,
+                        'id': arrangement_id,
                         'name': 'Standard',
                         'isDefault': True,
                         'source': None,
@@ -461,6 +482,11 @@ def register_song(
             }
         },
     )
+
+
+def extract_uploaded_pdf(body: bytes) -> bytes:
+    """Cut the PDF out of the multipart body of an upload request."""
+    return body[body.index(b'%PDF') : body.rindex(b'%%EOF') + len(b'%%EOF')]
 
 
 def extract_pdf_text(content: bytes) -> str:
@@ -640,6 +666,79 @@ def test_download_agenda_items_survives_a_failing_song_download(
         items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert 'Failed to download agenda file for Amazing Grace' in caplog.text
     assert [item.title for item in items] == ['Welcome']
+
+
+def test_failing_song_sheet_keeps_the_song_and_both_sheets_in_step(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses, agenda_items=[SONG_ITEM, SECOND_SONG_ITEM]
+    )
+    for song_id, slug, ccli in [(7, 'amazing-grace', '22025'), (8, 'be-thou', '12345')]:
+        register_song(
+            mocked_responses,
+            [
+                {
+                    'name': f'{slug}.sng',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/{song_id}',
+                },
+                {
+                    'name': f'{slug}-chords-sheet.pdf',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/chords/{song_id}',
+                },
+                {
+                    'name': f'{slug}-lead-sheet.pdf',
+                    'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/leads/{song_id}',
+                },
+            ],
+            song_id=song_id,
+            arrangement_id=song_id * 10,
+            name='Amazing Grace' if song_id == 7 else 'Be Thou My Vision',
+            ccli=ccli,
+        )
+        mocked_responses.get(
+            f'{CHURCHTOOLS_BASE_URL}/files/sng/{song_id}', body=b'#Title=Song'
+        )
+    # The first song has its chords sheet, but its leads sheet fails to download -
+    # which is the order that appended to one sheet but not the other before.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/chords/7', body=make_pdf('chords 1')
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/leads/7', status=500)
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/chords/8', body=make_pdf('chords 2')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/leads/8', body=make_pdf('leads 2')
+    )
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    # The song sheet is optional output, the schedule is not: both songs are there.
+    assert [item.title for item in items] == ['Amazing Grace', 'Be Thou My Vision']
+    assert 'Failed to download song sheet for Amazing Grace' in caplog.text
+
+    # And the song that lost one of its two sheets is in neither of them, so that
+    # the two tables of contents keep numbering the same song alike.
+    song_sheets.upload()
+    uploads = [
+        extract_uploaded_pdf(typing.cast('bytes', call.request.body))
+        for call in mocked_responses.calls
+        if call.request.method == 'POST'
+    ]
+    assert len(uploads) == 2
+    for pdf in uploads:
+        text = extract_pdf_text(pdf)
+        assert 'Be Thou My Vision' in text
+        assert 'Amazing Grace' not in text
+    # One title page with the table of contents plus one page for the one song.
+    assert [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads] == [2, 2]
 
 
 def test_download_agenda_items_survives_markup_in_an_item_title(
