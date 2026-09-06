@@ -457,6 +457,22 @@ def test_unknown_locale_falls_back_to_untranslated_strings(
     assert _('Nobody') == 'Nobody'
 
 
+def test_unparsable_locale_falls_back_to_untranslated_strings(
+    config_toml: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unparsable_locale(*_args: object) -> tuple[str, str]:
+        # What `getlocale()` does with a name it cannot decompose into language and
+        # encoding, e.g. the BCP-47 spellings the Windows UCRT accepts: a plain
+        # ValueError, not the locale.Error of the neighbouring test.
+        msg = 'unknown locale: en-US'
+        raise ValueError(msg)
+
+    monkeypatch.setattr(locale, 'getlocale', unparsable_locale)
+    config_toml.write_text(MINIMAL_TOML, encoding='utf-8')
+    Configuration()
+    assert _('Nobody') == 'Nobody'
+
+
 def test_later_version_available_reports_a_newer_release(
     mocked_responses: responses.RequestsMock,
 ) -> None:
