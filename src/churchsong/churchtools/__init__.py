@@ -631,7 +631,7 @@ class ChurchToolsAPI(BaseAPI):
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
-            # Security levels may restrict access to person data.
+            # Permission to read person data from certain domains may be not granted.
             if e.response is not None and e.response.status_code in {
                 requests.codes['forbidden'],
                 requests.codes['not_found'],
@@ -648,6 +648,7 @@ class ChurchToolsAPI(BaseAPI):
             logger.warning('Skipping unparsable data of person #%s: %s', person_id, e)
             return None
         if result.data.nickname is None:
+            # Security level not high enough to get the nickname field filled.
             logger.warning(
                 'Skipping nickname due to missing permission: '
                 '"churchdb:security level person"'
