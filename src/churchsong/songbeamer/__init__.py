@@ -338,8 +338,9 @@ class SongBeamer:
             *service_items,
         ]:
             agenda += agenda_item
+            caption = agenda[-1].caption
             for keywords, insert_items in insert_slides:
-                if any(keyword in agenda[-1].caption for keyword in keywords):
+                if any(keyword in caption for keyword in keywords):
                     for insert_item in insert_items:
                         agenda += insert_item
 
