@@ -610,16 +610,22 @@ class ChurchToolsAPI(BaseAPI):
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:
-            if (
-                e.response is not None
-                and e.response.status_code == requests.codes['forbidden']
-                and not self.has_permissions(
-                    ['churchdb:view alldata'], 'nickname lookup'
-                )
-            ):
+            # Security levels may restrict access to person data.
+            if e.response is not None and e.response.status_code in {
+                requests.codes['forbidden'],
+                requests.codes['not_found'],
+            }:
+                if e.response.status_code == requests.codes['forbidden']:
+                    # This permission check is called only for its log message.
+                    self.has_permissions(['churchdb:view alldata'], 'nickname lookup')
+                logger.warning('Skipping person #%s: %s', person_id, e)
                 return None
             raise
-        result = PersonsData(**r.json())
+        try:
+            result = PersonsData(**r.json())
+        except pydantic.ValidationError as e:
+            logger.warning('Skipping unparsable data of person #%s: %s', person_id, e)
+            return None
         if result.data.nickname is None:
             logger.warning(
                 'Skipping nickname due to missing permission: '
