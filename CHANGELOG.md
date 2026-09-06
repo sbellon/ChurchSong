@@ -27,6 +27,7 @@
 - fixed raw traceback instead of an error message when the configured server URL answers something that is not the expected API
 - fixed downloads silently failing when the configured ChurchTools URL differs in capitalization from the one ChurchTools uses
 - fixed a crash at startup on systems with an unusual locale name
+- fixed a second insert slide being skipped or inserted at the wrong place when several insert slides are configured
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase

@@ -234,6 +234,78 @@ def test_create_schedule_assembles_slides_agenda_and_services(
     ]
 
 
+def test_create_schedule_inserts_every_slide_matching_the_same_item(
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(
+        output_dir=str(tmp_path),
+        songbeamer={
+            'Slides': {
+                'Insert': [
+                    {
+                        'keywords': ['Infos'],
+                        'content': (
+                            "item\n  Caption = 'Information'\n  Color = clRed\nend\n"
+                        ),
+                    },
+                    {
+                        'keywords': ['Infos'],
+                        'content': (
+                            "item\n  Caption = 'Second'\n  Color = clRed\nend\n"
+                        ),
+                    },
+                ]
+            }
+        },
+    )
+    SongBeamer(config).create_schedule(
+        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        agenda_items=[Item(ItemType.HEADER, 'Infos')],
+        service_items=[],
+    )
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    captions = [item.caption for item in AgendaItem.parse(content)]
+    # Every insert slide is matched against the agenda item, not against what a
+    # previous one appended, so both of them get their turn.
+    assert captions[1:] == ['Infos', 'Information', 'Second']
+
+
+def test_create_schedule_does_not_let_an_inserted_slide_trigger_another_one(
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(
+        output_dir=str(tmp_path),
+        songbeamer={
+            'Slides': {
+                'Insert': [
+                    {
+                        'keywords': ['Infos'],
+                        'content': (
+                            "item\n  Caption = 'Announcement'\n  Color = clRed\nend\n"
+                        ),
+                    },
+                    {
+                        'keywords': ['Announcement'],
+                        'content': (
+                            "item\n  Caption = 'Bogus'\n  Color = clRed\nend\n"
+                        ),
+                    },
+                ]
+            }
+        },
+    )
+    SongBeamer(config).create_schedule(
+        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        agenda_items=[Item(ItemType.HEADER, 'Infos')],
+        service_items=[],
+    )
+    content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
+    captions = [item.caption for item in AgendaItem.parse(content)]
+    # The keywords describe agenda items, so the inserted 'Announcement' slide is
+    # not itself matched against the second section.
+    assert captions[1:] == ['Infos', 'Announcement']
+
+
 def test_create_schedule_warns_about_an_unparsable_slide(
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
