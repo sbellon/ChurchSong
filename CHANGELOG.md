@@ -22,6 +22,7 @@
 - fixed a song missing from the schedule if the agenda item carries no song data
 - fixed a file that cannot be written in the output directory aborting the whole agenda run
 - fixed a non-UTF-8 file name from ChurchTools aborting the whole agenda run
+- fixed an unknown agenda item or file type from ChurchTools aborting the whole run
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase

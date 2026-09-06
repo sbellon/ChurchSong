@@ -993,6 +993,44 @@ def test_download_agenda_items_survives_markup_in_an_item_title(
     assert [item.title for item in items] == ['Welcome', 'Lied [/x] Schluss']
 
 
+def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                # No mock is registered for the URL: an unknown domain type has to be
+                # recorded as a link, downloading it as a file would fail the test.
+                'title': 'Arrangement',
+                'domainType': 'song_arrangement',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            },
+        ],
+        agenda_items=[
+            {'title': 'Welcome', 'type': 'header', 'meta': META},
+            {'title': 'Prayer', 'type': 'brandnew', 'meta': META},
+        ],
+    )
+    # Both types are rejected in ChurchToolsEvent.__init__, before any download.
+    with caplog.at_level(logging.WARNING):
+        event = make_churchtools_event(churchtools_api, config)
+        items, _song_sheets = event.download_agenda_items(immich=None)
+    assert [item.type for item in items] == [
+        ItemType.LINK,
+        ItemType.HEADER,
+        ItemType.NORMAL,
+    ]
+    assert [item.title for item in items] == ['Arrangement', 'Welcome', 'Prayer']
+    assert 'Unknown file domain type "song_arrangement"' in caplog.text
+    assert 'Unknown agenda item type "brandnew"' in caplog.text
+
+
 def test_download_file_falls_back_to_the_item_title(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,

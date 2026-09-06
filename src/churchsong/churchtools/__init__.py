@@ -142,6 +142,14 @@ class CalendarAppointmentBase(DeprecationAwareModel):
     repeat_frequency: int | None = pydantic.Field(alias='repeatFrequency')
     address: Address | None
 
+    @pydantic.field_validator('repeat_id', mode='before')
+    @classmethod
+    def _map_unknown_repeat_id(cls, value: JsonValue) -> JsonValue:
+        if isinstance(value, int) and value not in {v.value for v in RepeatId}:
+            logger.warning('Unknown repeat id "%s", treating as none', value)
+            return None
+        return value
+
 
 class CalendarAppointmentAppointment(DeprecationAwareModel):
     base: CalendarAppointmentBase
@@ -264,6 +272,15 @@ class EventFile(DeprecationAwareModel):
     domain_identifier: int = pydantic.Field(alias='domainIdentifier')
     frontend_url: str = pydantic.Field(alias='frontendUrl')
 
+    @pydantic.field_validator('domain_type', mode='before')
+    @classmethod
+    def _map_unknown_domain_type(cls, value: JsonValue) -> JsonValue:
+        if isinstance(value, str) and value not in set(EventFileDomainType):
+            # treating an unknown domain type as url is safer than trying to download
+            logger.warning('Unknown file domain type "%s", treating as link', value)
+            return EventFileDomainType.LINK
+        return value
+
 
 class EventFull(DeprecationAwareModel):
     id: int
@@ -314,8 +331,9 @@ class EventAgendaItem(DeprecationAwareModel):
     # As of 19-02-2026, ChurchTools seems to have changed "normal" to "text".
     @pydantic.field_validator('type', mode='before')
     @classmethod
-    def _map_old_normal(cls, value: JsonValue) -> JsonValue:
-        if value == 'normal':
+    def _map_unknown_type(cls, value: JsonValue) -> JsonValue:
+        if isinstance(value, str) and value not in set(EventAgendaItemType):
+            logger.warning('Unknown agenda item type "%s", treating as text', value)
             return EventAgendaItemType.TEXT
         return value
 
