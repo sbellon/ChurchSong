@@ -466,6 +466,7 @@ class ChurchToolsAPI(BaseAPI):
     def _fetch_permissions(self) -> PermissionsGlobalData:
         try:
             r = self._get('/api/permissions/global')
+            return PermissionsGlobalData(**r.json())
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
@@ -485,7 +486,16 @@ class ChurchToolsAPI(BaseAPI):
                 msg += '\n\nDid you configure your ChurchTools API token correctly?'
             logger.error(msg)
             raise CliError(msg) from None
-        return PermissionsGlobalData(**r.json())
+        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
+            # The request itself worked, so this is neither a transport nor a token
+            # problem: the server answered something that is not the ChurchTools API.
+            # The exception message alone says nothing useful, hence the prefix.
+            msg = (
+                f'Unexpected answer from "{self._base_url}": {e}\n\n'
+                'Did you configure the URL of your ChurchTools instance correctly?'
+            )
+            logger.error(msg)
+            raise CliError(msg) from None
 
     def _get_missing_permissions(self, *required_perms: str) -> list[str]:
         return [

@@ -24,6 +24,7 @@
 - fixed a non-UTF-8 file name from ChurchTools aborting the whole agenda run
 - fixed an unknown agenda item or file type from ChurchTools aborting the whole run
 - fixed raw traceback instead of an error message on a failing song list request
+- fixed raw traceback instead of an error message when the configured server URL answers something that is not the expected API
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase

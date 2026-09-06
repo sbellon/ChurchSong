@@ -145,6 +145,30 @@ def test_init_reports_a_wrong_immich_token(
         ImmichAPI(make_config(immich={}))
 
 
+def test_init_reports_a_non_json_answer_as_a_url_problem(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    mocked_responses.get(
+        f'{IMMICH_BASE_URL}/api/api-keys/me',
+        body='<html><body>Please log in</body></html>',
+        content_type='text/html',
+    )
+    with pytest.raises(CliError, match='configure the URL') as excinfo:
+        ImmichAPI(make_config(immich={}))
+    assert IMMICH_BASE_URL in str(excinfo.value)
+
+
+def test_init_reports_an_off_shape_permissions_answer(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    mocked_responses.get(
+        f'{IMMICH_BASE_URL}/api/api-keys/me', json={'message': 'maintenance'}
+    )
+    with pytest.raises(CliError, match='configure the URL') as excinfo:
+        ImmichAPI(make_config(immich={}))
+    assert IMMICH_BASE_URL in str(excinfo.value)
+
+
 def test_upload_tags_the_new_asset_with_the_configured_tags(
     mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
 ) -> None:

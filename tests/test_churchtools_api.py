@@ -73,6 +73,31 @@ def test_init_hints_at_wrong_token_on_401(
         ChurchToolsAPI(config)
 
 
+def test_init_reports_a_non_json_answer_as_a_url_problem(
+    config: Configuration, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        body='<html><body>Please log in</body></html>',
+        content_type='text/html',
+    )
+    with pytest.raises(CliError, match='Did you configure the URL') as excinfo:
+        ChurchToolsAPI(config)
+    assert CHURCHTOOLS_BASE_URL in str(excinfo.value)
+
+
+def test_init_reports_an_off_shape_permissions_answer(
+    config: Configuration, mocked_responses: responses.RequestsMock
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json={'message': 'maintenance'},
+    )
+    with pytest.raises(CliError, match='Did you configure the URL') as excinfo:
+        ChurchToolsAPI(config)
+    assert CHURCHTOOLS_BASE_URL in str(excinfo.value)
+
+
 @pytest.mark.usefixtures('churchtools_api')
 def test_requests_carry_authorization_header(
     mocked_responses: responses.RequestsMock,
