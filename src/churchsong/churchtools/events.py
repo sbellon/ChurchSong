@@ -215,7 +215,7 @@ class PdfSheet:
         return pypdf.PdfReader(data)
 
     def append(
-        self, title: str, ccli: str, arrangement: str, content: io.BytesIO | None
+        self, title: str, ccli: str, arrangement: str, content: pypdf.PdfReader | None
     ) -> None:
         self._pdf.append(
             content or self._create_missing_song(title), excluded_fields=['/Annots']
@@ -286,21 +286,17 @@ class SongSheets:
             )
             return
         try:
-            self._chords_pdf.append(
-                song_files.title,
-                song_files.ccli,
-                song_files.arrangement,
-                chords_content,
-            )
-            self._leads_pdf.append(
-                song_files.title,
-                song_files.ccli,
-                song_files.arrangement,
-                leads_content,
-            )
+            chords_pdf = pypdf.PdfReader(chords_content) if chords_content else None
+            leads_pdf = pypdf.PdfReader(leads_content) if leads_content else None
         except pypdf.errors.PyPdfError as e:
             logger.warning('Failed to add song sheet for %s: %s', song_files.title, e)
             return
+        self._chords_pdf.append(
+            song_files.title, song_files.ccli, song_files.arrangement, chords_pdf
+        )
+        self._leads_pdf.append(
+            song_files.title, song_files.ccli, song_files.arrangement, leads_pdf
+        )
         self._last_modified = max(self._last_modified, song_files.last_modified)
 
     def upload(self) -> None:

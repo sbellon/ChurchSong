@@ -41,6 +41,10 @@ def make_pdf(text: str) -> bytes:
     return data.getvalue()
 
 
+def make_pdf_reader(text: str) -> pypdf.PdfReader:
+    return pypdf.PdfReader(io.BytesIO(make_pdf(text)))
+
+
 def make_event_short() -> EventShort:
     return EventShort.model_validate(
         {
@@ -569,8 +573,7 @@ def make_toc_layout(num_songs: int) -> tuple[float, list[float]]:
         ('Title', 'CCLI No.', 'Arrangement'),
     )
     for nr in range(1, num_songs + 1):
-        song = io.BytesIO(make_pdf('x'))
-        sheet.append(f'Hymn {nr}', f'{1000 + nr}', 'Standard', song)
+        sheet.append(f'Hymn {nr}', f'{1000 + nr}', 'Standard', make_pdf_reader('x'))
     last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
     positions = extract_pdf_text_positions(sheet.finalize(last_modified=last_modified))
     title_y = next(y for text, y in positions if text == 'Song Sheets Chords')
@@ -613,7 +616,7 @@ def test_song_sheet_marks_a_missing_song_with_a_watermark() -> None:
         'Last update: {last_modified:%Y-%m-%d}',
         ('Title', 'CCLI No.', 'Arrangement'),
     )
-    sheet.append('Amazing Grace', '22025', 'Standard', io.BytesIO(make_pdf('chords')))
+    sheet.append('Amazing Grace', '22025', 'Standard', make_pdf_reader('chords'))
     sheet.append('Be Thou My Vision', '12345', 'Standard', None)  # no PDF in the DB
     last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
     text = extract_pdf_text(sheet.finalize(last_modified=last_modified))
@@ -1007,22 +1010,32 @@ def test_failing_song_sheet_keeps_the_song_and_both_sheets_in_step(
     assert [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads] == [2, 2]
 
 
+# 200 OK, but the "PDF" is a renamed something else or an HTML error page.
+NOT_A_PDF = b'<html><body>insufficient permissions</body></html>'
+
+
 @pytest.mark.parametrize(
-    'chords_body',
+    ('chords_body', 'leads_body', 'expect_song'),
     [
-        # 200 OK, but the "PDF" is a renamed something else or an HTML error page.
-        pytest.param(
-            b'<html><body>insufficient permissions</body></html>', id='no-pdf'
-        ),
-        pytest.param(b'', id='empty'),
+        pytest.param(NOT_A_PDF, make_pdf('leads 1'), False, id='chords-no-pdf'),
+        pytest.param(b'', make_pdf('leads 1'), False, id='chords-empty'),
+        # The same failure on the other sheet has the other ordering problem: the
+        # chords append has already happened when the leads one fails.
+        pytest.param(make_pdf('chords 1'), NOT_A_PDF, False, id='leads-no-pdf'),
+        pytest.param(make_pdf('chords 1'), b'', False, id='leads-empty'),
+        pytest.param(NOT_A_PDF, NOT_A_PDF, False, id='both'),
+        # Control: with two readable sheets the song is in both of them.
+        pytest.param(make_pdf('chords 1'), make_pdf('leads 1'), True, id='neither'),
     ],
 )
-def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(
+def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(  # noqa: PLR0913, PLR0917 (one parameter per failure shape)
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
     chords_body: bytes,
+    leads_body: bytes,
+    expect_song: bool,
 ) -> None:
     config = make_config(output_dir=str(tmp_path))
     register_event_endpoints(
@@ -1053,13 +1066,11 @@ def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(
         mocked_responses.get(
             f'{CHURCHTOOLS_BASE_URL}/files/sng/{song_id}', body=b'#Title=Song'
         )
-    # The first song downloads both its sheets, but its chords sheet is not a PDF -
-    # and it is the first of the two appends, so a per-call guard would append the
-    # leads sheet alone.
+    # The first song downloads both its sheets, and either of them can be the one
+    # that is not a PDF - a guard around each append on its own would leave the
+    # song in the other sheet alone, whichever way round the failure comes.
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/chords/7', body=chords_body)
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/files/leads/7', body=make_pdf('leads 1')
-    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/leads/7', body=leads_body)
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/files/chords/8', body=make_pdf('chords 2')
     )
@@ -1073,11 +1084,14 @@ def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(
         items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     # The song sheet is optional output, the schedule is not: both songs are there.
     assert [item.title for item in items] == ['Amazing Grace', 'Be Thou My Vision']
-    # The unusable content is a different operator problem than a failed download.
-    assert 'Failed to add song sheet for Amazing Grace' in caplog.text
+    if expect_song:
+        assert 'Failed to add song sheet' not in caplog.text
+    else:
+        # The unusable content is a different operator problem than a failed download.
+        assert 'Failed to add song sheet for Amazing Grace' in caplog.text
 
-    # And the song whose sheet could not be parsed is in neither of them, so that
-    # the two tables of contents keep numbering the same song alike.
+    # And the song is in both sheets or in neither, so that the two tables of
+    # contents keep numbering the same song alike.
     song_sheets.upload()
     uploads = [
         extract_uploaded_pdf(typing.cast('bytes', call.request.body))
@@ -1088,9 +1102,10 @@ def test_corrupt_song_sheet_keeps_the_song_and_both_sheets_in_step(
     for pdf in uploads:
         text = extract_pdf_text(pdf)
         assert 'Be Thou My Vision' in text
-        assert 'Amazing Grace' not in text
-    # One title page with the table of contents plus one page for the one song.
-    assert [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads] == [2, 2]
+        assert ('Amazing Grace' in text) is expect_song
+    num_pages = [len(pypdf.PdfReader(io.BytesIO(pdf)).pages) for pdf in uploads]
+    # One title page with the table of contents plus one page per song in the sheet.
+    assert num_pages == ([3, 3] if expect_song else [2, 2])
 
 
 def test_download_agenda_items_survives_markup_in_an_item_title(
