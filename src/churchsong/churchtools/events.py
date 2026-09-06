@@ -336,9 +336,16 @@ class ChurchToolsEvent:
                     'filename="([^"]+)"', r.headers['Content-Disposition']
                 )
             ):
-                # ChurchTools apparently sends the filename="xyz"
-                # in latin1 instead of utf-8.
-                filename = match.group(1).encode('latin1').decode('utf-8')
+                # ChurchTools apparently sends the filename="xyz" in latin1 instead of
+                # utf-8, so recover the raw bytes and read them as utf-8 -- but a
+                # server sending a genuinely latin-1 name (the RFC 6266 form) or a
+                # proxy rewriting the header must not cost the run its schedule, so
+                # fall back to the header as requests decoded it.
+                raw = match.group(1)
+                try:
+                    filename = raw.encode('latin1').decode('utf-8')
+                except UnicodeError:
+                    filename = raw
             else:
                 filename = name
             (self._output_dir / subfolder).mkdir(parents=True, exist_ok=True)
@@ -350,6 +357,17 @@ class ChurchToolsEvent:
                     for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                         fd.write(chunk)
         return os.fspath(filename)
+
+    def _download_song_file(
+        self, title: str, sng_file: File, *, overwrite: bool
+    ) -> str | None:
+        try:
+            return self._download_file(
+                title, sng_file.file_url, Subfolder.SONGS, overwrite=overwrite
+            )
+        except (requests.exceptions.RequestException, OSError) as e:
+            logger.warning('Failed to download song file for %s: %s', title, e)
+            return None
 
     def _song_files(self, item: EventAgendaItem) -> SongFiles:
         assert item.song is not None  # noqa: S101
@@ -382,7 +400,7 @@ class ChurchToolsEvent:
             last_modified=item.meta.modified_date,
         )
 
-    def download_agenda_items(  # noqa: C901
+    def download_agenda_items(  # noqa: C901, PLR0912
         self,
         *,
         download_files: bool = True,
@@ -415,10 +433,10 @@ class ChurchToolsEvent:
             total=len(self._event.event_files) + len(self._agenda.items),
         ) as progress:
             for item in self._event.event_files:
-                try:
-                    match item.domain_type:
-                        case EventFileDomainType.FILE:
-                            with do_progress(item):
+                with do_progress(item):
+                    try:
+                        match item.domain_type:
+                            case EventFileDomainType.FILE:
                                 if song_sheets.delete_event_file(item):
                                     continue
                                 filename = self._download_file(
@@ -430,48 +448,48 @@ class ChurchToolsEvent:
                                 if immich:
                                     immich.upload_media_file(filename)
                                 event_file = Item(ItemType.FILE, item.title, filename)
-                        case EventFileDomainType.LINK:
-                            with do_progress(item):
+                            case EventFileDomainType.LINK:
                                 event_file = Item(
                                     ItemType.LINK, item.title, item.frontend_url
                                 )
-                    agenda_items.append(event_file)
-                except requests.exceptions.RequestException:
-                    logger.warning('Failed to download event file for %s', item.title)
+                        agenda_items.append(event_file)
+                    except (requests.exceptions.RequestException, OSError) as e:
+                        logger.warning(
+                            'Failed to download event file for %s: %s', item.title, e
+                        )
             for item in self._agenda.items:
-                try:
-                    match item.type:
-                        case EventAgendaItemType.HEADER:
-                            with do_progress(item):
+                with do_progress(item):
+                    try:
+                        match item.type:
+                            case EventAgendaItemType.HEADER:
                                 agenda_item = Item(ItemType.HEADER, item.title)
-                        case EventAgendaItemType.TEXT:
-                            with do_progress(item):
+                            case EventAgendaItemType.TEXT:
                                 agenda_item = Item(ItemType.NORMAL, item.title)
-                        case EventAgendaItemType.SONG:
-                            if not item.song:
-                                with do_progress(item):
-                                    logger.warning('Song event item without song data')
-                                continue
-                            files = self._song_files(item)
-                            # item.title may not be the song title itself,
-                            # so rather use item.song.title instead.
-                            item.title = files.title
-                            with do_progress(item):
-                                filename = (
-                                    self._download_file(
-                                        item.title,
-                                        files.sng_file.file_url,
-                                        Subfolder.SONGS,
-                                        overwrite=download_songs,
+                            case EventAgendaItemType.SONG:
+                                if item.song:
+                                    files = self._song_files(item)
+                                    # item.title may not be the song title itself,
+                                    # so rather use item.song.title instead.
+                                    item.title = files.title
+                                    filename = (
+                                        self._download_song_file(
+                                            item.title,
+                                            files.sng_file,
+                                            overwrite=download_songs,
+                                        )
+                                        if files.sng_file
+                                        else None
                                     )
-                                    if files.sng_file
-                                    else None
-                                )
+                                    song_sheets.download_and_append(files)
+                                else:
+                                    logger.warning('Song event item without song data')
+                                    filename = None
                                 agenda_item = Item(ItemType.SONG, item.title, filename)
-                                song_sheets.download_and_append(files)
-                    agenda_items.append(agenda_item)
-                except requests.exceptions.RequestException:
-                    logger.warning('Failed to download agenda file for %s', item.title)
+                        agenda_items.append(agenda_item)
+                    except (requests.exceptions.RequestException, OSError) as e:
+                        logger.warning(
+                            'Failed to download agenda item for %s: %s', item.title, e
+                        )
         return agenda_items, song_sheets
 
     def get_service_info(

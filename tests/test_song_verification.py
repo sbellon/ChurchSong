@@ -557,7 +557,8 @@ def test_verify_songs_warns_about_undownloadable_sng_files(
             execute_checks=['BGImg'],
             all_arrangements=False,
         )
-    assert 'Failed to download arrangement' in caplog.text
+    assert 'Failed to download arrangement "Default" (#1) of song #42' in caplog.text
+    assert '404 Client Error' in caplog.text
     # A failed download must not turn into a false positive finding.
     assert 'No problems found.' in capsys.readouterr().out
 
@@ -591,7 +592,8 @@ def test_verify_songs_survives_a_dropped_connection_during_sng_download(
     # and cost the whole run - possibly thousands of songs in - instead of a single
     # arrangement.
     mocked_responses.get(
-        SNG_FILE['fileUrl'], body=requests.exceptions.ConnectionError()
+        SNG_FILE['fileUrl'],
+        body=requests.exceptions.ConnectionError('connection aborted'),
     )
     mocked_responses.get(other_sng_file['fileUrl'], body='#Title=Be Thou My Vision')
     with caplog.at_level(logging.WARNING):
@@ -602,7 +604,8 @@ def test_verify_songs_survives_a_dropped_connection_during_sng_download(
             execute_checks=['BGImg'],
             all_arrangements=False,
         )
-    assert 'Failed to download arrangement' in caplog.text
+    assert 'Failed to download arrangement "Default" (#1) of song #42' in caplog.text
+    assert 'connection aborted' in caplog.text
     out = capsys.readouterr().out
     # The songs behind the dropped connection are still downloaded and verified.
     assert '#43' in out
@@ -823,19 +826,26 @@ def test_verify_songs_of_an_event_survives_a_song_without_tag_information(
 
 
 @pytest.mark.parametrize(
-    'failing_tag_fetch',
+    ('failing_tag_fetch', 'reason'),
     [
-        pytest.param({'body': requests.exceptions.ConnectionError()}, id='connection'),
-        pytest.param({'status': 403}, id='forbidden'),
-        pytest.param({'json': {'not': 'a SongsData'}}, id='off-shape'),
+        pytest.param(
+            {'body': requests.exceptions.ConnectionError('connection reset')},
+            'connection reset',
+            id='connection',
+        ),
+        pytest.param({'status': 403}, '403 Client Error', id='forbidden'),
+        pytest.param(
+            {'json': {'not': 'a SongsData'}}, 'validation error', id='off-shape'
+        ),
     ],
 )
-def test_verify_songs_survives_a_failing_tag_fetch(
+def test_verify_songs_survives_a_failing_tag_fetch(  # noqa: PLR0913, PLR0917 (one parameter per failure shape)
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
     caplog: pytest.LogCaptureFixture,
     capsys: pytest.CaptureFixture[str],
     failing_tag_fetch: dict[str, typing.Any],
+    reason: str,
 ) -> None:
     # The per-song tag lookup happens inside the song generator, so a failure of it
     # used to bypass the per-song error handling of the verification loop and cost
@@ -869,6 +879,7 @@ def test_verify_songs_survives_a_failing_tag_fetch(
             all_arrangements=False,
         )
     assert 'Failed to get tags for song #42' in caplog.text
+    assert reason in caplog.text
     out = capsys.readouterr().out
     # The song whose tags could not be read is still verified by the checks that do
     # not read tags, and the walk continues with the songs after it.

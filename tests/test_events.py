@@ -131,7 +131,7 @@ def test_download_agenda_items_full_pipeline(
                     'isDefault': True,
                 },
             },
-            # Song item without song data is skipped with a warning.
+            # Song item without song data is kept without a file and warned about.
             {'title': 'Broken Song', 'type': 'song', 'meta': META, 'song': None},
         ],
     )
@@ -206,7 +206,9 @@ def test_download_agenda_items_full_pipeline(
         (ItemType.NORMAL, 'Announcements'),
         (ItemType.SONG, 'Amazing Grace'),
         # song title taken from song, not agenda (would be 'Song 1' otherwise)
+        (ItemType.SONG, 'Broken Song'),
     ]
+    assert items[5].filename is None
     assert items[1].filename == 'https://stream.test/live'
 
     notes_file = tmp_path / 'Files' / 'Grüße.pdf'
@@ -600,6 +602,8 @@ def test_download_agenda_items_survives_a_failing_file_download(
     with caplog.at_level(logging.WARNING):
         items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert 'Failed to download event file for Notes' in caplog.text
+    # The log line is the only trace of this, so it has to carry the reason.
+    assert '500 Server Error' in caplog.text
     # The unusable file is dropped, everything else still makes it.
     assert [item.title for item in items] == ['Livestream']
 
@@ -638,14 +642,28 @@ def test_download_agenda_items_survives_a_dropped_connection(
     with caplog.at_level(logging.WARNING):
         items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert 'Failed to download event file for Notes' in caplog.text
+    assert 'connection aborted' in caplog.text
     assert [item.title for item in items] == ['Livestream']
 
 
-def test_download_agenda_items_survives_a_failing_song_download(
+@pytest.mark.parametrize(
+    ('failing_song_download', 'reason'),
+    [
+        pytest.param({'status': 500}, '500 Server Error', id='http-error'),
+        pytest.param(
+            {'body': requests.exceptions.ConnectionError('connection reset')},
+            'connection reset',
+            id='dropped-connection',
+        ),
+    ],
+)
+def test_failing_song_file_download_keeps_the_song_in_the_agenda(  # noqa: PLR0913, PLR0917 (one parameter per failure shape)
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
+    failing_song_download: dict[str, typing.Any],
+    reason: str,
 ) -> None:
     config = make_config(output_dir=str(tmp_path))
     register_event_endpoints(
@@ -661,12 +679,136 @@ def test_download_agenda_items_survives_a_failing_song_download(
             }
         ],
     )
-    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/sng/7', status=500)
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/sng/7', **failing_song_download)
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.WARNING):
         items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
-    assert 'Failed to download agenda file for Amazing Grace' in caplog.text
-    assert [item.title for item in items] == ['Welcome']
+    assert 'Failed to download song file for Amazing Grace' in caplog.text
+    assert reason in caplog.text
+    # A song whose .sng file cannot be fetched degrades to the supported "song
+    # without file" item instead of disappearing from the schedule.
+    assert [item.title for item in items] == ['Welcome', 'Amazing Grace']
+    assert items[1].filename is None
+
+
+def test_failing_song_file_download_still_adds_the_song_sheet(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(mocked_responses, agenda_items=[SONG_ITEM])
+    register_song(
+        mocked_responses,
+        [
+            {
+                'name': 'amazing-grace.sng',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/7',
+            },
+            {
+                'name': 'amazing-grace-chords-sheet.pdf',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/chords/7',
+            },
+            {
+                'name': 'amazing-grace-lead-sheet.pdf',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/leads/7',
+            },
+        ],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/sng/7', status=500)
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/chords/7', body=make_pdf('chords')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/leads/7', body=make_pdf('leads')
+    )
+    mocked_responses.post(f'{CHURCHTOOLS_BASE_URL}/api/files/service/42', json={})
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        (item,), song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert item.filename is None
+    # The sheets are appended after the .sng download, so the song used to lose its
+    # pages in them as well.
+    song_sheets.upload()
+    uploads = [
+        extract_uploaded_pdf(typing.cast('bytes', call.request.body))
+        for call in mocked_responses.calls
+        if call.request.method == 'POST'
+    ]
+    assert len(uploads) == 2
+    for pdf in uploads:
+        assert 'Amazing Grace' in extract_pdf_text(pdf)
+
+
+def test_unwritable_download_target_keeps_the_agenda_running(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes.pdf',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            },
+            {
+                'title': 'Handout.pdf',
+                'domainType': 'file',
+                'domainIdentifier': 902,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/902',
+            },
+        ],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/901', body=b'notes content')
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/files/902', body=b'handout content')
+    # A directory where the first file has to go makes the write fail on every
+    # platform: PermissionError on Windows, IsADirectoryError on Linux.
+    (tmp_path / 'Files' / 'Notes.pdf').mkdir(parents=True)
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert 'Failed to download event file for Notes.pdf' in caplog.text
+    assert 'Errno' in caplog.text
+    # The unwritable file costs its own item, not the whole run.
+    assert [item.title for item in items] == ['Handout.pdf']
+
+
+def test_unwritable_song_file_keeps_the_song_in_the_agenda(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(mocked_responses, agenda_items=[SONG_ITEM])
+    register_song(
+        mocked_responses,
+        [
+            {
+                'name': 'amazing-grace.sng',
+                'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/sng/7',
+            }
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/sng/7',
+        body=b'#Title=Amazing Grace',
+        headers={'Content-Disposition': 'filename="amazing-grace.sng"'},
+    )
+    (tmp_path / 'Songs' / 'amazing-grace.sng').mkdir(parents=True)
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert 'Failed to download song file for Amazing Grace' in caplog.text
+    assert 'Errno' in caplog.text
+    assert item.title == 'Amazing Grace'
+    assert item.filename is None
 
 
 def test_failing_song_sheet_keeps_the_song_and_both_sheets_in_step(
@@ -873,6 +1015,49 @@ def test_download_file_falls_back_to_the_item_title(
     event = make_churchtools_event(churchtools_api, config)
     (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert item.filename == str(tmp_path / 'Files' / 'Notes.pdf')
+
+
+@pytest.mark.parametrize(
+    ('disposition_filename', 'expected_filename'),
+    [
+        # ChurchTools sends UTF-8 bytes declared as latin-1, which requests hands
+        # over as these code points; the recode turns them back into the real name.
+        pytest.param('Grüße.pdf'.encode().decode('latin1'), 'Grüße.pdf', id='utf8'),
+        # A server sending a genuinely latin-1 name (the RFC 6266 form) is no longer
+        # a UnicodeDecodeError that costs the run its schedule.
+        pytest.param('Grüße.pdf', 'Grüße.pdf', id='latin1'),
+        pytest.param('Notes.pdf', 'Notes.pdf', id='ascii'),
+    ],
+)
+def test_download_file_decodes_the_content_disposition_filename(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    disposition_filename: str,
+    expected_filename: str,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            }
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/901',
+        body=b'notes content',
+        headers={'Content-Disposition': f'filename="{disposition_filename}"'},
+    )
+    event = make_churchtools_event(churchtools_api, config)
+    (item,), _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    downloaded_file = tmp_path / 'Files' / expected_filename
+    assert item.filename == str(downloaded_file)
+    assert downloaded_file.read_bytes() == b'notes content'
 
 
 def test_download_file_replaces_a_dangerous_filename(
