@@ -531,10 +531,12 @@ class ChurchToolsAPI(BaseAPI):
     ) -> SongsData:
         try:
             r = self._get(api_url, params={'page': str(page), **params})
-        except requests.exceptions.HTTPError as e:
+            return SongsData(**r.json())
+        except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             if (
                 event
                 and page == 1
+                and isinstance(e, requests.exceptions.HTTPError)
                 and e.response is not None
                 and e.response.status_code == requests.codes['not_found']
             ):
@@ -546,7 +548,6 @@ class ChurchToolsAPI(BaseAPI):
             msg = f'Failed to get songs from ChurchTools: {e}'
             logger.error(msg)
             raise CliError(msg) from None
-        return SongsData(**r.json())
 
     def get_songs(
         self, event: EventShort | None = None, *, require_tags: bool = True

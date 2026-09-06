@@ -23,6 +23,7 @@
 - fixed a file that cannot be written in the output directory aborting the whole agenda run
 - fixed a non-UTF-8 file name from ChurchTools aborting the whole agenda run
 - fixed an unknown agenda item or file type from ChurchTools aborting the whole run
+- fixed raw traceback instead of an error message on a failing song list request
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase
