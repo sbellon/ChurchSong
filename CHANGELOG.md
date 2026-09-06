@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- fixed a single person the API token may not read costing the whole service team information of the schedule and the slides
 - fixed aborting on markup (square brackets) in text in various places
 - fixed a song missing from the schedule if its song sheet could not be downloaded
 - fixed a song disappearing from the schedule when its song data could not be fetched from ChurchTools

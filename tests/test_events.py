@@ -422,6 +422,57 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     assert str(None) not in service_leads
 
 
+@pytest.mark.parametrize(
+    ('person_response', 'reason'),
+    [
+        # A `view alldata` permission is a list of ids, so a token holding it for
+        # some people still gets a 403 for the others.
+        pytest.param({'status': 403}, '403 Client Error', id='forbidden'),
+        # The person was deleted or merged after the event had been planned.
+        pytest.param({'status': 404}, '404 Client Error', id='not-found'),
+        pytest.param(
+            {'json': {'data': {'firstName': 'Jane', 'nickname': None}}},
+            'Field required',
+            id='unparsable',
+        ),
+    ],
+)
+def test_get_service_info_falls_back_for_an_unreadable_person(  # noqa: PLR0913, PLR0917 (one parameter per failure shape)
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    person_response: dict[str, typing.Any],
+    reason: str,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_services=[
+            {'personId': 5, 'name': 'Jane Doe', 'serviceId': 1},
+            {'personId': None, 'name': 'Volunteer Name', 'serviceId': 2},
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/services',
+        json={'data': [{'id': 1, 'name': 'Preaching'}, {'id': 2, 'name': 'Music'}]},
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/5', **person_response)
+
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        service_items, _service_leads, _nobody = event.get_service_info()
+
+    assert 'person #5' in caplog.text
+    assert reason in caplog.text
+    # The event service carries the name ChurchTools shows in the planning UI, so a
+    # person that cannot be read costs the nickname, not the service team block.
+    assert [(item.type, item.title) for item in service_items] == [
+        (ItemType.SERVICE, 'Music: Volunteer Name'),
+        (ItemType.SERVICE, 'Preaching: Jane Doe'),
+    ]
+
+
 SONG_ITEM: dict[str, object] = {
     'title': 'Song 1',
     'type': 'song',

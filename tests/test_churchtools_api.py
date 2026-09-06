@@ -469,13 +469,59 @@ def test_get_person_returns_none_without_the_required_permission(
     assert 'nickname lookup' in caplog.text
 
 
-def test_get_person_reraises_unexpected_errors(
-    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+@pytest.mark.parametrize(
+    ('person_response', 'reason'),
+    [
+        # `churchdb:view alldata` is a list of ids, so a token holding it for some
+        # people still gets a 403 for the others.
+        pytest.param({'status': 403}, '403 Client Error', id='forbidden'),
+        # The person was deleted or merged after the event had been planned.
+        pytest.param({'status': 404}, '404 Client Error', id='not-found'),
+        pytest.param(
+            {'json': {'data': {'firstName': 'John', 'nickname': None}}},
+            'Field required',
+            id='unparsable',
+        ),
+    ],
+)
+def test_get_person_returns_none_for_a_person_it_cannot_read(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    person_response: dict[str, typing.Any],
+    reason: str,
 ) -> None:
-    # The permission is there, so a 403 is not the missing permission and has
-    # to be reported instead of being swallowed.
-    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', status=403)
-    with pytest.raises(requests.exceptions.HTTPError):
+    # The permission is there, but holding it does not mean seeing every person:
+    # the caller falls back to the name of the event service instead of losing
+    # the whole service team information.
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', **person_response)
+    with caplog.at_level(logging.WARNING):
+        assert churchtools_api.get_person(1) is None
+    assert 'person #1' in caplog.text
+    assert reason in caplog.text
+
+
+@pytest.mark.parametrize(
+    'failing_person_request',
+    [
+        pytest.param({'status': 500}, id='server-error'),
+        pytest.param(
+            {'body': requests.exceptions.ConnectionError('connection reset')},
+            id='dropped-connection',
+        ),
+    ],
+)
+def test_get_person_reraises_unexpected_errors(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    failing_person_request: dict[str, typing.Any],
+) -> None:
+    # A broken server is not "this person is not there" and still has to reach
+    # the guard in the caller.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/persons/1', **failing_person_request
+    )
+    with pytest.raises(requests.exceptions.RequestException):
         churchtools_api.get_person(1)
 
 
