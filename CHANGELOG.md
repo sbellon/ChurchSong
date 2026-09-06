@@ -5,6 +5,8 @@
 ### Fixed
 - fixed aborting on markup (square brackets) in text in various places
 - fixed a song missing from the schedule if its song sheet could not be downloaded
+- fixed a song disappearing from the schedule when its song data could not be fetched from ChurchTools
+- fixed an unexpected song payload from ChurchTools aborting the whole agenda run
 - fixed the two song sheets getting out of step if only one of them could be downloaded
 - fixed crash of song verification on a song with missing tag information
 - fixed raw traceback instead of an error message on an unusable log file or output directory

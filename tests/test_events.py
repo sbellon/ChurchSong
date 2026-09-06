@@ -648,6 +648,77 @@ def test_download_agenda_items_survives_a_dropped_connection(
 
 
 @pytest.mark.parametrize(
+    ('failing_song_request', 'reason'),
+    [
+        pytest.param({'status': 500}, '500 Server Error', id='http-error'),
+        pytest.param(
+            {'body': requests.exceptions.ConnectionError('connection reset')},
+            'connection reset',
+            id='dropped-connection',
+        ),
+    ],
+)
+def test_failing_song_metadata_keeps_the_song_in_the_agenda(  # noqa: PLR0913, PLR0917 (one parameter per failure shape)
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    failing_song_request: dict[str, typing.Any],
+    reason: str,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        agenda_items=[{'title': 'Welcome', 'type': 'header', 'meta': META}, SONG_ITEM],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/songs/7', **failing_song_request)
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    # The song title comes from the agenda payload, so the warning can name it even
+    # though the song data itself is unavailable.
+    assert 'Failed to get song data for Amazing Grace' in caplog.text
+    assert reason in caplog.text
+    # A song whose data cannot be fetched degrades to the supported "song without
+    # file" item instead of disappearing from the schedule.
+    assert [item.title for item in items] == ['Welcome', 'Amazing Grace']
+    assert items[1].filename is None
+
+
+def test_unparsable_song_payload_keeps_the_agenda_running(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        agenda_items=[{'title': 'Welcome', 'type': 'header', 'meta': META}, SONG_ITEM],
+    )
+    # A song payload the model does not tolerate: "arrangements" is gone.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs/7',
+        json={
+            'data': {
+                'id': 7,
+                'name': 'Amazing Grace',
+                'author': None,
+                'ccli': '22025',
+            }
+        },
+    )
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
+    assert 'Failed to get song data for Amazing Grace' in caplog.text
+    assert 'Field required' in caplog.text
+    # A changed song payload costs the song its files, not the whole run.
+    assert [item.title for item in items] == ['Welcome', 'Amazing Grace']
+    assert items[1].filename is None
+
+
+@pytest.mark.parametrize(
     ('failing_song_download', 'reason'),
     [
         pytest.param({'status': 500}, '500 Server Error', id='http-error'),

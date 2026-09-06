@@ -13,6 +13,7 @@ import os
 import re
 import typing
 
+import pydantic
 import pypdf
 import pypdf.errors
 import reportlab.lib.colors
@@ -32,6 +33,7 @@ if typing.TYPE_CHECKING:
     from churchsong.churchtools import (
         ChurchToolsAPI,
         EventAgendaItem,
+        EventAgendaSong,
         EventFile,
         EventFull,
         EventShort,
@@ -369,35 +371,40 @@ class ChurchToolsEvent:
             logger.warning('Failed to download song file for %s: %s', title, e)
             return None
 
-    def _song_files(self, item: EventAgendaItem) -> SongFiles:
-        assert item.song is not None  # noqa: S101
+    def _song_files(
+        self, agenda_song: EventAgendaSong, *, modified_date: datetime.datetime
+    ) -> SongFiles | None:
+        try:
+            song = self.cta.get_song(agenda_song.song_id)
+        except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
+            logger.warning('Failed to get song data for %s: %s', agenda_song.title, e)
+            return None
         sng_file = None
         default_sng_file = None
         chords_file = None
         leads_file = None
-        song = self.cta.get_song(item.song.song_id)
         for arr in song.arrangements:
             for file in arr.files:
                 if file.name.endswith('.sng'):
-                    if arr.id == item.song.arrangement_id:
+                    if arr.id == agenda_song.arrangement_id:
                         sng_file = file
                     if arr.is_default:
                         default_sng_file = file
-                if file.name.endswith('.pdf') and arr.id == item.song.arrangement_id:
+                if file.name.endswith('.pdf') and arr.id == agenda_song.arrangement_id:
                     if '-lead-' in file.name.lower():
                         leads_file = file
                     else:
                         chords_file = file
         return SongFiles(
-            title=item.song.title,
+            title=agenda_song.title,
             ccli=song.ccli or '',
-            arrangement=f'{item.song.arrangement} ({item.song.key})'
-            if item.song.is_default and item.song.key
-            else item.song.arrangement,
+            arrangement=f'{agenda_song.arrangement} ({agenda_song.key})'
+            if agenda_song.is_default and agenda_song.key
+            else agenda_song.arrangement,
             sng_file=sng_file or default_sng_file,
             chords_file=chords_file or leads_file,
             leads_file=leads_file or chords_file,
-            last_modified=item.meta.modified_date,
+            last_modified=modified_date,
         )
 
     def download_agenda_items(  # noqa: C901, PLR0912
@@ -467,20 +474,24 @@ class ChurchToolsEvent:
                                 agenda_item = Item(ItemType.NORMAL, item.title)
                             case EventAgendaItemType.SONG:
                                 if item.song:
-                                    files = self._song_files(item)
                                     # item.title may not be the song title itself,
                                     # so rather use item.song.title instead.
-                                    item.title = files.title
+                                    item.title = item.song.title
+                                    files = self._song_files(
+                                        item.song,
+                                        modified_date=item.meta.modified_date,
+                                    )
                                     filename = (
                                         self._download_song_file(
-                                            item.title,
+                                            files.title,
                                             files.sng_file,
                                             overwrite=download_songs,
                                         )
-                                        if files.sng_file
+                                        if files and files.sng_file
                                         else None
                                     )
-                                    song_sheets.download_and_append(files)
+                                    if files:
+                                        song_sheets.download_and_append(files)
                                 else:
                                     logger.warning('Song event item without song data')
                                     filename = None
