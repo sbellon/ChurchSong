@@ -18,6 +18,10 @@
 - fixed raw traceback instead of an error message on an unreadable configuration file
 - fixed raw traceback instead of an error message on an unwritable song usage output file
 - fixed a service without a name taking over the name and portrait of every unassigned service
+- fixed a song missing from the schedule if its song file could not be downloaded
+- fixed a song missing from the schedule if the agenda item carries no song data
+- fixed a file that cannot be written in the output directory aborting the whole agenda run
+- fixed a non-UTF-8 file name from ChurchTools aborting the whole agenda run
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase

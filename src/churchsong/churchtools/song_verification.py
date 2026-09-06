@@ -298,8 +298,15 @@ class ChurchToolsSongVerification:
                                     arr.sng_file_content = r.text.lstrip(
                                         '\ufeff'
                                     ).splitlines()
-                            except requests.exceptions.RequestException:
-                                logger.warning('Failed to download arrangement %s', arr)
+                            except requests.exceptions.RequestException as e:
+                                logger.warning(
+                                    'Failed to download arrangement "%s" (#%s) '
+                                    'of song #%s: %s',
+                                    arr.name,
+                                    arr.id,
+                                    song.id,
+                                    e,
+                                )
 
                 # Execute the actual checks.
                 check_results = zip(
