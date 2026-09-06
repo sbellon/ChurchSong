@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import logging
 import warnings
 
 import pydantic
@@ -13,9 +14,12 @@ from churchsong.churchtools import (
     CalendarAppointmentBase,
     EventAgendaItem,
     EventAgendaItemType,
+    EventFile,
+    EventFileDomainType,
     EventService,
     PermissionsGlobalData,
     Person,
+    RepeatId,
 )
 from tests.conftest import make_global_permissions
 
@@ -27,11 +31,34 @@ def test_agenda_item_null_title_becomes_empty_string() -> None:
     assert item.title == ''
 
 
-def test_agenda_item_legacy_type_normal_maps_to_text() -> None:
-    item = EventAgendaItem.model_validate(
-        {'title': 'Notes', 'type': 'normal', 'meta': AGENDA_ITEM_META}
-    )
+# 'normal' is the rename that already happened, 'brandnew' stands for the next one.
+@pytest.mark.parametrize('item_type', ['normal', 'brandnew'])
+def test_unknown_agenda_item_type_degrades_to_text(
+    item_type: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        item = EventAgendaItem.model_validate(
+            {'title': 'Notes', 'type': item_type, 'meta': AGENDA_ITEM_META}
+        )
     assert item.type is EventAgendaItemType.TEXT
+    assert f'Unknown agenda item type "{item_type}"' in caplog.text
+
+
+def test_unknown_event_file_domain_type_degrades_to_link(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        event_file = EventFile.model_validate(
+            {
+                'title': 'Arrangement',
+                'domainType': 'song_arrangement',
+                'domainIdentifier': 901,
+                'frontendUrl': 'https://churchtools.test/files/901',
+            }
+        )
+    assert event_file.domain_type is EventFileDomainType.LINK
+    assert event_file.frontend_url == 'https://churchtools.test/files/901'
+    assert 'Unknown file domain type "song_arrangement"' in caplog.text
 
 
 def make_appointment_base_json(**overrides: object) -> dict[str, object]:
@@ -96,6 +123,20 @@ def test_appointment_without_calculated_dates_keeps_base_dates() -> None:
     )
     assert appointment.base.start_date.day == 16
     assert appointment.base.end_date.day == 16
+
+
+def test_unknown_repeat_id_degrades_to_none(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        appointment = CalendarAppointmentBase.model_validate(
+            make_appointment_base_json(repeatId=12345)
+        )
+    assert appointment.repeat_id is None
+    assert 'Unknown repeat id "12345"' in caplog.text
+
+
+def test_known_repeat_id_is_kept() -> None:
+    appointment = CalendarAppointmentBase.model_validate(make_appointment_base_json())
+    assert appointment.repeat_id is RepeatId.WEEKLY
 
 
 def test_appointment_scalar_where_object_expected_stays_a_validation_error() -> None:
