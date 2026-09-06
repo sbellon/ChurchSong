@@ -310,14 +310,15 @@ def _handle_agenda(
 
     service_items: list[Item] = []
     service_leads: dict[str, set[Person]] = {}
+    nobody: set[Person] = set()
     with optional_steps.guard('service team information'):
-        service_items, service_leads = cte.get_service_info()
+        service_items, service_leads, nobody = cte.get_service_info()
 
     if selection.slides:
         if config.songbeamer.powerpoint.services.template_pptx:
             with optional_steps.guard('service slides'):
                 pps = PowerPointServices(config)
-                pps.create(service_leads)
+                pps.create(service_leads, nobody)
                 pps.save()
         if (
             config.songbeamer.powerpoint.appointments.template_pptx

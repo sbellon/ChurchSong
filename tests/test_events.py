@@ -401,7 +401,7 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     )
 
     event = make_churchtools_event(churchtools_api, config)
-    service_items, service_leads = event.get_service_info()
+    service_items, service_leads, nobody = event.get_service_info()
 
     assert [(item.type, item.title) for item in service_items] == [
         (ItemType.SERVICE, 'Music: Vol N.'),
@@ -414,8 +414,9 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     (musician,) = service_leads['Music']
     assert musician.shortname == 'Vol'
     # The "nobody" entry backs template placeholders for services that nobody is
-    # assigned to; the exact `service_items` above show it is not a service itself.
-    assert service_leads[str(None)] == {Person('Nobody', 'Nobody')}
+    # assigned to; it comes separately as it is not a service itself.
+    assert nobody == {Person('Nobody', 'Nobody')}
+    assert str(None) not in service_leads
 
 
 SONG_ITEM: dict[str, object] = {
@@ -953,9 +954,76 @@ def test_get_service_info_merges_several_persons_of_one_service(
         json={'data': [{'id': 1, 'name': 'Music'}]},
     )
     event = make_churchtools_event(churchtools_api, config)
-    service_items, service_leads = event.get_service_info()
+    service_items, service_leads, _nobody = event.get_service_info()
     assert [item.title for item in service_items] == ['Music: Jane Doe, John Newton']
     assert {person.shortname for person in service_leads['Music']} == {'Jane', 'John'}
+
+
+@pytest.mark.parametrize(
+    'services',
+    [
+        pytest.param([{'id': 1, 'name': 'Music'}, {'id': 2, 'name': None}], id='null'),
+        pytest.param([{'id': 1, 'name': 'Music'}], id='invisible'),
+    ],
+)
+def test_get_service_info_skips_a_service_without_a_name(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    services: list[dict[str, object]],
+) -> None:
+    # A service can lack a name either because ChurchTools has none for it, or
+    # because `view servicegroup` is a list of ids that does not contain it.
+    config = make_config(output_dir=str(tmp_path))
+    register_event_endpoints(
+        mocked_responses,
+        event_services=[
+            {'personId': None, 'name': 'Jane Doe', 'serviceId': 1},
+            {'personId': None, 'name': 'John Newton', 'serviceId': 2},
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/services', json={'data': services}
+    )
+
+    event = make_churchtools_event(churchtools_api, config)
+    with caplog.at_level(logging.WARNING):
+        service_items, service_leads, nobody = event.get_service_info()
+
+    # John Newton neither pollutes the Schedule.col with a `None: ...` line ...
+    assert [item.title for item in service_items] == ['Music: Jane Doe']
+    assert list(service_leads) == ['Music']
+    # ... nor becomes the person every unassigned placeholder falls back to.
+    assert nobody == {Person('Nobody', 'Nobody')}
+    assert 'Skipping service #2 without a name' in caplog.text
+
+
+def test_get_service_info_takes_the_nobody_name_from_the_replacements(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    # `"None"` is the [ChurchTools.Replacements] key naming the stand-in for a
+    # service nobody is assigned to, and the only `str(None)` left in the code.
+    config = make_config(
+        output_dir=str(tmp_path), replacements={str(None): 'Unassigned'}
+    )
+    register_event_endpoints(
+        mocked_responses,
+        event_services=[{'personId': None, 'name': None, 'serviceId': 1}],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/services',
+        json={'data': [{'id': 1, 'name': 'Welcome'}]},
+    )
+
+    event = make_churchtools_event(churchtools_api, config)
+    service_items, service_leads, nobody = event.get_service_info()
+
+    assert [item.title for item in service_items] == ['Welcome: Unassigned']
+    assert service_leads['Welcome'] == {Person('Unassigned', 'Unassigned')}
+    assert nobody == {Person('Unassigned', 'Unassigned')}
 
 
 def test_download_file_streams_the_body_instead_of_buffering_it(

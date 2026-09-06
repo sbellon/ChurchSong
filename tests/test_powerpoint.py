@@ -38,6 +38,9 @@ JPEG_1PX = base64.b64decode(
     'AAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
 )
 
+# What `get_service_info()` hands over for placeholders nobody is assigned to.
+NOBODY = {Person('Nobody', 'Nobody')}
+
 
 def make_services_template(
     path: pathlib.Path,
@@ -207,11 +210,10 @@ def test_services_fills_text_and_picture_placeholders(
         'Preaching': {Person('Jane Doe', 'Jane')},
         'Music': {Person('Bo Li', 'Bo'), Person('Alex Roe', 'Alex')},
         'Welcome': {Person('Jane Doe', 'Jane')},
-        str(None): {Person('Nobody', 'Nobody')},
     }
     expected_leads = copy.deepcopy(service_leads)
     powerpoint = PowerPointServices(config)
-    powerpoint.create(service_leads)
+    powerpoint.create(service_leads, NOBODY)
     powerpoint.save()
 
     assert service_leads == expected_leads  # create() does not touch its argument
@@ -252,14 +254,7 @@ def test_services_falls_back_to_nobody_portrait(tmp_path: pathlib.Path) -> None:
 
     jane = Person('Jane Doe', 'Jane')
     powerpoint = PowerPointServices(config)
-    powerpoint.create(
-        {
-            'Preaching': {jane},
-            'Music': {jane},
-            'Welcome': {jane},
-            str(None): {Person('Nobody', 'Nobody')},
-        }
-    )
+    powerpoint.create({'Preaching': {jane}, 'Music': {jane}, 'Welcome': {jane}}, NOBODY)
     powerpoint.save()
 
     result = pptx.Presentation(os.fspath(tmp_path / 'output' / 'services.pptx'))
@@ -285,13 +280,10 @@ def test_services_renders_an_unassigned_service_as_nobody(
     config = make_powerpoint_config(tmp_path, 'Services', template)
 
     # Nobody is assigned to 'Music' and 'Welcome' although the template names them.
-    service_leads = {
-        'Preaching': {Person('Jane Doe', 'Jane')},
-        str(None): {Person('Nobody', 'Nobody')},
-    }
+    service_leads = {'Preaching': {Person('Jane Doe', 'Jane')}}
     expected_leads = copy.deepcopy(service_leads)
     powerpoint = PowerPointServices(config)
-    powerpoint.create(service_leads)
+    powerpoint.create(service_leads, NOBODY)
     powerpoint.save()
 
     assert service_leads == expected_leads  # no entries invented for the caller
@@ -327,12 +319,7 @@ def test_services_survives_a_missing_fallback_portrait(
     powerpoint = PowerPointServices(config)
     with caplog.at_level(logging.ERROR):
         powerpoint.create(
-            {
-                'Preaching': {jane},
-                'Music': {jane},
-                'Welcome': {jane},
-                str(None): {Person('Nobody', 'Nobody')},
-            }
+            {'Preaching': {jane}, 'Music': {jane}, 'Welcome': {jane}}, NOBODY
         )
     powerpoint.save()
 
@@ -473,7 +460,7 @@ def test_missing_template_configuration_skips_powerpoint(
 ) -> None:
     config = make_config(output_dir=str(tmp_path))
     powerpoint = PowerPointServices(config)
-    powerpoint.create({})
+    powerpoint.create({}, NOBODY)
     powerpoint.save()
     assert list(tmp_path.iterdir()) == []
 
@@ -484,7 +471,7 @@ def test_corrupt_template_skips_powerpoint(tmp_path: pathlib.Path) -> None:
     (tmp_path / 'output').mkdir()
     config = make_powerpoint_config(tmp_path, 'Services', template)
     powerpoint = PowerPointServices(config)
-    powerpoint.create({})
+    powerpoint.create({}, NOBODY)
     powerpoint.save()
     assert list((tmp_path / 'output').iterdir()) == []
 
@@ -659,13 +646,8 @@ def test_services_warns_about_an_unsupported_placeholder(
     powerpoint = PowerPointServices(config)
     with caplog.at_level(logging.WARNING):
         powerpoint.create(
-            {
-                'Preaching': jane,
-                'Music': jane,
-                'Welcome': jane,
-                'Coffee': jane,
-                str(None): {Person('Nobody', 'Nobody')},
-            }
+            {'Preaching': jane, 'Music': jane, 'Welcome': jane, 'Coffee': jane},
+            NOBODY,
         )
     powerpoint.save()
     assert 'Skipping unsupported placeholder type' in caplog.text
@@ -703,14 +685,7 @@ def test_save_keeps_the_previous_presentation_if_it_cannot_be_replaced(
     monkeypatch.setattr(pathlib.Path, 'replace', locked_replace)
     jane = Person('Jane Doe', 'Jane')
     powerpoint = PowerPointServices(config)
-    powerpoint.create(
-        {
-            'Preaching': {jane},
-            'Music': {jane},
-            'Welcome': {jane},
-            str(None): {Person('Nobody', 'Nobody')},
-        }
-    )
+    powerpoint.create({'Preaching': {jane}, 'Music': {jane}, 'Welcome': {jane}}, NOBODY)
     with pytest.raises(CliError, match='open in PowerPoint'):
         powerpoint.save()
 

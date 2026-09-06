@@ -50,6 +50,7 @@ CLI_ENV = {'COLUMNS': '200'}
 AGENDA_ITEMS = [Item(ItemType.SONG, 'Amazing Grace')]
 SERVICE_ITEMS = [Item(ItemType.SERVICE, 'Pastor')]
 SERVICE_LEADS = {'Pastor': {Person(fullname='John Newton', shortname='John')}}
+SERVICE_NOBODY = {Person(fullname='Nobody', shortname='Nobody')}
 
 TEMPLATES = {
     'PowerPoint': {
@@ -111,6 +112,7 @@ class Pipeline:
     requested_date: datetime.datetime | None = None
     agenda_required: bool = False
     service_leads: object = None
+    nobody: object = None
 
 
 def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
@@ -169,9 +171,9 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
 
         def get_service_info(
             self,
-        ) -> tuple[list[Item], dict[str, set[Person]]]:
+        ) -> tuple[list[Item], dict[str, set[Person]], set[Person]]:
             record('service_info')
-            return SERVICE_ITEMS, SERVICE_LEADS
+            return SERVICE_ITEMS, SERVICE_LEADS, SERVICE_NOBODY
 
     class FakeImmichAPI:
         def __init__(self, _config: Configuration) -> None:
@@ -181,9 +183,12 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
         def __init__(self, _config: Configuration) -> None:
             record('services')
 
-        def create(self, service_leads: dict[str, set[Person]]) -> None:
+        def create(
+            self, service_leads: dict[str, set[Person]], nobody: set[Person]
+        ) -> None:
             record('services.create')
             pipeline.service_leads = service_leads
+            pipeline.nobody = nobody
 
         def save(self) -> None:
             record('services.save')
@@ -428,6 +433,7 @@ def test_agenda_command_runs_the_full_pipeline(
     assert pipeline.download_kwargs['download_songs'] is True
     assert pipeline.download_kwargs['upload_songsheets'] is True
     assert pipeline.service_leads == SERVICE_LEADS
+    assert pipeline.nobody == SERVICE_NOBODY
     assert pipeline.schedule_kwargs['agenda_items'] == AGENDA_ITEMS
     assert pipeline.schedule_kwargs['service_items'] == SERVICE_ITEMS
     assert pipeline.schedule_kwargs['event_date'] == make_event_short().start_date
@@ -474,6 +480,7 @@ def test_agenda_writes_the_schedule_although_the_service_info_fails(
     assert 'launch' in pipeline.steps
     # The service slides are created from what little there is.
     assert pipeline.service_leads == {}
+    assert pipeline.nobody == set()
     assert 'appointments.save' in pipeline.steps
     assert 'Skipped service team information: 502 Server Error' in result.output
 

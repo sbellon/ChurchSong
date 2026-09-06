@@ -59,11 +59,12 @@ class PowerPointServices(PowerPointBase):
             return False
         return True
 
-    def create(self, service_leads: dict[str, set[Person]]) -> None:
+    def create(
+        self, service_leads: dict[str, set[Person]], nobody: set[Person]
+    ) -> None:
         if not self._prs:
             return
 
-        nobody = service_leads.get(str(None), set())
         slide_layout = self._prs.slide_layouts[0]
         slide = self._prs.slides.add_slide(slide_layout)
         for ph in slide.placeholders:

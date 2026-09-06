@@ -474,7 +474,9 @@ class ChurchToolsEvent:
                     logger.warning('Failed to download agenda file for %s', item.title)
         return agenda_items, song_sheets
 
-    def get_service_info(self) -> tuple[list[Item], dict[str, set[Person]]]:
+    def get_service_info(
+        self,
+    ) -> tuple[list[Item], dict[str, set[Person]], set[Person]]:
         logger.info('Fetching service team information')
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
@@ -485,7 +487,12 @@ class ChurchToolsEvent:
         )
         service_leads: dict[str, set[Person]] = {}
         for event_service in self._event.event_services:
-            service_name = str(service_id2name.get(event_service.service_id))
+            service_name = service_id2name.get(event_service.service_id)
+            if service_name is None:
+                logger.warning(
+                    'Skipping service #%s without a name', event_service.service_id
+                )
+                continue
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
             if event_service.person_id is not None and (
@@ -512,7 +519,4 @@ class ChurchToolsEvent:
             )
             for service, persons in sorted(service_leads.items())
         ]
-        # Add the fallback `None -> nobody` entry *after* the `service_items` are built
-        # as otherwise the fallback service entry would appear in the Schedule.col.
-        service_leads.setdefault(str(None), {nobody})
-        return service_items, service_leads
+        return service_items, service_leads, {nobody}

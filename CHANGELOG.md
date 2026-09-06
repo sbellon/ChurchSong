@@ -17,6 +17,7 @@
 - fixed square brackets in a path garbling or aborting the `self info` output
 - fixed raw traceback instead of an error message on an unreadable configuration file
 - fixed raw traceback instead of an error message on an unwritable song usage output file
+- fixed a service without a name taking over the name and portrait of every unassigned service
 
 ### Changed
 - accept the log level in the configuration in any casing, not only uppercase
