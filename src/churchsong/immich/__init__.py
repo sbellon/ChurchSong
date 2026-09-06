@@ -95,6 +95,7 @@ class ImmichAPI(BaseAPI):
     def _fetch_permissions(self) -> Permissions:
         try:
             r = self._get('/api/api-keys/me')
+            return Permissions(**r.json())
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
@@ -104,14 +105,23 @@ class ImmichAPI(BaseAPI):
             raise CliError(msg) from None
         except requests.exceptions.HTTPError as e:
             msg = f'{e}'
-            logger.error(msg)
             if e.response is not None and e.response.status_code in (
                 requests.codes['forbidden'],
                 requests.codes['unauthorized'],
             ):
                 msg += '\n\nDid you configure your Immich API token correctly?'
+            logger.error(msg)
             raise CliError(msg) from None
-        return Permissions(**r.json())
+        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
+            # The request itself worked, so this is neither a transport nor a token
+            # problem: the server answered something that is not the Immich API.
+            # The exception message alone says nothing useful, hence the prefix.
+            msg = (
+                f'Unexpected answer from "{self._base_url}": {e}\n\n'
+                'Did you configure the URL of your Immich instance correctly?'
+            )
+            logger.error(msg)
+            raise CliError(msg) from None
 
     def _get_missing_permissions(self, *required_perms: str) -> list[str]:
         return [
