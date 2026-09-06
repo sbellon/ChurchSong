@@ -118,10 +118,21 @@ compatibility patches go — dated comments mark the existing ones.
 **Permissions are two-tier**, in both clients: each constructor fetches the token's permissions
 once and hard-asserts what basic operation needs (`CliError`), while every optional feature calls
 `has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
-new optional features that way rather than by asserting. Note that a ChurchTools `view *` permission
-is often a *list of ids*, not a boolean, so holding it does not mean seeing every object. The
-fetch/assert/`has_permissions` trio is duplicated per client because the two payloads differ in
-shape.
+new optional features that way rather than by asserting. The fetch/assert/`has_permissions` trio is
+duplicated per client because the two payloads differ in shape.
+
+A ChurchTools `view *` permission is often a *list of ids*, not a boolean, so holding it does not
+mean seeing every object — and the **element type names the axis those ids scope** (`CalendarID`,
+`DomainID`, `ServiceGroupID`, `SongCategoryID`, each a commented `type` alias next to its model).
+Whether a 403 on one object is a hole to absorb or an anomaly to let crash follows from those axes,
+not from how coarse the list is: an event and its agenda are both scoped by `CalendarID`, so an
+event that could be listed has a readable agenda and a 403 there means the permission changed
+*during* the run — leave it to the traceback. A person on that event's service team is scoped by
+`DomainID`, which the event says nothing about, so a 403 there is ordinary and takes the fallback
+`get_person()` has. Name both axes before adding such a branch, and confirm what the server really
+answers — a mocked 403 only proves what our code does with one. `SecurityLevel` is not an axis at
+all: the levels gate *fields*, so an insufficient one yields a person with fields absent, never a
+403, which is why the nickname warning fires after a successful parse.
 
 **Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks
 event files and agenda items into `output_dir/{Songs,Files}`, feeds PDFs into `SongSheets` (chords

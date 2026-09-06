@@ -59,25 +59,46 @@ class DeprecationAwareModel(pydantic.BaseModel):
         return data
 
 
+# Freely configurable domains to group users into, like "extern", "member", "api" ...
+type DomainID = int
+
+# A user may see another user's properties up to that security level.
+type SecurityLevel = int
+
+
 class PermissionsGlobalChurchDb(DeprecationAwareModel):
     view: bool
-    view_alldata: list[int] = pydantic.Field(alias='view alldata')
-    security_level_person: list[int] = pydantic.Field(alias='security level person')
+    view_alldata: list[DomainID] = pydantic.Field(alias='view alldata')
+    security_level_person: list[SecurityLevel] = pydantic.Field(
+        alias='security level person'
+    )
+
+
+# Freely configurable church calendars holding events.
+type CalendarID = int
 
 
 class PermissionsGlobalChurchCal(DeprecationAwareModel):
     view: bool
-    view_category: list[int] = pydantic.Field(alias='view category')
+    view_category: list[CalendarID] = pydantic.Field(alias='view category')
+
+
+# Freely configurable service event groups like "preacher", "musician", "technician" ...
+type ServiceGroupID = int
+
+
+# Freely configurable song categories like "active", "archive", "for learning" ...
+type SongCategoryID = int
 
 
 class PermissionsGlobalChurchService(DeprecationAwareModel):
-    edit_events: list[int] = pydantic.Field(alias='edit events')
+    edit_events: list[CalendarID] = pydantic.Field(alias='edit events')
     view: bool
-    view_servicegroup: list[int] = pydantic.Field(alias='view servicegroup')
+    view_servicegroup: list[ServiceGroupID] = pydantic.Field(alias='view servicegroup')
     view_history: bool = pydantic.Field(alias='view history')
-    view_events: list[int] = pydantic.Field(alias='view events')
-    view_agenda: list[int] = pydantic.Field(alias='view agenda')
-    view_songcategory: list[int] = pydantic.Field(alias='view songcategory')
+    view_events: list[CalendarID] = pydantic.Field(alias='view events')
+    view_agenda: list[CalendarID] = pydantic.Field(alias='view agenda')
+    view_songcategory: list[SongCategoryID] = pydantic.Field(alias='view songcategory')
 
 
 class PermissionsGlobal(DeprecationAwareModel):
