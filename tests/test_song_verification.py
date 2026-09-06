@@ -16,6 +16,7 @@ from churchsong.churchtools.song_verification import (
     ChurchToolsSongVerification,
     SongChecks,
 )
+from churchsong.utils import CliError
 from tests.conftest import CHURCHTOOLS_BASE_URL
 
 if typing.TYPE_CHECKING:
@@ -886,6 +887,60 @@ def test_verify_songs_survives_a_failing_tag_fetch(  # noqa: PLR0913, PLR0917 (o
     assert '#42' in out
     assert '#43' in out
     assert 'Be Thou My Vision' in out
+
+
+@pytest.mark.parametrize(
+    ('failing_song_page', 'reason'),
+    [
+        pytest.param(
+            {'body': requests.exceptions.ConnectionError('connection reset')},
+            'connection reset',
+            id='connection',
+        ),
+        pytest.param({'status': 500}, '500 Server Error', id='server-error'),
+        pytest.param(
+            {'json': {'not': 'a SongsData'}}, 'validation error', id='off-shape'
+        ),
+    ],
+)
+def test_verify_songs_reports_a_failing_song_page(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    failing_song_page: dict[str, typing.Any],
+    reason: str,
+) -> None:
+    # A failure between two pages truncates the song list, so unlike a failing tag or
+    # .sng fetch it has to end the run - but as the one-line error the HTTP path
+    # already produces, not as a traceback out of the client.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs',
+        json={
+            'data': [make_song_json(42, 'Amazing Grace', ccli=None)],
+            'meta': {
+                'count': 2,
+                'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+            },
+        },
+        match=[
+            matchers.query_param_matcher(
+                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+            )
+        ],
+    )
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/songs', **failing_song_page)
+    with (
+        caplog.at_level(logging.ERROR),
+        pytest.raises(CliError, match='Failed to get songs'),
+    ):
+        ChurchToolsSongVerification(churchtools_api).verify_songs(
+            date=None,
+            include_tags=[],
+            exclude_tags=[],
+            execute_checks=['CCLI'],
+            all_arrangements=False,
+        )
+    assert reason in caplog.text
 
 
 def test_verify_songs_rejects_a_selection_without_any_valid_check(
