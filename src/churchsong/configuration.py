@@ -363,7 +363,11 @@ class Configuration(TomlConfig):
         try:
             locale.setlocale(locale.LC_TIME, (locale.getlocale()[0], 'utf-8'))
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
-        except locale.Error:
+        except locale.Error, ValueError:
+            # `getlocale()` parses the platform's locale name and raises a plain
+            # ValueError - not a locale.Error - for a name it cannot decompose,
+            # e.g. the BCP-47 spellings ("en-US") that the Windows UCRT accepts.
+            # Neither failure is worth aborting over: fall back to English.
             cc = 'en'
         try:
             with importlib.resources.open_text(
