@@ -12,6 +12,7 @@ import pytest
 import reportlab.lib.pagesizes
 import reportlab.pdfgen.canvas
 import requests
+from responses import matchers
 
 import churchsong.churchtools.events
 from churchsong.churchtools import ChurchToolsAPI, EventShort
@@ -1343,3 +1344,45 @@ def test_download_file_sanitises_a_windows_illegal_filename(
     ]
     assert (tmp_path / 'Files' / '_COM1.pdf').read_bytes() == b'notes content'
     assert (tmp_path / 'Files' / 'What now_.pdf').read_bytes() == b'handout content'
+
+
+def test_download_uses_the_token_for_a_differently_cased_host(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    # ChurchTools builds the absolute URLs it hands back from its own instance URL,
+    # while `base_url` is typed by hand into config.toml, so the two can differ in
+    # capitalization. The download still has to carry the authentication headers: an
+    # unauthenticated one comes back 200 OK with an HTML permission page as its body,
+    # which would land in `Files/` as the downloaded file.
+    config = make_config(base_url='https://ChurchTools.test', output_dir=str(tmp_path))
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions(),
+    )
+    churchtools_api = ChurchToolsAPI(config)
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Notes.pdf',
+                'domainType': 'file',
+                'domainIdentifier': 901,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
+            }
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/901',
+        body=b'notes content',
+        match=[
+            matchers.header_matcher({'Authorization': 'Login churchtools-test-token'})
+        ],
+    )
+    event = ChurchToolsEvent(churchtools_api, make_event_short(), config)
+    (item,), _song_sheets = event.download_agenda_items(
+        upload_songsheets=False, immich=None
+    )
+    notes = tmp_path / 'Files' / 'Notes.pdf'
+    assert item.filename == str(notes)
+    assert notes.read_bytes() == b'notes content'

@@ -55,10 +55,25 @@ def test_flattened_split() -> None:
     assert flattened_split(['a,b', 'c', 'd,e']) == ['a', 'b', 'c', 'd', 'e']
 
 
-def test_is_same_host() -> None:
-    assert is_same_host('https://host.test/a/b', 'https://host.test/c')
-    assert not is_same_host('https://host.test/a', 'https://other.test/a')
-    assert not is_same_host('http://host.test/a', 'https://host.test/a')
+@pytest.mark.parametrize(
+    ('url1', 'url2', 'expected'),
+    [
+        # Negatives first: normalizing must not make a foreign host compare equal.
+        ('https://host.test/a', 'https://other.test/a', False),
+        ('https://host.test.evil.com/a', 'https://host.test', False),
+        ('https://host.test:8443/a', 'https://host.test', False),
+        ('http://host.test/a', 'https://host.test/a', False),
+        ('https://host.test/a/b', 'https://host.test/c', True),
+        # Host names are case-insensitive, the default port is implied by the scheme.
+        ('https://Host.Test/a', 'https://host.test', True),
+        ('https://host.test:443/a', 'https://host.test', True),
+        ('http://host.test:80/a', 'http://host.test', True),
+        # Credentials in the URL do not identify a host.
+        ('https://user:pass@host.test/a', 'https://host.test', True),
+    ],
+)
+def test_is_same_host(url1: str, url2: str, *, expected: bool) -> None:
+    assert is_same_host(url1, url2) is expected
 
 
 class FakeAPI(BaseAPI):
