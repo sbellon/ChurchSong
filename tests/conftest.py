@@ -29,6 +29,7 @@ class FakeConfiguration(Configuration):
 
 def make_config(
     *,
+    base_url: str = CHURCHTOOLS_BASE_URL,
     output_dir: str = 'output',
     replacements: dict[str, str] | None = None,
     songbeamer: dict[str, typing.Any] | None = None,
@@ -36,7 +37,7 @@ def make_config(
 ) -> Configuration:
     data: dict[str, typing.Any] = {
         'ChurchTools': {
-            'base_url': CHURCHTOOLS_BASE_URL,
+            'base_url': base_url,
             'login_token': 'churchtools-test-token',
             'Replacements': replacements or {},
         },

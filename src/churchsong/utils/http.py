@@ -20,6 +20,9 @@ if typing.TYPE_CHECKING:
 # Seconds to wait for the server to send its response.
 REQUEST_TIMEOUT = 30
 
+# Ports that are implied by the scheme and therefore not part of a host's identity.
+DEFAULT_PORTS = {'http': 80, 'https': 443}
+
 # Bytes to read at a time from a streamed response body.
 DOWNLOAD_CHUNK_SIZE = 64 * 1024
 
@@ -217,4 +220,19 @@ class BaseAPI:
 
 
 def is_same_host(url1: str, url2: str) -> bool:
-    return urllib.parse.urlsplit(url1)[:2] == urllib.parse.urlsplit(url2)[:2]
+    # Host names are case-insensitive and the default port is not part of the identity,
+    # so compare normalized: a `base_url` spelled with different capitalization than the
+    # URLs ChurchTools hands back would otherwise silently drop the authentication
+    # headers, and the download then succeeds with an HTML permission page as its body.
+    # Any `user:pass@` is dropped along with it, as credentials do not identify a host.
+    # Both normalizations only ever make the predicate match more, never less: the host
+    # name is still compared in full, so no foreign host can come out equal.
+    def normalized(url: str) -> tuple[str, str, int | None]:
+        parts = urllib.parse.urlsplit(url)
+        return (
+            parts.scheme,
+            parts.hostname or '',
+            parts.port or DEFAULT_PORTS.get(parts.scheme),
+        )
+
+    return normalized(url1) == normalized(url2)
