@@ -461,7 +461,7 @@ class ChurchToolsAPI(BaseAPI):
         # `CSRF-Token` header with a 401 "CSRF-Token is invalid". So keep the token
         # the only means of authentication and drop the cookie.
         # See https://churchtools.academy/de/help/system-einstellungen/api/api-authentifizierung/
-        super().__init__(logger, persist_cookies=False)
+        super().__init__(logger, 'ChurchTools', persist_cookies=False)
         self._base_url = config.churchtools.base_url
         self._headers = {
             'Accept': 'application/json',
@@ -487,6 +487,7 @@ class ChurchToolsAPI(BaseAPI):
     def _fetch_permissions(self) -> PermissionsGlobalData:
         try:
             r = self._get('/api/permissions/global')
+            # Not `_parse()`: the messages below add the base URL and token hints.
             return PermissionsGlobalData(**r.json())
         except (
             requests.exceptions.ConnectionError,
@@ -548,6 +549,7 @@ class ChurchToolsAPI(BaseAPI):
             r = self._get(
                 '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
             )
+            # Not `_parse()`: the `except` below degrades to an empty tag list.
             result = SongsData(**r.json())
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             logger.warning('Failed to get tags for song #%s: %s', song_id, e)
@@ -562,6 +564,7 @@ class ChurchToolsAPI(BaseAPI):
     ) -> SongsData:
         try:
             r = self._get(api_url, params={'page': str(page), **params})
+            # Not `_parse()`: the `except` below may recover an event without songs.
             return SongsData(**r.json())
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             if (
@@ -618,13 +621,15 @@ class ChurchToolsAPI(BaseAPI):
         )
 
     def get_song(self, song_id: int) -> Song:
+        # Not `_parse()`: `_song_files()` catches the error to skip just this song.
         r = self._get(f'/api/songs/{song_id}')
         result = SongData(**r.json())
         return result.data
 
     def _get_calendars(self) -> typing.Generator[Calendar]:
-        r = self._get('/api/calendars')
-        result = CalendarsData(**r.json())
+        api_url = '/api/calendars'
+        r = self._get(api_url)
+        result = self._parse(CalendarsData, r, api_url)
         yield from result.data
 
     def get_person(self, person_id: int) -> Person | None:
@@ -643,6 +648,7 @@ class ChurchToolsAPI(BaseAPI):
                 return None
             raise
         try:
+            # Not `_parse()`: the `except` below skips just this person.
             result = PersonsData(**r.json())
         except pydantic.ValidationError as e:
             logger.warning('Skipping unparsable data of person #%s: %s', person_id, e)
@@ -662,15 +668,16 @@ class ChurchToolsAPI(BaseAPI):
         next_n_weeks = event.start_date + datetime.timedelta(
             weeks=self._look_ahead_weeks
         )
+        api_url = '/api/calendars/appointments'
         r = self._get(
-            '/api/calendars/appointments',
+            api_url,
             params={
                 'calendar_ids[]': [calendar.id for calendar in self._get_calendars()],
                 'from': f'{event.start_date:%Y-%m-%d}',
                 'to': f'{next_n_weeks:%Y-%m-%d}',
             },
         )
-        result = CalendarAppointmentsData(**r.json())
+        result = self._parse(CalendarAppointmentsData, r, api_url)
         yield from (
             base
             for item in result.data
@@ -682,8 +689,9 @@ class ChurchToolsAPI(BaseAPI):
         )
 
     def get_services(self) -> typing.Generator[Service]:
-        r = self._get('/api/services')
-        result = ServicesData(**r.json())
+        api_url = '/api/services'
+        r = self._get(api_url)
+        result = self._parse(ServicesData, r, api_url)
         yield from result.data
 
     def get_events(
@@ -700,8 +708,9 @@ class ChurchToolsAPI(BaseAPI):
         params = {'from': f'{from_date:%Y-%m-%d}'}
         if to_date:
             params['to'] = f'{to_date:%Y-%m-%d}'
-        r = self._get('/api/events', params=params)
-        result = EventsData(**r.json())
+        api_url = '/api/events'
+        r = self._get(api_url, params=params)
+        result = self._parse(EventsData, r, api_url)
         yield from result.data
 
     def get_next_event(
@@ -733,13 +742,15 @@ class ChurchToolsAPI(BaseAPI):
         return event
 
     def get_full_event(self, event: EventShort) -> EventFull:
-        r = self._get(f'/api/events/{event.id}')
-        result = EventFullData(**r.json())
+        api_url = f'/api/events/{event.id}'
+        r = self._get(api_url)
+        result = self._parse(EventFullData, r, api_url)
         return result.data
 
     def get_event_agenda(self, event: EventShort) -> EventAgenda:
-        r = self._get(f'/api/events/{event.id}/agenda')
-        result = EventAgendaData(**r.json())
+        api_url = f'/api/events/{event.id}/agenda'
+        r = self._get(api_url)
+        result = self._parse(EventAgendaData, r, api_url)
         return result.data
 
     def download_url(self, full_url: str) -> requests.Response:

@@ -98,6 +98,59 @@ def test_init_reports_an_off_shape_permissions_answer(
     assert CHURCHTOOLS_BASE_URL in str(excinfo.value)
 
 
+# The three shapes an answer takes once it stops being the API we model: a renamed
+# field, a JSON body that is not an object at all, and something that is not JSON.
+OFF_SHAPE_ANSWERS = [
+    pytest.param('{"items": []}', id='renamed-field'),
+    pytest.param('[1, 2, 3]', id='json-array'),
+    pytest.param('<html><body>Please log in</body></html>', id='not-json'),
+]
+
+
+@pytest.mark.parametrize('answer', OFF_SHAPE_ANSWERS)
+def test_get_events_reports_an_off_shape_answer(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    answer: str,
+) -> None:
+    mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events', body=answer)
+    with pytest.raises(CliError, match='/api/events') as excinfo:
+        list(churchtools_api.get_events(datetime.date(2026, 8, 23)))
+    # `_fetch_permissions()` has proven the base URL good by now, so the message must
+    # not send the user back to the configuration - the cause is on the server.
+    assert 'Did you configure' not in str(excinfo.value)
+
+
+def test_get_full_event_reports_an_off_shape_answer(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    event = EventShort.model_validate(
+        make_event_json(42, 'Service', '2026-08-16T09:00:00Z', '2026-08-16T11:00:00Z')
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/42', json={'data': {'id': 42}}
+    )
+    with pytest.raises(CliError, match='/api/events/42') as excinfo:
+        churchtools_api.get_full_event(event)
+    assert 'Did you configure' not in str(excinfo.value)
+
+
+def test_get_event_agenda_reports_an_off_shape_answer(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    event = EventShort.model_validate(
+        make_event_json(42, 'Service', '2026-08-16T09:00:00Z', '2026-08-16T11:00:00Z')
+    )
+    # The shape of every ChurchTools rename this project has seen so far.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/events/42/agenda',
+        json={'data': {'id': 1, 'agendaItems': []}},
+    )
+    with pytest.raises(CliError, match='/api/events/42/agenda') as excinfo:
+        churchtools_api.get_event_agenda(event)
+    assert 'Did you configure' not in str(excinfo.value)
+
+
 @pytest.mark.usefixtures('churchtools_api')
 def test_requests_carry_authorization_header(
     mocked_responses: responses.RequestsMock,

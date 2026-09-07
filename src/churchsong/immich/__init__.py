@@ -70,7 +70,7 @@ class AssetBulkUploadCheckResults(BaseModel):
 
 class ImmichAPI(BaseAPI):
     def __init__(self, config: Configuration) -> None:
-        super().__init__(logger)
+        super().__init__(logger, 'Immich')
         if config.immich:
             self._enable_immich = True
             self._base_url = config.immich.base_url
@@ -95,6 +95,7 @@ class ImmichAPI(BaseAPI):
     def _fetch_permissions(self) -> Permissions:
         try:
             r = self._get('/api/api-keys/me')
+            # Not `_parse()`: the messages below add the base URL and token hints.
             return Permissions(**r.json())
         except (
             requests.exceptions.ConnectionError,
@@ -149,15 +150,17 @@ class ImmichAPI(BaseAPI):
     def _create_tag(self, tagname: str) -> str | None:
         if not self.has_permissions(['tag.create'], 'tag creation'):
             return None
-        r = self._post('/api/tags', json={'name': tagname})
-        return TagResponse(**r.json()).id
+        api_url = '/api/tags'
+        r = self._post(api_url, json={'name': tagname})
+        return self._parse(TagResponse, r, api_url).id
 
     def _get_tag_ids(self, tagnames: list[str]) -> list[JsonValue]:
         if not self.has_permissions(['tag.read'], 'tag enumeration'):
             return []
-        r = self._get('/api/tags')
+        api_url = '/api/tags'
+        r = self._get(api_url)
         tag2id = {
-            tag.name: tag.id for tag in TagResponseResults.model_validate(r.json()).root
+            tag.name: tag.id for tag in self._parse(TagResponseResults, r, api_url).root
         }
         return [
             tag_id
@@ -193,6 +196,7 @@ class ImmichAPI(BaseAPI):
                 }
             ],
         }
+        # Not `_parse()`: `upload_media_file()` catches the error to skip one file.
         r = self._post('/api/assets/bulk-upload-check', json=payload)
         result = AssetBulkUploadCheckResults(**r.json())
         if result.results[0].action == AssetUploadAction.REJECT:
@@ -224,6 +228,7 @@ class ImmichAPI(BaseAPI):
         }
         with filename.open('rb') as fd:
             files = {'assetData': (filename.name, fd, mime_type or 'image/jpeg')}
+            # Not `_parse()`, see `_media_file_exists_or_rejected()`.
             r = self._post('/api/assets', data=data, files=files)
             return AssetMediaResponse(**r.json()).id
 
