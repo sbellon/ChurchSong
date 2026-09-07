@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.13.1 (2026-09-07)
 
 ### Fixed
 - fixed a wide range of external or user input potentially crashing the application
