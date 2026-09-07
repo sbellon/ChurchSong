@@ -3,40 +3,7 @@
 ## Unreleased
 
 ### Fixed
-- fixed the walk over the song list never ending if ChurchTools keeps answering the same page
-- fixed raw traceback instead of an error message on an unexpected ChurchTools or Immich answer
-- fixed a song sheet that is not a valid PDF being added to one of the two sheets only, which made the two sheets number the songs differently
-- fixed a single person the API token may not read costing the whole service team information of the schedule and the slides
-- fixed aborting on markup (square brackets) in text in various places
-- fixed a song missing from the schedule if its song sheet could not be downloaded
-- fixed a song disappearing from the schedule when its song data could not be fetched from ChurchTools
-- fixed an unexpected song payload from ChurchTools aborting the whole agenda run
-- fixed the two song sheets getting out of step if only one of them could be downloaded
-- fixed crash of song verification on a song with missing tag information
-- fixed raw traceback instead of an error message on an unusable log file or output directory
-- fixed a dropped connection aborting the whole song verification run
-- fixed raw traceback instead of an error message on an off-shape API response
-- fixed an invalid date/time format in the configuration aborting the agenda run
-- fixed raw traceback instead of an error message on an unknown log level
-- fixed a failing tag lookup of one song aborting the whole song verification run
-- fixed a song sheet that is not a valid PDF aborting the whole agenda run
-- fixed square brackets in a path garbling or aborting the `self info` output
-- fixed raw traceback instead of an error message on an unreadable configuration file
-- fixed raw traceback instead of an error message on an unwritable song usage output file
-- fixed a service without a name taking over the name and portrait of every unassigned service
-- fixed a song missing from the schedule if its song file could not be downloaded
-- fixed a song missing from the schedule if the agenda item carries no song data
-- fixed a file that cannot be written in the output directory aborting the whole agenda run
-- fixed a non-UTF-8 file name from ChurchTools aborting the whole agenda run
-- fixed an unknown agenda item or file type from ChurchTools aborting the whole run
-- fixed raw traceback instead of an error message on a failing song list request
-- fixed raw traceback instead of an error message when the configured server URL answers something that is not the expected API
-- fixed downloads silently failing when the configured ChurchTools URL differs in capitalization from the one ChurchTools uses
-- fixed a crash at startup on systems with an unusual locale name
-- fixed a second insert slide being skipped or inserted at the wrong place when several insert slides are configured
-
-### Changed
-- accept the log level in the configuration in any casing, not only uppercase
+- fixed a wide range of external or user input potentially crashing the application
 
 ## 0.13.0 (2026-09-04)
 
