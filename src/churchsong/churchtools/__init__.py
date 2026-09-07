@@ -488,7 +488,7 @@ class ChurchToolsAPI(BaseAPI):
         try:
             r = self._get('/api/permissions/global')
             # Not `_parse()`: the messages below add the base URL and token hints.
-            return PermissionsGlobalData(**r.json())
+            return PermissionsGlobalData.model_validate(r.json())
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
@@ -550,7 +550,7 @@ class ChurchToolsAPI(BaseAPI):
                 '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
             )
             # Not `_parse()`: the `except` below degrades to an empty tag list.
-            result = SongsData(**r.json())
+            result = SongsData.model_validate(r.json())
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             logger.warning('Failed to get tags for song #%s: %s', song_id, e)
             return []
@@ -565,7 +565,7 @@ class ChurchToolsAPI(BaseAPI):
         try:
             r = self._get(api_url, params={'page': str(page), **params})
             # Not `_parse()`: the `except` below may recover an event without songs.
-            return SongsData(**r.json())
+            return SongsData.model_validate(r.json())
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             if (
                 event
@@ -635,7 +635,7 @@ class ChurchToolsAPI(BaseAPI):
     def get_song(self, song_id: int) -> Song:
         # Not `_parse()`: `_song_files()` catches the error to skip just this song.
         r = self._get(f'/api/songs/{song_id}')
-        result = SongData(**r.json())
+        result = SongData.model_validate(r.json())
         return result.data
 
     def _get_calendars(self) -> typing.Generator[Calendar]:
@@ -661,7 +661,7 @@ class ChurchToolsAPI(BaseAPI):
             raise
         try:
             # Not `_parse()`: the `except` below skips just this person.
-            result = PersonsData(**r.json())
+            result = PersonsData.model_validate(r.json())
         except pydantic.ValidationError as e:
             logger.warning('Skipping unparsable data of person #%s: %s', person_id, e)
             return None

@@ -96,7 +96,7 @@ class ImmichAPI(BaseAPI):
         try:
             r = self._get('/api/api-keys/me')
             # Not `_parse()`: the messages below add the base URL and token hints.
-            return Permissions(**r.json())
+            return Permissions.model_validate(r.json())
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
@@ -198,7 +198,7 @@ class ImmichAPI(BaseAPI):
         }
         # Not `_parse()`: `upload_media_file()` catches the error to skip one file.
         r = self._post('/api/assets/bulk-upload-check', json=payload)
-        result = AssetBulkUploadCheckResults(**r.json())
+        result = AssetBulkUploadCheckResults.model_validate(r.json())
         if result.results[0].action == AssetUploadAction.REJECT:
             fn = filename.name
             match result.results[0].reason:
@@ -230,7 +230,7 @@ class ImmichAPI(BaseAPI):
             files = {'assetData': (filename.name, fd, mime_type or 'image/jpeg')}
             # Not `_parse()`, see `_media_file_exists_or_rejected()`.
             r = self._post('/api/assets', data=data, files=files)
-            return AssetMediaResponse(**r.json()).id
+            return AssetMediaResponse.model_validate(r.json()).id
 
     def upload_media_file(self, filename: str) -> None:
         if (
