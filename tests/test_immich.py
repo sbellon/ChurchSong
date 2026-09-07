@@ -234,6 +234,19 @@ def test_tag_enumeration_is_skipped_without_permission(
     assert 'tag enumeration' in caplog.text
 
 
+def test_tag_enumeration_reports_an_off_shape_answer(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    with pytest.raises(CliError, match='/api/tags') as excinfo:
+        make_immich_api(
+            mocked_responses,
+            ['asset.upload', 'tag.read'],
+            tags=['Service'],
+            known_tags=[{'id': 't1'}],  # a tag without a name
+        )
+    assert 'Immich' in str(excinfo.value)
+
+
 def test_upload_skips_unsupported_files(
     immich_api: ImmichAPI,
     mocked_responses: responses.RequestsMock,

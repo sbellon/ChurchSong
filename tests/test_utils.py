@@ -81,7 +81,9 @@ class FakeAPI(BaseAPI):
     _headers: dict[str, str] = {}  # noqa: RUF012 (only ever read, never mutated)
 
     def __init__(self, *, persist_cookies: bool = True) -> None:
-        super().__init__(logging.getLogger('test'), persist_cookies=persist_cookies)
+        super().__init__(
+            logging.getLogger('test'), 'FakeService', persist_cookies=persist_cookies
+        )
 
 
 @pytest.mark.parametrize('persist_cookies', [True, False])

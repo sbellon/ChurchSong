@@ -7,9 +7,13 @@ import http.cookiejar
 import typing
 import urllib.parse
 
+import pydantic
 import requests
 import requests.adapters
+import requests.exceptions
 import urllib3.util
+
+from churchsong.utils import CliError
 
 if typing.TYPE_CHECKING:
     import logging
@@ -109,8 +113,11 @@ class BaseAPI:
     _base_url: str
     _headers: dict[str, str]
 
-    def __init__(self, log: logging.Logger, *, persist_cookies: bool = True) -> None:
+    def __init__(
+        self, log: logging.Logger, service: str, *, persist_cookies: bool = True
+    ) -> None:
         self._log = log
+        self._service = service
         # Reuse one connection for all requests of an API instead of paying for a
         # TCP and TLS handshake per request. The authentication headers are
         # deliberately *not* put onto the session: per-request `headers` are merged
@@ -132,6 +139,27 @@ class BaseAPI:
                 http.cookiejar.DefaultCookiePolicy(allowed_domains=[])
             )
         atexit.register(self._session.close)
+
+    def _parse[T: pydantic.BaseModel](
+        self, model: type[T], r: requests.Response, api_url: str
+    ) -> T:
+        """Parse a response body, or fail with a `CliError` naming the endpoint.
+
+        For a call whose failure has no recovery. Where a caller catches the
+        `pydantic.ValidationError` to degrade instead, parse without this.
+        """
+        try:
+            # Not `model(**r.json())`: that raises an uncaught `TypeError` on a JSON
+            # body that is not an object, and root models take no keyword arguments.
+            return model.model_validate(r.json())
+        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
+            # The request itself worked, and `_fetch_permissions()` has already proven
+            # the base URL good, so this is the service answering something the models
+            # do not know - most likely an update on its side. Name the endpoint, as
+            # the exception message alone does not say who was asked.
+            msg = f'Unexpected answer from {self._service} for "{api_url}": {e}'
+            self._log.error(msg)
+            raise CliError(msg) from None
 
     def _request(  # noqa: PLR0913
         self,
