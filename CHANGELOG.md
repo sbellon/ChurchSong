@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- fixed the walk over the song list never ending if ChurchTools keeps answering the same page
 - fixed raw traceback instead of an error message on an unexpected ChurchTools or Immich answer
 - fixed a song sheet that is not a valid PDF being added to one of the two sheets only, which made the two sheets number the songs differently
 - fixed a single person the API token may not read costing the whole service team information of the schedule and the slides
