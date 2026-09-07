@@ -596,28 +596,40 @@ class ChurchToolsAPI(BaseAPI):
             params = {'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
             require_tags = False  # Tags are already included in the result by default.
 
-        def inner_generator(page: SongsData) -> typing.Generator[Song]:
+        def inner_generator(page: SongsData, page_no: int) -> typing.Generator[Song]:
             while True:
+                pagination = page.meta.pagination
+                if pagination and pagination.current != page_no:
+                    # The only progress this loop makes is the page number it asks
+                    # for, so a server that keeps answering another page - a caching
+                    # proxy, a gateway dropping the query parameter - would keep it
+                    # running forever. Stop before yielding the same songs twice.
+                    logger.warning(
+                        'ChurchTools answered page %s when page %s was requested, '
+                        'stopping the walk over the song list',
+                        pagination.current,
+                        page_no,
+                    )
+                    return
                 for song in page.data:
                     if require_tags and not song.tags:
                         song.tags = self._get_song_tags(song.id)
                     yield song
-                pagination = page.meta.pagination
                 if not pagination or pagination.current >= pagination.last_page:
                     return
-                page = self._get_songs_page(
-                    api_url, pagination.current + 1, params, event
-                )
+                page_no += 1
+                page = self._get_songs_page(api_url, page_no, params, event)
 
         # The first page is fetched eagerly: its pagination metadata carries the total
         # number of songs the caller needs for its progress bar, and a failure has to
         # surface here instead of from within the generator.
-        first_page = self._get_songs_page(api_url, 1, params, event)
+        first_page_no = 1
+        first_page = self._get_songs_page(api_url, first_page_no, params, event)
         return (
             first_page.meta.pagination.total
             if first_page.meta.pagination
             else first_page.meta.count,
-            inner_generator(first_page),
+            inner_generator(first_page, first_page_no),
         )
 
     def get_song(self, song_id: int) -> Song:

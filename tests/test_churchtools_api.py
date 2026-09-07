@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import datetime
+import itertools
 import logging
 import typing
 
@@ -221,6 +222,45 @@ def test_get_songs_iterates_over_all_pages(
     names = [song.name for song in songs]
     assert total == 3
     assert names == ['Amazing Grace', 'How Great Thou Art', 'Be Thou My Vision']
+
+
+def test_get_songs_stops_when_the_server_does_not_advance_the_page(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A server that answers every request with page 1 - a caching proxy, a gateway
+    # dropping the `page` parameter - used to keep the walk asking for page 2 forever,
+    # yielding the same songs over and over without ever failing.
+    for page in (1, 2):
+        mocked_responses.get(
+            f'{CHURCHTOOLS_BASE_URL}/api/songs',
+            json={
+                'data': [make_song_json(1, 'Amazing Grace')],
+                'meta': {
+                    'count': 1,
+                    'pagination': {'total': 2, 'limit': 1, 'current': 1, 'lastPage': 2},
+                },
+            },
+            match=[
+                matchers.query_param_matcher(
+                    {
+                        'page': str(page),
+                        'include': 'tags',
+                        'limit': str(MAX_SONGS_PAGE_SIZE),
+                    }
+                )
+            ],
+        )
+
+    _total, songs = churchtools_api.get_songs()
+    with caplog.at_level(logging.WARNING):
+        # Bounded on purpose: without the fix this test must fail rather than hang.
+        # Getting fewer than the 10 asked for proves the generator ended by itself.
+        names = [song.name for song in itertools.islice(songs, 10)]
+    assert names == ['Amazing Grace']
+    assert len(mocked_responses.calls) == 1 + 2  # permissions + page 1 + page 2
+    assert 'page 1 when page 2 was requested' in caplog.text
 
 
 def test_get_songs_survives_a_rate_limited_page(
