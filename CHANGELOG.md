@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (platformdirs, pypdf)
+
 ## 0.13.1 (2026-09-07)
 
 ### Fixed
