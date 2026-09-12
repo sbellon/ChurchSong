@@ -299,7 +299,22 @@ class Configuration(TomlConfig):
         BaseModel.package_name.lower()
     )
 
-    def __init__(self) -> None:  # noqa: PLR0915, C901
+    # Both handlers below format their records the same way, and the one that replaces
+    # the other is set up a step later.
+    log_formatter: typing.ClassVar[typing.Final[logging.Formatter]] = logging.Formatter(
+        '%(asctime)s - %(levelname)-8s - %(name)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
+    def __init__(self) -> None:
+        # Order is important here, especially the for the first three steps.
+        log_to_stderr = self._setup_bootstrap_logging()
+        self._load_toml()
+        self._switch_to_file_logging(log_to_stderr)
+        self._ensure_output_dir()
+        self._install_translations()
+
+    def _setup_bootstrap_logging(self) -> logging.Handler:
         # Constructing a second Configuration in one process re-does the setup below
         # instead of logging everything twice through the handlers of the first one.
         for handler in self.log.handlers[:]:
@@ -307,16 +322,14 @@ class Configuration(TomlConfig):
             handler.close()  # the rotating file handler keeps the log file open
 
         self.log.setLevel(logging.INFO)
-        log_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)-8s - %(name)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S',
-        )
 
-        # Log to stderr before we have the log_file name from the .ini file.
+        # Log to stderr before we have the log_file name from the .toml file.
         log_to_stderr = logging.StreamHandler()
-        log_to_stderr.setFormatter(log_formatter)
+        log_to_stderr.setFormatter(self.log_formatter)
         self.log.addHandler(log_to_stderr)
+        return log_to_stderr
 
+    def _load_toml(self) -> None:
         # Read the configuration .toml file. Unlike everywhere else, the failures
         # below are not logged before they are raised: the log level and the log file
         # come out of the very file that could not be read, so a record would still go
@@ -347,7 +360,7 @@ class Configuration(TomlConfig):
             logger.fatal(e, exc_info=True)
             raise
 
-        # Switch to configured logging.
+    def _switch_to_file_logging(self, log_to_stderr: logging.Handler) -> None:
         self.log.setLevel(self.general.log_level)
         log_file = self.general.log_file or self.data_dir / pathlib.Path(
             f'./Logs/{self.package_name}.log'
@@ -361,11 +374,11 @@ class Configuration(TomlConfig):
             msg = f'Cannot create log file "{log_file}": {e}'
             logger.error(msg)
             raise CliError(msg) from None
-        log_to_file.setFormatter(log_formatter)
+        log_to_file.setFormatter(self.log_formatter)
         self.log.addHandler(log_to_file)
         self.log.removeHandler(log_to_stderr)
 
-        # Ensure the configured output directory exists from now on.
+    def _ensure_output_dir(self) -> None:
         try:
             self.songbeamer.output_dir.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -376,7 +389,7 @@ class Configuration(TomlConfig):
             logger.error(msg)
             raise CliError(msg) from None
 
-        # Setup locale specific settings and translations.
+    def _install_translations(self) -> None:
         try:
             locale.setlocale(locale.LC_TIME, (locale.getlocale()[0], 'utf-8'))
             cc = loc[0:2] if (loc := locale.getlocale()[0]) else 'en'
