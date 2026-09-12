@@ -118,8 +118,12 @@ compatibility patches go — dated comments mark the existing ones.
 **Permissions are two-tier**, in both clients: each constructor fetches the token's permissions
 once and hard-asserts what basic operation needs (`CliError`), while every optional feature calls
 `has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
-new optional features that way rather than by asserting. The fetch/assert/`has_permissions` trio is
-duplicated per client because the two payloads differ in shape.
+new optional features that way rather than by asserting. The whole trio lives in `BaseAPI`, together
+with the fetch error ladder (`_fetch_config_checked()`, which keeps the "Did you configure ...?"
+hints `_parse()` deliberately omits). What a client supplies is its endpoint, its permission model,
+and — as `BaseAPI._permissions` is typed by the `PermissionSet` protocol — that model's
+`get_permission()`: a dotted-path walk over a pydantic tree for ChurchTools, a flat membership test
+for Immich. The payload shape is known where it is parsed, not in the client.
 
 A ChurchTools `view *` permission is often a *list of ids*, not a boolean, so holding it does not
 mean seeing every object — and the **element type names the axis those ids scope** (`CalendarID`,
