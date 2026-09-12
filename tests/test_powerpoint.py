@@ -38,8 +38,9 @@ JPEG_1PX = base64.b64decode(
     'AAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
 )
 
-# What `get_service_info()` hands over for placeholders nobody is assigned to.
-NOBODY = {Person('Nobody', 'Nobody')}
+# The placeholder person `get_service_info()` hands over for services nobody is
+# assigned to.
+NOBODY = Person('Nobody', 'Nobody')
 
 
 def make_services_template(

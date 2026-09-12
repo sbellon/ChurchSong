@@ -413,22 +413,22 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     )
 
     event = make_churchtools_event(churchtools_api, config)
-    service_items, service_leads, nobody = event.get_service_info()
+    service_info = event.get_service_info()
 
-    assert [(item.type, item.title) for item in service_items] == [
+    assert [(item.type, item.title) for item in service_info.items] == [
         (AgendaItemType.SERVICE, 'Music: Vol N.'),
         (AgendaItemType.SERVICE, 'Preaching: Jane Doe'),
         (AgendaItemType.SERVICE, 'Welcome: Nobody'),
     ]
-    (preacher,) = service_leads['Preaching']
+    (preacher,) = service_info.leads['Preaching']
     assert preacher.fullname == 'Jane Doe'
     assert preacher.shortname == 'JD'
-    (musician,) = service_leads['Music']
+    (musician,) = service_info.leads['Music']
     assert musician.shortname == 'Vol'
-    # The "nobody" entry backs template placeholders for services that nobody is
+    # The "nobody" person backs template placeholders for services that nobody is
     # assigned to; it comes separately as it is not a service itself.
-    assert nobody == {Person('Nobody', 'Nobody')}
-    assert str(None) not in service_leads
+    assert service_info.nobody == Person('Nobody', 'Nobody')
+    assert str(None) not in service_info.leads
 
 
 @pytest.mark.parametrize(
@@ -470,13 +470,13 @@ def test_get_service_info_falls_back_for_an_unreadable_person(  # noqa: PLR0913,
 
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.WARNING):
-        service_items, _service_leads, _nobody = event.get_service_info()
+        service_info = event.get_service_info()
 
     assert 'person #5' in caplog.text
     assert reason in caplog.text
     # The event service carries the name ChurchTools shows in the planning UI, so a
     # person that cannot be read costs the nickname, not the service team block.
-    assert [(item.type, item.title) for item in service_items] == [
+    assert [(item.type, item.title) for item in service_info.items] == [
         (AgendaItemType.SERVICE, 'Music: Volunteer Name'),
         (AgendaItemType.SERVICE, 'Preaching: Jane Doe'),
     ]
@@ -1320,9 +1320,11 @@ def test_get_service_info_merges_several_persons_of_one_service(
         json={'data': [{'id': 1, 'name': 'Music'}]},
     )
     event = make_churchtools_event(churchtools_api, config)
-    service_items, service_leads, _nobody = event.get_service_info()
-    assert [item.title for item in service_items] == ['Music: Jane Doe, John Newton']
-    assert {person.shortname for person in service_leads['Music']} == {'Jane', 'John'}
+    service_info = event.get_service_info()
+    assert [item.title for item in service_info.items] == [
+        'Music: Jane Doe, John Newton'
+    ]
+    assert {p.shortname for p in service_info.leads['Music']} == {'Jane', 'John'}
 
 
 @pytest.mark.parametrize(
@@ -1355,13 +1357,13 @@ def test_get_service_info_skips_a_service_without_a_name(
 
     event = make_churchtools_event(churchtools_api, config)
     with caplog.at_level(logging.WARNING):
-        service_items, service_leads, nobody = event.get_service_info()
+        service_info = event.get_service_info()
 
     # John Newton neither pollutes the Schedule.col with a `None: ...` line ...
-    assert [item.title for item in service_items] == ['Music: Jane Doe']
-    assert list(service_leads) == ['Music']
+    assert [item.title for item in service_info.items] == ['Music: Jane Doe']
+    assert list(service_info.leads) == ['Music']
     # ... nor becomes the person every unassigned placeholder falls back to.
-    assert nobody == {Person('Nobody', 'Nobody')}
+    assert service_info.nobody == Person('Nobody', 'Nobody')
     assert 'Skipping service #2 without a name' in caplog.text
 
 
@@ -1385,11 +1387,11 @@ def test_get_service_info_takes_the_nobody_name_from_the_replacements(
     )
 
     event = make_churchtools_event(churchtools_api, config)
-    service_items, service_leads, nobody = event.get_service_info()
+    service_info = event.get_service_info()
 
-    assert [item.title for item in service_items] == ['Welcome: Unassigned']
-    assert service_leads['Welcome'] == {Person('Unassigned', 'Unassigned')}
-    assert nobody == {Person('Unassigned', 'Unassigned')}
+    assert [item.title for item in service_info.items] == ['Welcome: Unassigned']
+    assert service_info.leads['Welcome'] == {Person('Unassigned', 'Unassigned')}
+    assert service_info.nobody == Person('Unassigned', 'Unassigned')
 
 
 def test_download_file_streams_the_body_instead_of_buffering_it(

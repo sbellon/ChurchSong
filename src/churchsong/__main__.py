@@ -37,7 +37,7 @@ from churchsong.utils.date import (
 )
 
 if typing.TYPE_CHECKING:
-    from churchsong.churchtools.events import Item, Person
+    from churchsong.churchtools.events import ServiceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -308,17 +308,15 @@ def _handle_agenda(
     cte = ChurchToolsEvent(cta, event, config)
     optional_steps = _OptionalSteps()
 
-    service_items: list[Item] = []
-    service_leads: dict[str, set[Person]] = {}
-    nobody: set[Person] = set()
+    service_info: ServiceInfo | None = None
     with optional_steps.guard('service team information'):
-        service_items, service_leads, nobody = cte.get_service_info()
+        service_info = cte.get_service_info()
 
     if selection.slides:
-        if config.songbeamer.powerpoint.services.template_pptx:
+        if service_info and config.songbeamer.powerpoint.services.template_pptx:
             with optional_steps.guard('service slides'):
                 pps = PowerPointServices(config)
-                pps.create(service_leads, nobody)
+                pps.create(service_info.leads, service_info.nobody)
                 pps.save()
         if (
             config.songbeamer.powerpoint.appointments.template_pptx
@@ -353,7 +351,7 @@ def _handle_agenda(
         sb.create_schedule(
             event_date=event.start_date,
             agenda_items=agenda_items,
-            service_items=service_items,
+            service_items=service_info.items if service_info else [],
         )
         sb.launch()
 
