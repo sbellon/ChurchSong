@@ -17,7 +17,7 @@ import pytest
 import requests
 
 import churchsong.configuration
-from churchsong.configuration import BaseModel, Configuration
+from churchsong.configuration import AgendaItemType, BaseModel, Configuration
 from churchsong.utils import CliError
 from tests.conftest import FakeConfiguration, make_config
 
@@ -74,9 +74,9 @@ def test_toml_sections_map_onto_snake_case_fields() -> None:
     config = FakeConfiguration(**tomllib.loads(MINIMAL_TOML))
     assert config.general.log_level == 'INFO'
     assert config.churchtools.base_url == 'https://churchtools.test'
-    assert config.songbeamer.color.Song.color == 'clGreen'
-    assert config.songbeamer.color.Song.bgcolor == 'clYellow'
-    assert config.songbeamer.color.Header.color == 'clBlack'
+    assert config.songbeamer.color[AgendaItemType.SONG].color == 'clGreen'
+    assert config.songbeamer.color[AgendaItemType.SONG].bgcolor == 'clYellow'
+    assert config.songbeamer.color[AgendaItemType.HEADER].color == 'clBlack'
 
 
 def test_envvars_are_expanded_during_validation(

@@ -37,6 +37,15 @@ class CalendarSubtitleField(enum.StrEnum):
     ADDRESS = 'address'
 
 
+class AgendaItemType(enum.StrEnum):
+    SERVICE = 'Service'
+    HEADER = 'Header'
+    NORMAL = 'Normal'
+    SONG = 'Song'
+    FILE = 'File'
+    LINK = 'Link'
+
+
 class BaseModel(pydantic.BaseModel):
     # Configure config model to treat all fields as read-only.
     model_config = pydantic.ConfigDict(frozen=True)
@@ -209,15 +218,18 @@ class SongBeamerColorItemConfig(BaseModel):
     bgcolor: str | None = None
 
 
-class SongBeamerColorConfig(BaseModel):
-    # Items are deliberately capitalized here, as they have to match ItemType from
-    # churchsong.churchtools.events which is capitalized for consistency.
-    Service: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
-    Header: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
-    Normal: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
-    Song: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
-    Link: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
-    File: SongBeamerColorItemConfig = SongBeamerColorItemConfig()
+class SongBeamerColorConfig(
+    pydantic.RootModel[dict[AgendaItemType, SongBeamerColorItemConfig]]
+):
+    # Configure config model to treat all fields as read-only.
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    # Instead of explicitly listing item types here, use the `AgendaItemType` to
+    # dynamically define which keys are possible in the configuration.
+    root: dict[AgendaItemType, SongBeamerColorItemConfig] = {}
+
+    def __getitem__(self, item_type: AgendaItemType) -> SongBeamerColorItemConfig:
+        return self.root.get(item_type, SongBeamerColorItemConfig())
 
 
 class SongBeamerConfig(BaseModel):
@@ -266,9 +278,14 @@ def format_validation_error(e: pydantic.ValidationError) -> str:
     # Pydantic reports the location of an error in terms of the aliases, which are
     # exactly the PascalCase section and key names as written in the TOML file, so the
     # parts can be joined as-is; only list indices need bracket instead of dot syntax.
+    # A rejected mapping key - a key under [SongBeamer.Color] that is no AgendaItemType
+    # - additionally gets a literal "[key]" component appended, which would only repeat
+    # that the preceding component is the offending key.
     def location(loc: tuple[int | str, ...]) -> str:
         return ''.join(
-            f'[{item}]' if isinstance(item, int) else f'.{item}' for item in loc
+            f'[{item}]' if isinstance(item, int) else f'.{item}'
+            for item in loc
+            if item != '[key]'
         ).lstrip('.')
 
     return '\n'.join(f'  {location(err["loc"])}: {err["msg"]}' for err in e.errors())

@@ -23,6 +23,7 @@ import reportlab.platypus
 import requests
 
 from churchsong.churchtools import EventAgendaItemType, EventFileDomainType
+from churchsong.configuration import AgendaItemType
 from churchsong.utils.file import safe_filename
 from churchsong.utils.http import DOWNLOAD_CHUNK_SIZE
 from churchsong.utils.progress import Progress
@@ -48,19 +49,9 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# The values of ItemType need to match those in configuration.SongBeamerColorConfig:
-class ItemType(enum.StrEnum):
-    SERVICE = 'Service'
-    HEADER = 'Header'
-    NORMAL = 'Normal'
-    SONG = 'Song'
-    FILE = 'File'
-    LINK = 'Link'
-
-
 @dataclasses.dataclass
 class Item:
-    type: ItemType
+    type: AgendaItemType
     title: str
     filename: str | None = None
 
@@ -450,10 +441,12 @@ class ChurchToolsEvent:
                                 )
                                 if immich:
                                     immich.upload_media_file(filename)
-                                event_file = Item(ItemType.FILE, item.title, filename)
+                                event_file = Item(
+                                    AgendaItemType.FILE, item.title, filename
+                                )
                             case EventFileDomainType.LINK:
                                 event_file = Item(
-                                    ItemType.LINK, item.title, item.frontend_url
+                                    AgendaItemType.LINK, item.title, item.frontend_url
                                 )
                         agenda_items.append(event_file)
                     except (requests.exceptions.RequestException, OSError) as e:
@@ -465,9 +458,9 @@ class ChurchToolsEvent:
                     try:
                         match item.type:
                             case EventAgendaItemType.HEADER:
-                                agenda_item = Item(ItemType.HEADER, item.title)
+                                agenda_item = Item(AgendaItemType.HEADER, item.title)
                             case EventAgendaItemType.TEXT:
-                                agenda_item = Item(ItemType.NORMAL, item.title)
+                                agenda_item = Item(AgendaItemType.NORMAL, item.title)
                             case EventAgendaItemType.SONG:
                                 if item.song:
                                     # item.title may not be the song title itself,
@@ -491,7 +484,9 @@ class ChurchToolsEvent:
                                 else:
                                     logger.warning('Song event item without song data')
                                     filename = None
-                                agenda_item = Item(ItemType.SONG, item.title, filename)
+                                agenda_item = Item(
+                                    AgendaItemType.SONG, item.title, filename
+                                )
                         agenda_items.append(agenda_item)
                     except (requests.exceptions.RequestException, OSError) as e:
                         logger.warning(
@@ -539,7 +534,7 @@ class ChurchToolsEvent:
                 service_leads[service_name].add(person)
         service_items = [
             Item(
-                ItemType.SERVICE,
+                AgendaItemType.SERVICE,
                 f'{service}: {", ".join(sorted(p.fullname for p in persons))}',
             )
             for service, persons in sorted(service_leads.items())

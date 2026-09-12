@@ -141,8 +141,13 @@ the `ImmichAPI` it is given, if any. It returns `(list[Item], SongSheets)` — t
 the internal agenda representation shared with the SongBeamer writer, and *uploading* the sheets
 is deliberately left to the caller, which does it as a guarded optional step.
 
-**`ItemType` values must stay in sync with the field names of `SongBeamerColorConfig`** — the color
-lookup is `getattr(colors, item.type.value)`, which is why both are capitalized.
+**`AgendaItemType` lives in `configuration.py`**, next to `CalendarSubtitleField`, although the agenda
+pipeline is what produces it: `SongBeamerColorConfig` is a
+`RootModel[dict[AgendaItemType, SongBeamerColorItemConfig]]`, so the `[SongBeamer.Color]` TOML keys *are*
+the `AgendaItemType` values (hence their capitalization), pydantic rejects a key that is no item type, and
+`colors[item.type]` is a total, statically typed lookup. There is no second list of per-type fields
+to keep in sync, so adding an `AgendaItemType` needs no other change. `Item` and `Person` stay in
+`churchtools/events.py`.
 
 **SongBeamer output** (`songbeamer/__init__.py`) writes `Schedule.col`, a Delphi-style object text
 format. The module docstring documents the grammar and the `'text'#252'more'` non-ASCII escaping;
