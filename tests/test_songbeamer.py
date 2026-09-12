@@ -11,7 +11,7 @@ import typing
 import pytest
 
 import churchsong.songbeamer
-from churchsong.churchtools.events import Item, ItemType
+from churchsong.churchtools.events import AgendaItemType, Item
 from churchsong.configuration import SongBeamerColorConfig, SongBeamerColorItemConfig
 from churchsong.songbeamer import Agenda, AgendaItem, SongBeamer
 from churchsong.utils import CliError
@@ -116,8 +116,8 @@ def test_create_schedule_keeps_one_line_per_grammar_element(
     SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
         event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
         agenda_items=[
-            Item(ItemType.SONG, 'Amazing\nGrace'),
-            Item(ItemType.HEADER, ' '),
+            Item(AgendaItemType.SONG, 'Amazing\nGrace'),
+            Item(AgendaItemType.HEADER, ' '),
         ],
         service_items=[],
     )
@@ -160,11 +160,17 @@ def test_filename_youtube_links_are_rewritten_to_embed_urls(
 
 def test_agenda_maps_item_type_to_configured_colors() -> None:
     colors = SongBeamerColorConfig(
-        Song=SongBeamerColorItemConfig(color='clGreen', bgcolor='clYellow')
+        {
+            AgendaItemType.SONG: SongBeamerColorItemConfig(
+                color='clGreen', bgcolor='clYellow'
+            )
+        }
     )
     agenda = Agenda(colors=colors)
-    agenda += Item(type=ItemType.HEADER, title='Welcome')
-    agenda += Item(type=ItemType.SONG, title='Amazing Grace', filename='grace.sng')
+    agenda += Item(type=AgendaItemType.HEADER, title='Welcome')
+    agenda += Item(
+        type=AgendaItemType.SONG, title='Amazing Grace', filename='grace.sng'
+    )
     assert agenda[0].color == 'clBlack'
     assert agenda[0].bgcolor is None
     assert agenda[1].color == 'clGreen'
@@ -174,7 +180,7 @@ def test_agenda_maps_item_type_to_configured_colors() -> None:
 
 def test_agenda_str_produces_schedule_col_document() -> None:
     agenda = Agenda(colors=SongBeamerColorConfig())
-    agenda += Item(type=ItemType.SONG, title='Amazing Grace')
+    agenda += Item(type=AgendaItemType.SONG, title='Amazing Grace')
     text = str(agenda)
     assert text.startswith('object AblaufPlanItems: TAblaufPlanItems\n  items = <')
     assert "Caption = 'Amazing Grace'" in text
@@ -216,10 +222,10 @@ def test_create_schedule_assembles_slides_agenda_and_services(
     SongBeamer(config).create_schedule(
         event_date=event_date,
         agenda_items=[
-            Item(ItemType.SONG, 'Amazing Grace', filename='grace.sng'),
-            Item(ItemType.HEADER, 'Infos'),
+            Item(AgendaItemType.SONG, 'Amazing Grace', filename='grace.sng'),
+            Item(AgendaItemType.HEADER, 'Infos'),
         ],
-        service_items=[Item(ItemType.SERVICE, 'Music: Jane Doe')],
+        service_items=[Item(AgendaItemType.SERVICE, 'Music: Jane Doe')],
     )
     content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
     captions = [item.caption for item in AgendaItem.parse(content)]
@@ -260,7 +266,7 @@ def test_create_schedule_inserts_every_slide_matching_the_same_item(
     )
     SongBeamer(config).create_schedule(
         event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-        agenda_items=[Item(ItemType.HEADER, 'Infos')],
+        agenda_items=[Item(AgendaItemType.HEADER, 'Infos')],
         service_items=[],
     )
     content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
@@ -296,7 +302,7 @@ def test_create_schedule_does_not_let_an_inserted_slide_trigger_another_one(
     )
     SongBeamer(config).create_schedule(
         event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-        agenda_items=[Item(ItemType.HEADER, 'Infos')],
+        agenda_items=[Item(AgendaItemType.HEADER, 'Infos')],
         service_items=[],
     )
     content = (tmp_path / 'Schedule.col').read_text(encoding='utf-8')
@@ -325,7 +331,7 @@ def test_create_schedule_warns_about_an_unparsable_slide(
     with caplog.at_level(logging.WARNING):
         SongBeamer(config).create_schedule(
             event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
     assert 'unparsable content of slide "Opening"' in caplog.text
@@ -358,8 +364,8 @@ def test_create_schedule_warns_once_about_the_broken_block_of_a_slide_only(
         SongBeamer(config).create_schedule(
             event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
             agenda_items=[
-                Item(ItemType.HEADER, 'Infos'),
-                Item(ItemType.HEADER, 'More Infos'),
+                Item(AgendaItemType.HEADER, 'Infos'),
+                Item(AgendaItemType.HEADER, 'More Infos'),
             ],
             service_items=[],
         )
@@ -392,7 +398,7 @@ def test_create_schedule_does_not_warn_about_a_valid_slide(
     with caplog.at_level(logging.WARNING):
         SongBeamer(config).create_schedule(
             event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
     assert caplog.records == []
@@ -404,8 +410,8 @@ def test_create_schedule_does_not_warn_about_a_valid_slide(
 
 def test_agenda_is_iterable() -> None:
     agenda = Agenda(colors=SongBeamerColorConfig())
-    agenda += Item(type=ItemType.HEADER, title='Welcome')
-    agenda += Item(type=ItemType.SONG, title='Amazing Grace')
+    agenda += Item(type=AgendaItemType.HEADER, title='Welcome')
+    agenda += Item(type=AgendaItemType.SONG, title='Amazing Grace')
     assert [item.caption for item in agenda] == ['Welcome', 'Amazing Grace']
 
 
@@ -511,7 +517,7 @@ def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
     with pytest.raises(CliError, match='Cannot write'):
         SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
             event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-            agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+            agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
 
@@ -522,7 +528,7 @@ def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
 def test_create_schedule_writes_crlf_line_endings(tmp_path: pathlib.Path) -> None:
     SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
         event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
-        agenda_items=[Item(ItemType.SONG, 'Amazing Grace')],
+        agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
         service_items=[],
     )
     # SongBeamer's own line ending, independent of the platform generating it.

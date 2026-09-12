@@ -16,7 +16,12 @@ from responses import matchers
 
 import churchsong.churchtools.events
 from churchsong.churchtools import ChurchToolsAPI, EventShort
-from churchsong.churchtools.events import ChurchToolsEvent, ItemType, PdfSheet, Person
+from churchsong.churchtools.events import (
+    AgendaItemType,
+    ChurchToolsEvent,
+    PdfSheet,
+    Person,
+)
 from churchsong.immich import ImmichAPI
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
@@ -205,13 +210,13 @@ def test_download_agenda_items_full_pipeline(
     items, song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
 
     assert [(item.type, item.title) for item in items] == [
-        (ItemType.FILE, 'Notes'),
-        (ItemType.LINK, 'Livestream'),
-        (ItemType.HEADER, 'Welcome'),
-        (ItemType.NORMAL, 'Announcements'),
-        (ItemType.SONG, 'Amazing Grace'),
+        (AgendaItemType.FILE, 'Notes'),
+        (AgendaItemType.LINK, 'Livestream'),
+        (AgendaItemType.HEADER, 'Welcome'),
+        (AgendaItemType.NORMAL, 'Announcements'),
+        (AgendaItemType.SONG, 'Amazing Grace'),
         # song title taken from song, not agenda (would be 'Song 1' otherwise)
-        (ItemType.SONG, 'Broken Song'),
+        (AgendaItemType.SONG, 'Broken Song'),
     ]
     assert items[5].filename is None
     assert items[1].filename == 'https://stream.test/live'
@@ -311,7 +316,7 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
 
     photo = tmp_path / 'Files' / 'IMG_1234.jpg'
     assert [(item.type, item.filename) for item in items] == [
-        (ItemType.FILE, str(photo))
+        (AgendaItemType.FILE, str(photo))
     ]
     assert not photo.exists()
     # The file that was never written must not abort the event: Immich sees only
@@ -411,9 +416,9 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     service_items, service_leads, nobody = event.get_service_info()
 
     assert [(item.type, item.title) for item in service_items] == [
-        (ItemType.SERVICE, 'Music: Vol N.'),
-        (ItemType.SERVICE, 'Preaching: Jane Doe'),
-        (ItemType.SERVICE, 'Welcome: Nobody'),
+        (AgendaItemType.SERVICE, 'Music: Vol N.'),
+        (AgendaItemType.SERVICE, 'Preaching: Jane Doe'),
+        (AgendaItemType.SERVICE, 'Welcome: Nobody'),
     ]
     (preacher,) = service_leads['Preaching']
     assert preacher.fullname == 'Jane Doe'
@@ -472,8 +477,8 @@ def test_get_service_info_falls_back_for_an_unreadable_person(  # noqa: PLR0913,
     # The event service carries the name ChurchTools shows in the planning UI, so a
     # person that cannot be read costs the nickname, not the service team block.
     assert [(item.type, item.title) for item in service_items] == [
-        (ItemType.SERVICE, 'Music: Volunteer Name'),
-        (ItemType.SERVICE, 'Preaching: Jane Doe'),
+        (AgendaItemType.SERVICE, 'Music: Volunteer Name'),
+        (AgendaItemType.SERVICE, 'Preaching: Jane Doe'),
     ]
 
 
@@ -1160,9 +1165,9 @@ def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
         event = make_churchtools_event(churchtools_api, config)
         items, _song_sheets = event.download_agenda_items(immich=None)
     assert [item.type for item in items] == [
-        ItemType.LINK,
-        ItemType.HEADER,
-        ItemType.NORMAL,
+        AgendaItemType.LINK,
+        AgendaItemType.HEADER,
+        AgendaItemType.NORMAL,
     ]
     assert [item.title for item in items] == ['Arrangement', 'Welcome', 'Prayer']
     assert 'Unknown file domain type "song_arrangement"' in caplog.text

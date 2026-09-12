@@ -10,8 +10,8 @@ import typing
 
 import rich
 
-from churchsong.churchtools.events import Item, ItemType
-from churchsong.configuration import Configuration
+from churchsong.churchtools.events import Item
+from churchsong.configuration import AgendaItemType, Configuration
 from churchsong.utils import CliError, expand_envvars
 from churchsong.utils.file import atomic_replace
 
@@ -250,7 +250,7 @@ class Agenda:
             case AgendaItem():
                 self._agenda_items.append(other)
             case Item():
-                color_attr = getattr(self._colors, other.type.value)
+                color_attr = self._colors[other.type]
                 self._agenda_items.append(
                     AgendaItem(
                         caption=other.title,
@@ -329,7 +329,7 @@ class SongBeamer:
         agenda = Agenda(colors=self._colors)
         for agenda_item in [
             Item(
-                type=ItemType.SERVICE,
+                type=AgendaItemType.SERVICE,
                 title=f'{event_date.astimezone():{self._datetime_format}}',
             ),
             *opening_items,

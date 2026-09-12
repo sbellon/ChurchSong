@@ -16,7 +16,7 @@ import typer.testing
 
 from churchsong import __main__ as cli
 from churchsong.churchtools import EventShort
-from churchsong.churchtools.events import Item, ItemType, Person
+from churchsong.churchtools.events import AgendaItemType, Item, Person
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import BaseModel, Configuration
 from churchsong.interactivescreen import DownloadSelection
@@ -47,8 +47,8 @@ def resolve_cli_annotations() -> None:
 # the assertions below look for.
 CLI_ENV = {'COLUMNS': '200'}
 
-AGENDA_ITEMS = [Item(ItemType.SONG, 'Amazing Grace')]
-SERVICE_ITEMS = [Item(ItemType.SERVICE, 'Pastor')]
+AGENDA_ITEMS = [Item(AgendaItemType.SONG, 'Amazing Grace')]
+SERVICE_ITEMS = [Item(AgendaItemType.SERVICE, 'Pastor')]
 SERVICE_LEADS = {'Pastor': {Person(fullname='John Newton', shortname='John')}}
 SERVICE_NOBODY = {Person(fullname='Nobody', shortname='Nobody')}
 
