@@ -13,13 +13,12 @@ import typing
 
 import pydantic
 import requests
-import requests.exceptions
 
-from churchsong.utils import CliError, JsonObject, JsonValue
 from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
+    from churchsong.utils import JsonObject, JsonValue
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +30,9 @@ class BaseModel(pydantic.BaseModel):
 
 class Permissions(BaseModel):
     permissions: list[str]
+
+    def get_permission(self, perm: str) -> bool:
+        return perm in self.permissions
 
 
 class AssetUploadAction(enum.StrEnum):
@@ -81,71 +83,17 @@ class ImmichAPI(BaseAPI):
             self._include_globbings = config.immich.include_globbings
             self._exclude_globbings = config.immich.exclude_globbings
 
-            self._permissions = self._fetch_permissions()
+            self._permissions = self._fetch_config_checked(
+                Permissions, '/api/api-keys/me'
+            )
             # Assert permissions that are required for basic functionality of the app.
             # Additional permissions are queried on-demand and other functionality
-            # may be disabled if permissions are missing (like nicknames or appointment
-            # slides).
+            # may be disabled if permissions are missing (like tag operations).
             self._assert_permissions('asset.upload')
 
             self._tag_ids = self._get_tag_ids(config.immich.tags)
         else:
             self._enable_immich = False
-
-    def _fetch_permissions(self) -> Permissions:
-        try:
-            r = self._get('/api/api-keys/me')
-            # Not `_parse()`: the messages below add the base URL and token hints.
-            return Permissions.model_validate(r.json())
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.MissingSchema,
-        ) as e:
-            msg = f'{e}\n\nDid you configure the URL of your Immich instance correctly?'
-            logger.error(msg)
-            raise CliError(msg) from None
-        except requests.exceptions.HTTPError as e:
-            msg = f'{e}'
-            if e.response is not None and e.response.status_code in (
-                requests.codes['forbidden'],
-                requests.codes['unauthorized'],
-            ):
-                msg += '\n\nDid you configure your Immich API token correctly?'
-            logger.error(msg)
-            raise CliError(msg) from None
-        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
-            # The request itself worked, so this is neither a transport nor a token
-            # problem: the server answered something that is not the Immich API.
-            # The exception message alone says nothing useful, hence the prefix.
-            msg = (
-                f'Unexpected answer from "{self._base_url}": {e}\n\n'
-                'Did you configure the URL of your Immich instance correctly?'
-            )
-            logger.error(msg)
-            raise CliError(msg) from None
-
-    def _get_missing_permissions(self, *required_perms: str) -> list[str]:
-        return [
-            perm for perm in required_perms if perm not in self._permissions.permissions
-        ]
-
-    def _assert_permissions(self, *required_perms: str) -> None:
-        if missing_perms := self._get_missing_permissions(*required_perms):
-            msg = 'Missing required permissions for Immich token user: {}'.format(
-                ', '.join(f'"{perm}"' for perm in missing_perms)
-            )
-            logger.error(msg)
-            raise CliError(msg) from None
-
-    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
-        missing_perms = self._get_missing_permissions(*required_perms)
-        if missing_perms and log_reason:
-            logger.warning(
-                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
-                    ', '.join(f'"{perm}"' for perm in missing_perms)
-                )
-            )
-        return not missing_perms
 
     def _create_tag(self, tagname: str) -> str | None:
         if not self.has_permissions(['tag.create'], 'tag creation'):

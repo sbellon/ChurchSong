@@ -470,8 +470,10 @@ class ChurchToolsAPI(BaseAPI):
         self._look_ahead_weeks = (
             config.songbeamer.powerpoint.appointments.look_ahead_weeks
         )
-        self._permissions = self._fetch_permissions()
 
+        self._permissions = self._fetch_config_checked(
+            PermissionsGlobalData, '/api/permissions/global'
+        )
         # Assert permissions that are required for basic functionality of the app.
         # Additional permissions are queried on-demand and other functionality
         # may be disabled if permissions are missing (like nicknames or appointment
@@ -483,66 +485,6 @@ class ChurchToolsAPI(BaseAPI):
             'churchservice:view servicegroup',
             'churchservice:view songcategory',
         )
-
-    def _fetch_permissions(self) -> PermissionsGlobalData:
-        try:
-            r = self._get('/api/permissions/global')
-            # Not `_parse()`: the messages below add the base URL and token hints.
-            return PermissionsGlobalData.model_validate(r.json())
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.MissingSchema,
-        ) as e:
-            msg = (
-                f'{e}\n\n'
-                'Did you configure the URL of your ChurchTools instance correctly?'
-            )
-            logger.error(msg)
-            raise CliError(msg) from None
-        except requests.exceptions.HTTPError as e:
-            msg = f'{e}'
-            if e.response is not None and e.response.status_code in (
-                requests.codes['forbidden'],
-                requests.codes['unauthorized'],
-            ):
-                msg += '\n\nDid you configure your ChurchTools API token correctly?'
-            logger.error(msg)
-            raise CliError(msg) from None
-        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
-            # The request itself worked, so this is neither a transport nor a token
-            # problem: the server answered something that is not the ChurchTools API.
-            # The exception message alone says nothing useful, hence the prefix.
-            msg = (
-                f'Unexpected answer from "{self._base_url}": {e}\n\n'
-                'Did you configure the URL of your ChurchTools instance correctly?'
-            )
-            logger.error(msg)
-            raise CliError(msg) from None
-
-    def _get_missing_permissions(self, *required_perms: str) -> list[str]:
-        return [
-            perm
-            for perm in required_perms
-            if not self._permissions.get_permission(perm)
-        ]
-
-    def _assert_permissions(self, *required_perms: str) -> None:
-        if missing_perms := self._get_missing_permissions(*required_perms):
-            msg = 'Missing required permissions for ChurchTools token user: {}'.format(
-                ', '.join(f'"{perm}"' for perm in missing_perms)
-            )
-            logger.error(msg)
-            raise CliError(msg) from None
-
-    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
-        missing_perms = self._get_missing_permissions(*required_perms)
-        if missing_perms and log_reason:
-            logger.warning(
-                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
-                    ', '.join(f'"{perm}"' for perm in missing_perms)
-                )
-            )
-        return not missing_perms
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         try:

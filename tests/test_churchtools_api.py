@@ -55,6 +55,17 @@ def test_init_asserts_basic_permissions(churchtools_api: ChurchToolsAPI) -> None
     assert not churchtools_api.has_permissions(['churchservice:no such permission'])
 
 
+def test_log_records_name_the_churchtools_component(
+    churchtools_api: ChurchToolsAPI, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert not churchtools_api.has_permissions(
+            ['churchservice:no such permission'], 'the made-up feature'
+        )
+    # The log file has to be able to tell a ChurchTools warning from an Immich one.
+    assert [record.name for record in caplog.records] == ['churchsong.churchtools']
+
+
 def test_init_rejects_missing_basic_permissions(
     config: Configuration, mocked_responses: responses.RequestsMock
 ) -> None:
@@ -70,7 +81,7 @@ def test_init_hints_at_wrong_token_on_401(
     config: Configuration, mocked_responses: responses.RequestsMock
 ) -> None:
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/permissions/global', status=401)
-    with pytest.raises(CliError, match='API token'):
+    with pytest.raises(CliError, match='ChurchTools API token'):
         ChurchToolsAPI(config)
 
 
@@ -85,6 +96,7 @@ def test_init_reports_a_non_json_answer_as_a_url_problem(
     with pytest.raises(CliError, match='Did you configure the URL') as excinfo:
         ChurchToolsAPI(config)
     assert CHURCHTOOLS_BASE_URL in str(excinfo.value)
+    assert 'ChurchTools' in str(excinfo.value)
 
 
 def test_init_reports_an_off_shape_permissions_answer(
@@ -97,6 +109,7 @@ def test_init_reports_an_off_shape_permissions_answer(
     with pytest.raises(CliError, match='Did you configure the URL') as excinfo:
         ChurchToolsAPI(config)
     assert CHURCHTOOLS_BASE_URL in str(excinfo.value)
+    assert 'ChurchTools' in str(excinfo.value)
 
 
 # The three shapes an answer takes once it stops being the API we model: a renamed

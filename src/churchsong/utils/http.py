@@ -109,9 +109,20 @@ type FilesType = typing.Mapping[
 ]
 
 
+class PermissionSet(typing.Protocol):
+    """What a client's permission payload has to answer for the checks below.
+
+    The payloads differ in shape, but `get_permission()` returns for a specific
+    permission set whether a particular permission is present or not.
+    """
+
+    def get_permission(self, perm: str) -> bool | typing.Sequence[int]: ...
+
+
 class BaseAPI:
     _base_url: str
     _headers: dict[str, str]
+    _permissions: PermissionSet
 
     def __init__(
         self, log: logging.Logger, service: str, *, persist_cookies: bool = True
@@ -160,6 +171,77 @@ class BaseAPI:
             msg = f'Unexpected answer from {self._service} for "{api_url}": {e}'
             self._log.error(msg)
             raise CliError(msg) from None
+
+    def _fetch_config_checked[T: pydantic.BaseModel](
+        self, model: type[T], api_url: str
+    ) -> T:
+        """Fetch and parse the answer that proves base URL and token good.
+
+        For the one call a client makes before any other, to fetch permissions to be
+        checked on a granular level later one.
+
+        Do not merge with `_parse()`: this is the call that proves the base URL, so
+        its messages keep the configuration hints `_parse()` omits on purpose.
+        """
+        url_hint = (
+            f'Did you configure the URL of your {self._service} instance correctly?'
+        )
+        try:
+            r = self._get(api_url)
+            return model.model_validate(r.json())
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema,
+        ) as e:
+            msg = f'{e}\n\n{url_hint}'
+            self._log.error(msg)
+            raise CliError(msg) from None
+        except requests.exceptions.HTTPError as e:
+            msg = f'{e}'
+            if e.response is not None and e.response.status_code in (
+                requests.codes['forbidden'],
+                requests.codes['unauthorized'],
+            ):
+                msg += (
+                    f'\n\nDid you configure your {self._service} API token correctly?'
+                )
+            self._log.error(msg)
+            raise CliError(msg) from None
+        except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
+            # The request itself worked, so this is neither a transport nor a token
+            # problem: the server answered something that is not the API of the
+            # service. The exception message alone says nothing useful, hence the
+            # prefix.
+            msg = f'Unexpected answer from "{self._base_url}": {e}\n\n{url_hint}'
+            self._log.error(msg)
+            raise CliError(msg) from None
+
+    def _get_missing_permissions(self, *required_perms: str) -> list[str]:
+        """Return those of `required_perms` that the token does not hold."""
+        return [
+            perm
+            for perm in required_perms
+            if not self._permissions.get_permission(perm)
+        ]
+
+    def _assert_permissions(self, *required_perms: str) -> None:
+        if missing_perms := self._get_missing_permissions(*required_perms):
+            perms = ', '.join(f'"{perm}"' for perm in missing_perms)
+            msg = (
+                f'Missing required permissions for {self._service} token user: {perms}'
+            )
+            self._log.error(msg)
+            raise CliError(msg) from None
+
+    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
+        missing_perms = self._get_missing_permissions(*required_perms)
+        if missing_perms and log_reason:
+            self._log.warning(
+                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
+                    ', '.join(f'"{perm}"' for perm in missing_perms)
+                )
+            )
+        return not missing_perms
 
     def _request(  # noqa: PLR0913
         self,
