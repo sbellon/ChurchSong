@@ -16,7 +16,7 @@ import typer.testing
 
 from churchsong import __main__ as cli
 from churchsong.churchtools import EventShort
-from churchsong.churchtools.events import AgendaItemType, Item, Person
+from churchsong.churchtools.events import AgendaItemType, Item, Person, ServiceInfo
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import BaseModel, Configuration
 from churchsong.interactivescreen import DownloadSelection
@@ -50,7 +50,7 @@ CLI_ENV = {'COLUMNS': '200'}
 AGENDA_ITEMS = [Item(AgendaItemType.SONG, 'Amazing Grace')]
 SERVICE_ITEMS = [Item(AgendaItemType.SERVICE, 'Pastor')]
 SERVICE_LEADS = {'Pastor': {Person(fullname='John Newton', shortname='John')}}
-SERVICE_NOBODY = {Person(fullname='Nobody', shortname='Nobody')}
+SERVICE_NOBODY = Person(fullname='Nobody', shortname='Nobody')
 
 TEMPLATES = {
     'PowerPoint': {
@@ -169,11 +169,11 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
             pipeline.download_kwargs = kwargs
             return AGENDA_ITEMS, FakeSongSheets()
 
-        def get_service_info(
-            self,
-        ) -> tuple[list[Item], dict[str, set[Person]], set[Person]]:
+        def get_service_info(self) -> ServiceInfo:
             record('service_info')
-            return SERVICE_ITEMS, SERVICE_LEADS, SERVICE_NOBODY
+            return ServiceInfo(
+                items=SERVICE_ITEMS, leads=SERVICE_LEADS, nobody=SERVICE_NOBODY
+            )
 
     class FakeImmichAPI:
         def __init__(self, _config: Configuration) -> None:
@@ -183,9 +183,7 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
         def __init__(self, _config: Configuration) -> None:
             record('services')
 
-        def create(
-            self, service_leads: dict[str, set[Person]], nobody: set[Person]
-        ) -> None:
+        def create(self, service_leads: dict[str, set[Person]], nobody: Person) -> None:
             record('services.create')
             pipeline.service_leads = service_leads
             pipeline.nobody = nobody
@@ -478,9 +476,9 @@ def test_agenda_writes_the_schedule_although_the_service_info_fails(
     assert pipeline.schedule_kwargs['agenda_items'] == AGENDA_ITEMS
     assert pipeline.schedule_kwargs['service_items'] == []
     assert 'launch' in pipeline.steps
-    # The service slides are created from what little there is.
-    assert pipeline.service_leads == {}
-    assert pipeline.nobody == set()
+    # Without a service team there is nothing to put on the service slides, so they
+    # are skipped instead of being saved blank - the appointment slides are not.
+    assert 'services.create' not in pipeline.steps
     assert 'appointments.save' in pipeline.steps
     assert 'Skipped service team information: 502 Server Error' in result.output
 

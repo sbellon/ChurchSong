@@ -59,9 +59,7 @@ class PowerPointServices(PowerPointBase):
             return False
         return True
 
-    def create(
-        self, service_leads: dict[str, set[Person]], nobody: set[Person]
-    ) -> None:
+    def create(self, service_leads: dict[str, set[Person]], nobody: Person) -> None:
         if not self._prs:
             return
 
@@ -77,7 +75,7 @@ class PowerPointServices(PowerPointBase):
                 continue
             service_name = base_placeholder.name
             sorted_persons = sorted(
-                service_leads.get(service_name, nobody), key=lambda p: p.fullname
+                service_leads.get(service_name, {nobody}), key=lambda p: p.fullname
             )
             person_fullnames = ' + '.join(p.fullname for p in sorted_persons)
             person_shortnames = ' + '.join(p.shortname for p in sorted_persons)
@@ -88,12 +86,13 @@ class PowerPointServices(PowerPointBase):
                         service_name,
                         person_fullnames,
                     )
-                    if not self._insert_portrait(ph, person_fullnames):
-                        no_persons = ' + '.join(sorted(p.fullname for p in nobody))
-                        if not self._insert_portrait(ph, no_persons):
-                            logger.error(
-                                'Leaving portrait placeholder %s empty', service_name
-                            )
+                    if not (
+                        self._insert_portrait(ph, person_fullnames)
+                        or self._insert_portrait(ph, nobody.fullname)
+                    ):
+                        logger.error(
+                            'Leaving portrait placeholder %s empty', service_name
+                        )
                 case pptx.shapes.placeholder.SlidePlaceholder() if ph.has_text_frame:
                     logger.debug(
                         'Replacing text placeholder %s with %s',

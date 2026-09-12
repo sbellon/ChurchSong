@@ -62,6 +62,13 @@ class Person:
     shortname: str
 
 
+@dataclasses.dataclass(frozen=True)
+class ServiceInfo:
+    items: list[Item]
+    leads: dict[str, set[Person]]
+    nobody: Person  # placeholder for a service nobody is assigned to
+
+
 # The values of Subfolder are the actual subfolder names created beneath output_dir.
 class Subfolder(enum.StrEnum):
     FILES = 'Files'
@@ -494,9 +501,7 @@ class ChurchToolsEvent:
                         )
         return agenda_items, song_sheets
 
-    def get_service_info(
-        self,
-    ) -> tuple[list[Item], dict[str, set[Person]], set[Person]]:
+    def get_service_info(self) -> ServiceInfo:
         logger.info('Fetching service team information')
         service_id2name = {
             service.id: service.name for service in self.cta.get_services()
@@ -539,4 +544,4 @@ class ChurchToolsEvent:
             )
             for service, persons in sorted(service_leads.items())
         ]
-        return service_items, service_leads, {nobody}
+        return ServiceInfo(items=service_items, leads=service_leads, nobody=nobody)
