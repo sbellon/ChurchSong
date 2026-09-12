@@ -170,7 +170,6 @@ class BaseAPI:
         data: DataType | None = None,
         json: JsonObject | None = None,
         files: FilesType | None = None,
-        stream: bool = False,
     ) -> requests.Response:
         self._log.debug(
             'Request %s %s%s with params=%s', method, self._base_url, url, params
@@ -183,14 +182,13 @@ class BaseAPI:
             json=json,
             headers=self._headers,
             files=files,
-            stream=stream,
             timeout=REQUEST_TIMEOUT,
         )
         self._log.debug('Response is %s %s', r.status_code, r.reason)
         r.raise_for_status()
         return r
 
-    def _get(  # noqa: PLR0913
+    def _get(
         self,
         url: str,
         params: ParamsType | None = None,
@@ -198,13 +196,10 @@ class BaseAPI:
         data: DataType | None = None,
         json: JsonObject | None = None,
         files: FilesType | None = None,
-        stream: bool = False,
     ) -> requests.Response:
-        return self._request(
-            'GET', url, params, data=data, json=json, files=files, stream=stream
-        )
+        return self._request('GET', url, params, data=data, json=json, files=files)
 
-    def _put(  # noqa: PLR0913
+    def _put(
         self,
         url: str,
         params: ParamsType | None = None,
@@ -212,13 +207,10 @@ class BaseAPI:
         data: DataType | None = None,
         json: JsonObject | None = None,
         files: FilesType | None = None,
-        stream: bool = False,
     ) -> requests.Response:
-        return self._request(
-            'PUT', url, params, data=data, json=json, files=files, stream=stream
-        )
+        return self._request('PUT', url, params, data=data, json=json, files=files)
 
-    def _post(  # noqa: PLR0913
+    def _post(
         self,
         url: str,
         params: ParamsType | None = None,
@@ -226,13 +218,10 @@ class BaseAPI:
         data: DataType | None = None,
         json: JsonObject | None = None,
         files: FilesType | None = None,
-        stream: bool = False,
     ) -> requests.Response:
-        return self._request(
-            'POST', url, params, data=data, json=json, files=files, stream=stream
-        )
+        return self._request('POST', url, params, data=data, json=json, files=files)
 
-    def _delete(  # noqa: PLR0913
+    def _delete(
         self,
         url: str,
         params: ParamsType | None = None,
@@ -240,11 +229,8 @@ class BaseAPI:
         data: DataType | None = None,
         json: JsonObject | None = None,
         files: FilesType | None = None,
-        stream: bool = False,
     ) -> requests.Response:
-        return self._request(
-            'DELETE', url, params, data=data, json=json, files=files, stream=stream
-        )
+        return self._request('DELETE', url, params, data=data, json=json, files=files)
 
 
 def is_same_host(url1: str, url2: str) -> bool:
