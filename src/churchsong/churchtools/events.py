@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-import contextlib
 import dataclasses
 import datetime
 import enum
@@ -33,7 +32,6 @@ if typing.TYPE_CHECKING:
 
     from churchsong.churchtools import (
         ChurchToolsAPI,
-        EventAgendaItem,
         EventAgendaSong,
         EventFile,
         EventFull,
@@ -422,34 +420,29 @@ class ChurchToolsEvent:
             self.cta, self._event, self._datetime_format, enabled=upload_songsheets
         )
 
-        @contextlib.contextmanager
-        def do_progress(
-            item: EventAgendaItem | EventFile,
-        ) -> typing.Generator[EventAgendaItem | EventFile]:
-            with progress.do_progress(item, description=f'Downloading: {item.title}'):
-                yield item
-
         with Progress(
             f'Downloading: Agenda for {self._event.start_date:%Y-%m-%d}',
             total=len(self._event.event_files) + len(self._agenda.items),
         ) as progress:
             for item in self._event.event_files:
-                with do_progress(item):
+                with progress.do_progress(
+                    item, description=f'Downloading: {item.title}'
+                ):
                     try:
                         match item.domain_type:
                             case EventFileDomainType.FILE:
                                 if song_sheets.delete_event_file(item):
                                     continue
-                                filename = self._download_file(
+                                file_path = self._download_file(
                                     item.title,
                                     item.frontend_url,
                                     Subfolder.FILES,
                                     overwrite=download_files,
                                 )
                                 if immich:
-                                    immich.upload_media_file(filename)
+                                    immich.upload_media_file(file_path)
                                 event_file = Item(
-                                    AgendaItemType.FILE, item.title, filename
+                                    AgendaItemType.FILE, item.title, file_path
                                 )
                             case EventFileDomainType.LINK:
                                 event_file = Item(
@@ -461,7 +454,9 @@ class ChurchToolsEvent:
                             'Failed to download event file for %s: %s', item.title, e
                         )
             for item in self._agenda.items:
-                with do_progress(item):
+                with progress.do_progress(
+                    item, description=f'Downloading: {item.title}'
+                ):
                     try:
                         match item.type:
                             case EventAgendaItemType.HEADER:
@@ -477,7 +472,7 @@ class ChurchToolsEvent:
                                         item.song,
                                         modified_date=item.meta.modified_date,
                                     )
-                                    filename = (
+                                    sng_path = (
                                         self._download_song_file(
                                             files.title,
                                             files.sng_file,
@@ -490,9 +485,9 @@ class ChurchToolsEvent:
                                         song_sheets.download_and_append(files)
                                 else:
                                     logger.warning('Song event item without song data')
-                                    filename = None
+                                    sng_path = None
                                 agenda_item = Item(
-                                    AgendaItemType.SONG, item.title, filename
+                                    AgendaItemType.SONG, item.title, sng_path
                                 )
                         agenda_items.append(agenda_item)
                     except (requests.exceptions.RequestException, OSError) as e:
