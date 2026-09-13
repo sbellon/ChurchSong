@@ -99,10 +99,7 @@ def agenda(
         ),
     ],
 ) -> None:
-    selection = DownloadSelection(
-        schedule=True, songs=True, files=True, slides=True, songsheets=True
-    )
-    _handle_agenda(date, ctx.obj, selection)
+    _handle_agenda(date, ctx.obj, DownloadSelection.everything())
 
 
 @cmd_songs.command(

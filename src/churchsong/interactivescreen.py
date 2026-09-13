@@ -38,6 +38,27 @@ class DownloadSelection:
     slides: bool
     songsheets: bool
 
+    @classmethod
+    def fields(cls) -> tuple[str, ...]:
+        return tuple(field.name for field in dataclasses.fields(cls))
+
+    @classmethod
+    def checkbox_label(cls, name: str) -> str:
+        # A field without an entry here raises rather than rendering blank.
+        return {
+            'schedule': _(
+                'Get SongBeamer schedule from ChurchTools and launch SongBeamer'
+            ),
+            'songs': _('Download song files from ChurchTools'),
+            'files': _('Download event files from ChurchTools'),
+            'slides': _('Create PowerPoint slides from ChurchTools data'),
+            'songsheets': _('Create and upload PDF song sheets to ChurchTools'),
+        }[name]
+
+    @classmethod
+    def everything(cls) -> typing.Self:
+        return cls(**dict.fromkeys(cls.fields(), True))
+
 
 class ScrollableCenterMiddle(Widget):
     DEFAULT_CSS = """
@@ -252,11 +273,8 @@ class InteractiveScreen(App[DownloadSelection]):
         with Vertical():
             yield Header()
             with ScrollableCenterMiddle():
-                yield FocusCheckbox(id='schedule', unicode=use_unicode_font)
-                yield FocusCheckbox(id='songs', unicode=use_unicode_font)
-                yield FocusCheckbox(id='files', unicode=use_unicode_font)
-                yield FocusCheckbox(id='slides', unicode=use_unicode_font)
-                yield FocusCheckbox(id='songsheets', unicode=use_unicode_font)
+                for name in DownloadSelection.fields():
+                    yield FocusCheckbox(id=name, unicode=use_unicode_font)
                 yield FocusButton(id='submit')
             yield NoticeFooter()
             yield Footer(show_command_palette=False)
@@ -302,31 +320,24 @@ class InteractiveScreen(App[DownloadSelection]):
         self.query_one('#footer', Static).update(footer_text)
 
         # Initialize Checkbox labels.
-        schedule_checkbox = self.query_one('#schedule', Checkbox)
-        schedule_checkbox.label = _(
-            'Get SongBeamer schedule from ChurchTools and launch SongBeamer'
-        )
-        self.query_one('#songs', Checkbox).label = _(
-            'Download song files from ChurchTools'
-        )
-        self.query_one('#files', Checkbox).label = _(
-            'Download event files from ChurchTools'
-        )
-        self.query_one('#slides', Checkbox).label = _(
-            'Create PowerPoint slides from ChurchTools data'
-        )
-        self.query_one('#songsheets', Checkbox).label = _(
-            'Create and upload PDF song sheets to ChurchTools'
-        )
+        for name in DownloadSelection.fields():
+            checkbox = self.query_one(f'#{name}', Checkbox)
+            checkbox.label = DownloadSelection.checkbox_label(name)
 
-        # Trigger Changed event on first Checkbox to initialize Button label.
-        schedule_checkbox.post_message(Checkbox.Changed(schedule_checkbox, value=True))
+        # Trigger Changed event on any Checkbox to initialize Button label - the
+        # handler reads the state it needs out of the DOM, not out of the event.
+        checkbox = self.query(FocusCheckbox).first()
+        checkbox.post_message(Checkbox.Changed(checkbox, value=checkbox.value))
 
         # Focus Button explicitly (AUTO_FOCUS may be skipped if terminal has no focus).
         self.query_one('#submit').focus()
 
     @on(Button.Pressed, '#submit')
     def handle_button(self, _message: Button.Pressed) -> None:
-        checkboxes = self.app.query(Checkbox)
-        ds = DownloadSelection(**{cb.id: cb.value for cb in checkboxes if cb.id})
+        ds = DownloadSelection(
+            **{
+                name: self.query_one(f'#{name}', Checkbox).value
+                for name in DownloadSelection.fields()
+            }
+        )
         self.app.exit(ds)
