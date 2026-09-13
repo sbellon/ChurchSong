@@ -257,6 +257,27 @@ def test_submit_button_reflects_the_checkbox_selection() -> None:
     run_scenario(scenario)
 
 
+def test_checkbox_ids_follow_the_selection_fields() -> None:
+    # The DownloadSelection fields are what compose() turns into widget ids, so this
+    # is where a renamed or added field has to be noticed - here and not in a live
+    # TUI session.
+    assert DownloadSelection.fields() == CHECKBOX_IDS
+    assert DownloadSelection.everything() == DownloadSelection(
+        schedule=True, songs=True, files=True, slides=True, songsheets=True
+    )
+
+
+def test_every_checkbox_carries_a_label() -> None:
+    # A field without an entry in the label table would render as an empty checkbox.
+    async def scenario(app: InteractiveScreen, _pilot: AppPilot) -> None:
+        for checkbox_id in CHECKBOX_IDS:
+            label = str(app.query_one(f'#{checkbox_id}', FocusCheckbox).label)
+            assert label, f'checkbox {checkbox_id} has no label'
+            assert label != checkbox_id
+
+    run_scenario(scenario)
+
+
 def test_pressing_submit_returns_the_selection() -> None:
     async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
         await pilot.click('#songs')
