@@ -4,7 +4,7 @@
 
 ### Changed
 - internal refactorings and code cleanups
-- updated external dependencies (platformdirs, pypdf)
+- updated external dependencies (platformdirs, pypdf, urllib3)
 
 ## 0.13.1 (2026-09-07)
 
