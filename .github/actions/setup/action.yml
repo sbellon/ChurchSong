@@ -1,3 +1,5 @@
+name: Set up Python and uv
+description: Install the Python version required by pyproject.toml and uv.
 runs:
   using: composite
   steps:
@@ -9,6 +11,5 @@ runs:
     - name: "Install uv"
       uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       with:
-        enable-cache: true
-        cache-dependency-glob: uv.lock
-
+        # The wheels download in about a second, which is less than a cache round trip.
+        enable-cache: false

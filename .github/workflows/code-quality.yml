@@ -1,32 +1,40 @@
 name: Python Code Quality
 on:
   push:
-    paths-ignore:
-      - '.github/**'
+    branches:
+      - main
   pull_request:
     branches:
       - main
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   UV_LOCKED: 1
+# The job names are required status checks in the repository ruleset, so renaming
+# or merging jobs needs a matching change there. Only `typing` and `testing` run
+# on Windows: pyright analyses the `sys.platform == 'win32'` branches only there,
+# and some tests only run there. Everything else is platform independent, and
+# Linux runners check out and set up considerably faster.
 jobs:
   lockfile:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Check lockfile
         run: uv lock --check
   linting:
-    runs-on: windows-latest
-    needs: [lockfile]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Run ruff check
         run: uvx ruff check .
   formatting:
-    runs-on: windows-latest
-    needs: [lockfile]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -34,7 +42,6 @@ jobs:
         run: uvx ruff format --check .
   typing:
     runs-on: windows-latest
-    needs: [lockfile]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -44,7 +51,6 @@ jobs:
         run: uvx pyright --project .
   testing:
     runs-on: windows-latest
-    needs: [lockfile]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -53,17 +59,17 @@ jobs:
       - name: Run pytest
         run: uv run pytest
   typos:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - name: Sync dependencies
-        run: uv sync --all-extras --dev
       - name: Run typos
         run: uvx typos --force-exclude
+  # Kept as the final gate: it is the only required check that depends on `testing`
+  # and `typos`, so dropping `needs` also means requiring those two in the ruleset.
   build:
-    runs-on: windows-latest
-    needs: [linting, formatting, typing, testing, typos]
+    runs-on: ubuntu-latest
+    needs: [lockfile, linting, formatting, typing, testing, typos]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
