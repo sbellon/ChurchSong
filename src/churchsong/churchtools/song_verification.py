@@ -13,6 +13,7 @@ import rich.table
 import rich.text
 import typer
 
+from churchsong.songbeamer.sng import SngFile
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
@@ -32,11 +33,11 @@ class SongChecks:
 
     class Check(typing.NamedTuple):
         func: SongChecks.CheckFunc
-        needs_sng_file_contents: bool
-        # needs_sng_file_contents declares whether the check reads
-        # Arrangement.sng_file_content: verify_songs() downloads the .sng file of
+        needs_sng_header: bool
+        # needs_sng_header declares whether the check reads
+        # Arrangement.sng_header: verify_songs() downloads the .sng file of
         # every arrangement only if at least one active check needs it, so a check
-        # that reads the content without declaring it does not fail, it silently
+        # that reads the header without declaring it does not fail, it silently
         # checks an empty list. test_song_verification.py therefore verifies the
         # declaration against what the checks actually read.
 
@@ -44,15 +45,13 @@ class SongChecks:
 
     @classmethod
     def register(
-        cls, key: str, *, needs_sng_content: bool = False
+        cls, key: str, *, needs_sng_header: bool = False
     ) -> typing.Callable[[CheckFunc], CheckFunc]:
         def decorator(func: SongChecks.CheckFunc) -> SongChecks.CheckFunc:
             if key in cls._song_checks:
                 msg = f'Song check {key} is already registered'
                 raise RuntimeError(msg)
-            cls._song_checks[key] = cls.Check(
-                func, needs_sng_file_contents=needs_sng_content
-            )
+            cls._song_checks[key] = cls.Check(func, needs_sng_header=needs_sng_header)
             return func
 
         return decorator
@@ -79,7 +78,7 @@ def check_ccli(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [SongChecks.miss_if(not song.author or not song.ccli) for _ in arrangements]
 
 
-@SongChecks.register('Tags', needs_sng_content=True)
+@SongChecks.register('Tags', needs_sng_header=True)
 def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         ', '.join(
@@ -103,7 +102,7 @@ def check_tags(song: Song, arrangements: list[Arrangement]) -> list[str]:
                             line.startswith(
                                 ('#LangCount=2', '#LangCount=3', '#LangCount=4')
                             )
-                            for line in arr.sng_file_content
+                            for line in arr.sng_header
                         )
                         and not SongChecks.contains('EN/DE', song.tags)
                         else ''
@@ -139,21 +138,19 @@ def check_sng_file(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     ]
 
 
-@SongChecks.register('BGImg', needs_sng_content=True)
+@SongChecks.register('BGImg', needs_sng_header=True)
 def check_bgimage(_song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         SongChecks.miss_if(
-            not any(
-                line.startswith('#BackgroundImage=') for line in arr.sng_file_content
-            )
-            if arr.sng_file_content
+            not SngFile.has_background_image(arr.sng_header)
+            if arr.sng_header
             else False
         )
         for arr in arrangements
     ]
 
 
-@SongChecks.register('#Lang', needs_sng_content=True)
+@SongChecks.register('#Lang', needs_sng_header=True)
 def check_languages(song: Song, arrangements: list[Arrangement]) -> list[str]:
     return [
         ', '.join(
@@ -163,24 +160,24 @@ def check_languages(song: Song, arrangements: list[Arrangement]) -> list[str]:
                     (
                         'miss #LangCount'
                         if SongChecks.contains('EN/DE', song.tags)
-                        and arr.sng_file_content
+                        and arr.sng_header
                         and not any(
                             line.startswith(
                                 ('#LangCount=2', '#LangCount=3', '#LangCount=4')
                             )
-                            for line in arr.sng_file_content
+                            for line in arr.sng_header
                         )
                         else ''
                     ),
                     (
                         'miss #TitleLang'
                         if SongChecks.contains('EN/DE', song.tags)
-                        and arr.sng_file_content
+                        and arr.sng_header
                         and not any(
                             line.startswith(
                                 ('#TitleLang2', '#TitleLang3', '#TitleLang4')
                             )
-                            for line in arr.sng_file_content
+                            for line in arr.sng_header
                         )
                         else ''
                     ),
@@ -228,8 +225,8 @@ class ChurchToolsSongVerification:
         if not active_song_checks:
             msg = 'No valid check to execute selected.'
             raise typer.BadParameter(msg)
-        needs_sng_file_contents = any(
-            check.needs_sng_file_contents for check in active_song_checks.values()
+        needs_sng_header = any(
+            check.needs_sng_header for check in active_song_checks.values()
         )
 
         # Prepare the check result table.
@@ -284,7 +281,7 @@ class ChurchToolsSongVerification:
                     continue
 
                 # Load .sng files - if existing - to have them available for checking.
-                if needs_sng_file_contents:
+                if needs_sng_header:
                     for arr in arrangements:
                         # If multiple .sng files are present, ChurchTools seems to
                         # export the .sng file of the arrangement with the lowest #id?
@@ -295,9 +292,7 @@ class ChurchToolsSongVerification:
                         if sng_file:
                             try:
                                 with self.cta.download_url(sng_file.file_url) as r:
-                                    arr.sng_file_content = r.text.lstrip(
-                                        '\ufeff'
-                                    ).splitlines()
+                                    arr.sng_header = SngFile(r.content).header
                             except requests.exceptions.RequestException as e:
                                 logger.warning(
                                     'Failed to download arrangement "%s" (#%s) '

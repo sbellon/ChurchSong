@@ -27,6 +27,7 @@ from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint.appointments import PowerPointAppointments
 from churchsong.powerpoint.services import PowerPointServices
 from churchsong.songbeamer import SongBeamer
+from churchsong.songbeamer.sng import SongBackgrounds
 from churchsong.utils import CliError, flattened_split
 from churchsong.utils.date import (
     DateRange,
@@ -340,6 +341,10 @@ def _handle_agenda(
 
     with optional_steps.guard('song sheet upload'):
         song_sheets.upload()
+
+    if selection.songs and immich:
+        with optional_steps.guard('song background images'):
+            SongBackgrounds(config, immich).add_missing(agenda_items)
 
     optional_steps.report()
 

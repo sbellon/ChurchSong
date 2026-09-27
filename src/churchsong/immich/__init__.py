@@ -14,11 +14,12 @@ import typing
 import pydantic
 import requests
 
+from churchsong.utils.file import atomic_replace
 from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
-    from churchsong.utils import JsonObject, JsonValue
+    from churchsong.utils import JsonObject
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ class Permissions(BaseModel):
         return perm in self.permissions
 
 
+# Immich identifies its objects (assets, tags, albums, ...) by UUIDs in string form.
+type UUID = str
+
+
 class AssetUploadAction(enum.StrEnum):
     ACCEPT = 'accept'
     REJECT = 'reject'
@@ -46,7 +51,7 @@ class AssetRejectReason(enum.StrEnum):
 
 
 class TagResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
 
 
@@ -54,14 +59,40 @@ class TagResponseResults(pydantic.RootModel[list[TagResponse]]):
     pass
 
 
+class AlbumResponse(BaseModel):
+    id: UUID
+    album_name: str = pydantic.Field(alias='albumName')
+
+
+class AlbumResponseResults(pydantic.RootModel[list[AlbumResponse]]):
+    pass
+
+
+class AssetResponse(BaseModel):
+    id: UUID
+
+
+class AssetResponseResults(pydantic.RootModel[list[AssetResponse]]):
+    pass
+
+
+class ServerVersionResponse(BaseModel):
+    major: int
+    minor: int
+    patch: int
+
+    def get_version(self) -> str:
+        return f'{self.major}.{self.minor}.{self.patch}'
+
+
 class AssetMediaResponse(BaseModel):
-    id: str
+    id: UUID
 
 
 class AssetBulkUploadCheckResult(BaseModel):
     action: AssetUploadAction
-    asset_id: str | None = pydantic.Field(default=None, alias='assetId')
-    id: str
+    asset_id: UUID | None = pydantic.Field(default=None, alias='assetId')
+    id: str  # not a UUID: the ID the request gave the file, i.e. its name
     is_trashed: bool = pydantic.Field(default=False, alias='isTrashed')
     reason: AssetRejectReason | None = None
 
@@ -71,10 +102,14 @@ class AssetBulkUploadCheckResults(BaseModel):
 
 
 class ImmichAPI(BaseAPI):
+    # First server version with the structured `filter` of the search endpoints. Older
+    # servers silently drop fields they do not know, and would thus answer a filtered
+    # search with random assets of the whole library.
+    SEARCH_FILTER_VERSION = '3.2'
+
     def __init__(self, config: Configuration) -> None:
         super().__init__(logger, 'Immich')
         if config.immich:
-            self._enable_immich = True
             self._base_url = config.immich.base_url
             self._headers = {
                 'accept': 'application/json',
@@ -83,34 +118,58 @@ class ImmichAPI(BaseAPI):
             self._include_globbings = config.immich.include_globbings
             self._exclude_globbings = config.immich.exclude_globbings
 
-            self._permissions = self._fetch_config_checked(
-                Permissions, '/api/api-keys/me'
+            self._permissions = self._fetch_required(Permissions, '/api/api-keys/me')
+            self._version = self._fetch_version(
+                ServerVersionResponse, '/api/server/version'
             )
-            # Assert permissions that are required for basic functionality of the app.
-            # Additional permissions are queried on-demand and other functionality
-            # may be disabled if permissions are missing (like tag operations).
-            self._assert_permissions('asset.upload')
 
-            self._tag_ids = self._get_tag_ids(config.immich.tags)
+            # Media upload and background download are independent optional features.
+            # Their respective permissions are checked for upon querying the tag/album
+            # IDs, so without the respective permissions we just end up with an empty
+            # list of IDs.
+            self._upload_tag_ids: list[UUID] = (
+                self._get_tag_ids(config.immich.upload_tags)
+                if config.immich.upload_tags
+                and self.has_permissions(
+                    ['asset.upload', 'tag.read', 'tag.asset'],
+                    'media upload',
+                )
+                else []
+            )
+            self._backgrounds_album_ids: list[UUID] = (
+                self._get_album_ids(config.immich.backgrounds_album)
+                if config.immich.backgrounds_album
+                and self.has_permissions(
+                    ['album.read', 'asset.read', 'asset.download'],
+                    'background image download',
+                )
+                and self.has_version(
+                    self.SEARCH_FILTER_VERSION, 'background image download'
+                )
+                else []
+            )
         else:
-            self._enable_immich = False
+            self._upload_tag_ids: list[UUID] = []
+            self._backgrounds_album_ids: list[UUID] = []
 
-    def _create_tag(self, tagname: str) -> str | None:
+        # Candidates for background images, fetched on first demand.
+        self._background_candidates: list[UUID] | None = None
+        self._background_index = 0
+
+    def _create_tag(self, tagname: str) -> UUID | None:
         if not self.has_permissions(['tag.create'], 'tag creation'):
             return None
         api_url = '/api/tags'
         r = self._post(api_url, json={'name': tagname})
         return self._parse(TagResponse, r, api_url).id
 
-    def _get_tag_ids(self, tagnames: list[str]) -> list[JsonValue]:
-        if not self.has_permissions(['tag.read'], 'tag enumeration'):
-            return []
+    def _get_tag_ids(self, tagnames: list[str]) -> list[UUID]:
         api_url = '/api/tags'
         r = self._get(api_url)
         tag2id = {
             tag.name: tag.id for tag in self._parse(TagResponseResults, r, api_url).root
         }
-        return [
+        tag_ids = [
             tag_id
             for tagname in tagnames
             if (
@@ -118,13 +177,28 @@ class ImmichAPI(BaseAPI):
                 or (tag_id := self._create_tag(tagname)) is not None
             )
         ]
+        if not tag_ids:
+            logger.warning(
+                'Skipping media upload, none of the upload tags exists in Immich'
+            )
+        return tag_ids
 
-    def _tag_asset(self, asset_id: str) -> None:
-        if not self.has_permissions(['tag.asset'], 'asset tagging'):
-            return
+    def _get_album_ids(self, album_name: str) -> list[UUID]:
+        api_url = '/api/albums'
+        r = self._get(api_url)
+        album_ids = [
+            album.id
+            for album in self._parse(AlbumResponseResults, r, api_url).root
+            if album.album_name == album_name
+        ]
+        if not album_ids:
+            logger.warning('Album "%s" not found in Immich', album_name)
+        return album_ids
+
+    def _tag_asset(self, asset_id: UUID) -> None:
         payload: JsonObject = {
             'assetIds': [asset_id],
-            'tagIds': self._tag_ids,
+            'tagIds': [*self._upload_tag_ids],
         }
         self._put('/api/tags/assets', json=payload)
 
@@ -146,7 +220,7 @@ class ImmichAPI(BaseAPI):
         }
         # Not `_parse()`: `upload_media_file()` catches the error to skip one file.
         r = self._post('/api/assets/bulk-upload-check', json=payload)
-        result = AssetBulkUploadCheckResults.model_validate(r.json())
+        result = self._validate(AssetBulkUploadCheckResults, r)
         if result.results[0].action == AssetUploadAction.REJECT:
             fn = filename.name
             match result.results[0].reason:
@@ -161,7 +235,7 @@ class ImmichAPI(BaseAPI):
             return True
         return False
 
-    def _upload_media_file(self, filename: pathlib.Path) -> str | None:
+    def _upload_media_file(self, filename: pathlib.Path) -> UUID | None:
         mime_type, _ = mimetypes.guess_file_type(filename)
         stat = filename.stat()
         data = {
@@ -178,11 +252,11 @@ class ImmichAPI(BaseAPI):
             files = {'assetData': (filename.name, fd, mime_type or 'image/jpeg')}
             # Not `_parse()`, see `_media_file_exists_or_rejected()`.
             r = self._post('/api/assets', data=data, files=files)
-            return AssetMediaResponse.model_validate(r.json()).id
+            return self._validate(AssetMediaResponse, r).id
 
     def upload_media_file(self, filename: str) -> None:
         if (
-            self._enable_immich
+            self._upload_tag_ids
             and any(incl.match(filename) for incl in self._include_globbings)
             and not any(excl.match(filename) for excl in self._exclude_globbings)
         ):
@@ -200,3 +274,77 @@ class ImmichAPI(BaseAPI):
             ) as e:
                 # Keep flying as the Immich upload should not crash an event.
                 logger.error('Failed to upload "%s" to Immich: %s', filename, e)
+
+    def _fetch_background_candidates(self) -> list[UUID]:
+        # Use the Immich 3.2 API default `size` of 250 random image ids being returned.
+        payload: JsonObject = {
+            'filter': {
+                'type': {'eq': 'IMAGE'},
+                'albumIds': {'any': [*self._backgrounds_album_ids]},
+                # Unlike the deprecated flat fields, the filter includes the trash.
+                'trashedAt': {'eq': None},
+                'isOffline': {'eq': False},
+                'or': [
+                    {'originalFileName': {'endsWith': '.jpg'}},
+                    {'originalFileName': {'endsWith': '.jpeg'}},
+                    {'originalFileName': {'endsWith': '.png'}},
+                ],
+            },
+        }
+        r = self._post('/api/search/random', json=payload)
+        candidates = [
+            asset.id for asset in self._validate(AssetResponseResults, r).root
+        ]
+        if not candidates:
+            logger.warning('No JPEG or PNG images in the backgrounds album in Immich')
+        return candidates
+
+    def _next_background_candidate(self) -> UUID | None:
+        # The server returns the candidates in random order already. Handing them out
+        # in that order gives the songs of one event distinct backgrounds as long as
+        # there are enough; once all are used, a new random batch is fetched. A batch
+        # without candidates is not refetched for every further song.
+        if self._background_candidates is None or (
+            self._background_candidates
+            and self._background_index >= len(self._background_candidates)
+        ):
+            # Settle for no candidates first: if the search fails, the next song must
+            # not ask a failing server again.
+            self._background_candidates = []
+            self._background_index = 0
+            self._background_candidates = self._fetch_background_candidates()
+        if not self._background_candidates:
+            return None
+        candidate = self._background_candidates[self._background_index]
+        self._background_index += 1
+        return candidate
+
+    def _download_original(
+        self, asset_id: UUID, output_dir: pathlib.Path
+    ) -> pathlib.Path:
+        r = self._get(f'/api/assets/{asset_id}/original')
+        mime_type = r.headers.get('Content-Type', '').partition(';')[0].strip()
+        suffix = mimetypes.guess_extension(mime_type) if mime_type else None
+        filename = output_dir / f'{asset_id}{suffix or ".jpg"}'
+        with atomic_replace(filename) as tmp_file:
+            tmp_file.write_bytes(r.content)
+        return filename
+
+    def download_random_background(
+        self, output_dir: pathlib.Path
+    ) -> pathlib.Path | None:
+        """Download a random JPEG or PNG image of the backgrounds album.
+
+        Returns `None` if the backgrounds album is not usable, holds no image or the
+        download fails - a missing background must not cost an event its schedule.
+        """
+        if not self._backgrounds_album_ids:
+            return None
+        try:
+            if (asset_id := self._next_background_candidate()) is None:
+                return None
+            logger.info('Downloading background image "%s" from Immich', asset_id)
+            return self._download_original(asset_id, output_dir)
+        except (requests.RequestException, pydantic.ValidationError, OSError) as e:
+            logger.error('Failed to download background image from Immich: %s', e)
+            return None

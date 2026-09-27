@@ -20,7 +20,8 @@ Songsheets in PDF format are created from ChurchTools song database and upload a
 event files for the music team to use.
 
 If you have an Immich (https://immich.app/) instance running, you can also automatically
-upload media files from the event files to your Immich.
+upload media files from the event files to your Immich, and use images of an Immich
+album as backgrounds for songs that have none.
 
 ## Installation
 
@@ -94,9 +95,20 @@ will be added to those tables depending on whether they are weekly recurring or 
 #### Immich instance
 
 If you have your own Immich instance, you can configure `base_url` and `login_token`
-for your Immich instance. The user associated with the token requires the permission
-`asset.upload`. By configuring `include_globbings` and `exclude_globbings` you can
+for your Immich instance.
+
+Media files are uploaded only if at least one tag is configured in `upload_tags`, and
+every uploaded file is tagged with these tags. This requires the permissions
+`asset.upload`, `tag.read` and `tag.asset` and, for tags that do not exist in Immich
+yet, `tag.create`. By configuring `include_globbings` and `exclude_globbings` you can
 define which event file patterns to consider for media upload and which to ignore.
+
+If you configure `backgrounds_album` with the name of an Immich album, every
+downloaded song file without a `#BackgroundImage` gets a random JPEG or PNG image of
+that album as background. The original images are downloaded into the `Backgrounds`
+folder of `output_dir`. This requires Immich 3.2 or later and the permissions
+`album.read`, `asset.read` and `asset.download`, and happens only if song files are
+selected for download.
 
 ## Usage
 

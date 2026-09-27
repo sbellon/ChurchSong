@@ -52,6 +52,43 @@ def make_config(
     return FakeConfiguration(**data)
 
 
+def mock_churchtools_server(
+    mocked_responses: responses.RequestsMock,
+    permissions: dict[str, typing.Any] | None = None,
+    *,
+    version: str = '3.136.2',
+) -> None:
+    """Register what the ChurchToolsAPI constructor asks for: permissions, version."""
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        json=make_global_permissions() if permissions is None else permissions,
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/info', json={'version': version, 'build': '1'}
+    )
+
+
+def mock_immich_server(
+    mocked_responses: responses.RequestsMock,
+    permissions: list[str],
+    *,
+    version: tuple[int, int, int] | None = (3, 2, 0),
+) -> None:
+    """Register what the ImmichAPI constructor asks for: permissions and version.
+
+    With `version=None`, the version endpoint is left to the caller.
+    """
+    mocked_responses.get(
+        f'{IMMICH_BASE_URL}/api/api-keys/me', json={'permissions': permissions}
+    )
+    if version is not None:
+        major, minor, patch = version
+        mocked_responses.get(
+            f'{IMMICH_BASE_URL}/api/server/version',
+            json={'major': major, 'minor': minor, 'patch': patch},
+        )
+
+
 def make_global_permissions(
     *,
     churchservice_view: bool = True,
@@ -106,8 +143,5 @@ def mocked_responses() -> typing.Iterator[responses.RequestsMock]:
 def churchtools_api(
     config: Configuration, mocked_responses: responses.RequestsMock
 ) -> ChurchToolsAPI:
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(),
-    )
+    mock_churchtools_server(mocked_responses)
     return ChurchToolsAPI(config)

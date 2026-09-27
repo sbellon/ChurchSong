@@ -2,7 +2,20 @@
 
 ## Unreleased
 
+### Added
+- set a random JPEG or PNG image of the Immich (3.2 or later) album configured as
+  `backgrounds_album` as background of songs without a `#BackgroundImage`
+- log the versions of the ChurchTools and Immich servers (at log level `INFO`)
+
+### Fixed
+- song verification decodes .sng files like SongBeamer does (by their byte order mark
+  instead of the encoding the server claims) and only looks for `#` entries like
+  `#BackgroundImage` or `#LangCount` in the header of a song, not in its verses
+
 ### Changed
+- renamed Immich configuration option `tags` to `upload_tags`
+- media files are only uploaded to Immich if at least one tag in `upload_tags` can be
+  applied to them, nothing is uploaded untagged any more
 - internal refactorings and code cleanups
 - updated external dependencies (platformdirs, pypdf, urllib3)
 

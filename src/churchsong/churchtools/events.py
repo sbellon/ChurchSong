@@ -69,6 +69,7 @@ class ServiceInfo:
 
 # The values of Subfolder are the actual subfolder names created beneath output_dir.
 class Subfolder(enum.StrEnum):
+    BACKGROUNDS = 'Backgrounds'
     FILES = 'Files'
     SONGS = 'Songs'
 

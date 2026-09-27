@@ -5,6 +5,7 @@
 import logging
 import typing
 
+import pydantic
 import pytest
 import requests
 
@@ -119,6 +120,73 @@ def test_persist_cookies_defaults_to_standard_behaviour(
     api._get('/first')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
     assert len(api._session.cookies) == 1  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+
+class StringVersion(pydantic.BaseModel):
+    """A version payload shaped like the `/info` answer of ChurchTools."""
+
+    version: str
+
+    def get_version(self) -> str:
+        return self.version
+
+
+def fetch_version(api: FakeAPI) -> StringVersion | None:
+    return api._fetch_version(StringVersion, '/info')  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.parametrize(
+    ('server', 'expected'), [('3.117.9', False), ('3.118.0', True), ('4.0.0', True)]
+)
+def test_has_version_compares_against_the_fetched_version(
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    server: str,
+    *,
+    expected: bool,
+) -> None:
+    mocked_responses.get('https://host.test/info', json={'version': server})
+    api = FakeAPI()
+    api._version = fetch_version(api)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    with caplog.at_level(logging.WARNING):
+        assert api.has_version('3.118', 'feat') is expected
+    if not expected:
+        assert (
+            f'Skipping feat, it requires FakeService 3.118 or later, but the server '
+            f'is {server}'
+        ) in caplog.text
+
+
+@pytest.mark.parametrize(
+    'answer',
+    [
+        {'body': requests.exceptions.ConnectionError('no route to host')},
+        {'status': 500},
+        {'json': {'version': 'not a version'}},
+        {'json': {'build': 42}},
+    ],
+)
+def test_fetch_version_yields_none_for_an_unknown_version(
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    answer: dict[str, typing.Any],
+) -> None:
+    mocked_responses.get('https://host.test/info', **answer)
+    api = FakeAPI()
+    with caplog.at_level(logging.WARNING):
+        api._version = fetch_version(api)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+        assert not api.has_version('1', 'feat')
+    assert 'Cannot determine the FakeService version' in caplog.text
+    assert 'Skipping feat, the FakeService version is unknown' in caplog.text
+
+
+def test_has_version_is_false_for_a_client_without_version(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Without a reason there is nothing to log, like with `has_permissions()`.
+    with caplog.at_level(logging.WARNING):
+        assert not FakeAPI().has_version('1')
+    assert not caplog.records
 
 
 def test_get_is_retried_after_a_rate_limit_response(
