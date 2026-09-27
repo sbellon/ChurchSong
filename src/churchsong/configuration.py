@@ -108,7 +108,7 @@ LogLevel = typing.Annotated[str, pydantic.AfterValidator(validate_log_level)]
 
 
 class GeneralConfig(BaseModel):
-    log_level: LogLevel = 'WARNING'
+    log_level: LogLevel = 'INFO'
     log_file: BaseModel.OptionalDataDirPath = None
     interactive: GeneralInteractiveConfig = pydantic.Field(
         default=GeneralInteractiveConfig(), alias='Interactive'
@@ -259,7 +259,8 @@ class ImmichConfig(BaseModel):
         compile_glob(x) for x in ('*.jpg', '*.jpeg', '*.mp4', '*.mov', '*.heic')
     ]
     exclude_globbings: list[Globbing] = []
-    tags: list[str] = []
+    upload_tags: list[str] = []
+    backgrounds_album: str | None = None
 
 
 class TomlConfig(BaseModel):

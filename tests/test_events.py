@@ -28,6 +28,8 @@ from tests.conftest import (
     IMMICH_BASE_URL,
     make_config,
     make_global_permissions,
+    mock_churchtools_server,
+    mock_immich_server,
 )
 
 if typing.TYPE_CHECKING:
@@ -282,9 +284,10 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     tmp_path: pathlib.Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    config = make_config(output_dir=str(tmp_path), immich={})
+    config = make_config(output_dir=str(tmp_path), immich={'upload_tags': ['Upload']})
+    mock_immich_server(mocked_responses, ['asset.upload', 'tag.read', 'tag.asset'])
     mocked_responses.get(
-        f'{IMMICH_BASE_URL}/api/api-keys/me', json={'permissions': ['asset.upload']}
+        f'{IMMICH_BASE_URL}/api/tags', json=[{'id': 't1', 'name': 'Upload'}]
     )
     register_event_endpoints(
         mocked_responses,
@@ -320,13 +323,17 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     ]
     assert not photo.exists()
     # The file that was never written must not abort the event: Immich sees only
-    # the permission check of its constructor, and the missing file is contained
-    # by `upload_media_file` instead of escaping as a `FileNotFoundError`.
+    # the requests of its constructor, and the missing file is contained by
+    # `upload_media_file` instead of escaping as a `FileNotFoundError`.
     assert [
         call.request.url
         for call in mocked_responses.calls
         if (call.request.url or '').startswith(IMMICH_BASE_URL)
-    ] == [f'{IMMICH_BASE_URL}/api/api-keys/me']
+    ] == [
+        f'{IMMICH_BASE_URL}/api/api-keys/me',
+        f'{IMMICH_BASE_URL}/api/server/version',
+        f'{IMMICH_BASE_URL}/api/tags',
+    ]
     assert 'IMG_1234.jpg' in caplog.text
 
 
@@ -367,9 +374,8 @@ def test_download_agenda_items_without_edit_permission_skips_songsheets(
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
 ) -> None:
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(edit_events=False),
+    mock_churchtools_server(
+        mocked_responses, make_global_permissions(edit_events=False)
     )
     config = make_config(output_dir=str(tmp_path))
     api = ChurchToolsAPI(config)
@@ -1500,10 +1506,7 @@ def test_download_uses_the_token_for_a_differently_cased_host(
     # unauthenticated one comes back 200 OK with an HTML permission page as its body,
     # which would land in `Files/` as the downloaded file.
     config = make_config(base_url='https://ChurchTools.test', output_dir=str(tmp_path))
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(),
-    )
+    mock_churchtools_server(mocked_responses)
     churchtools_api = ChurchToolsAPI(config)
     register_event_endpoints(
         mocked_responses,

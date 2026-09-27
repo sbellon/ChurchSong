@@ -104,4 +104,5 @@ base_url = "https://IMMICH.YOUR-DOMAIN"
 login_token = "YOUR_LOGIN_TOKEN"
 include_globbings = ["*.jpeg", "*.jpg", "*.mp4", "*.mov", "*.heic"]
 exclude_globbings = ["*birthday*"]
-tags = ["Upload_By_ChurchSong"]
+upload_tags = ["Upload_By_ChurchSong"]
+backgrounds_album = "Backgrounds"

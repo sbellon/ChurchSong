@@ -127,6 +127,13 @@ class PermissionsGlobalData(DeprecationAwareModel):
                 return False
 
 
+class Info(DeprecationAwareModel):
+    version: str
+
+    def get_version(self) -> str:
+        return self.version
+
+
 class Address(DeprecationAwareModel):
     name: str | None
     street: str | None
@@ -399,15 +406,15 @@ class Arrangement(DeprecationAwareModel):
     files: list[File]
 
     # NOT filled by ChurchTools, but filled and used internally:
-    _sng_file_content: list[str] = pydantic.PrivateAttr(default_factory=list)
+    _sng_header: list[str] = pydantic.PrivateAttr(default_factory=list)
 
     @property
-    def sng_file_content(self) -> list[str]:
-        return self._sng_file_content
+    def sng_header(self) -> list[str]:
+        return self._sng_header
 
-    @sng_file_content.setter
-    def sng_file_content(self, new_value: list[str]) -> None:
-        self._sng_file_content = new_value
+    @sng_header.setter
+    def sng_header(self, new_value: list[str]) -> None:
+        self._sng_header = new_value
 
 
 class Tag(DeprecationAwareModel):
@@ -471,9 +478,11 @@ class ChurchToolsAPI(BaseAPI):
             config.songbeamer.powerpoint.appointments.look_ahead_weeks
         )
 
-        self._permissions = self._fetch_config_checked(
+        self._permissions = self._fetch_required(
             PermissionsGlobalData, '/api/permissions/global'
         )
+        self._version = self._fetch_version(Info, '/api/info')
+
         # Assert permissions that are required for basic functionality of the app.
         # Additional permissions are queried on-demand and other functionality
         # may be disabled if permissions are missing (like nicknames or appointment
@@ -492,7 +501,7 @@ class ChurchToolsAPI(BaseAPI):
                 '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
             )
             # Not `_parse()`: the `except` below degrades to an empty tag list.
-            result = SongsData.model_validate(r.json())
+            result = self._validate(SongsData, r)
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             logger.warning('Failed to get tags for song #%s: %s', song_id, e)
             return []
@@ -507,7 +516,7 @@ class ChurchToolsAPI(BaseAPI):
         try:
             r = self._get(api_url, params={'page': str(page), **params})
             # Not `_parse()`: the `except` below may recover an event without songs.
-            return SongsData.model_validate(r.json())
+            return self._validate(SongsData, r)
         except (requests.exceptions.RequestException, pydantic.ValidationError) as e:
             if (
                 event
@@ -577,7 +586,7 @@ class ChurchToolsAPI(BaseAPI):
     def get_song(self, song_id: int) -> Song:
         # Not `_parse()`: `_song_files()` catches the error to skip just this song.
         r = self._get(f'/api/songs/{song_id}')
-        result = SongData.model_validate(r.json())
+        result = self._validate(SongData, r)
         return result.data
 
     def _get_calendars(self) -> typing.Generator[Calendar]:
@@ -603,7 +612,7 @@ class ChurchToolsAPI(BaseAPI):
             raise
         try:
             # Not `_parse()`: the `except` below skips just this person.
-            result = PersonsData.model_validate(r.json())
+            result = self._validate(PersonsData, r)
         except pydantic.ValidationError as e:
             logger.warning('Skipping unparsable data of person #%s: %s', person_id, e)
             return None

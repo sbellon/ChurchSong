@@ -21,7 +21,7 @@ from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import BaseModel, Configuration
 from churchsong.interactivescreen import DownloadSelection
 from churchsong.utils import CliError
-from tests.conftest import CHURCHTOOLS_BASE_URL, make_config, make_global_permissions
+from tests.conftest import make_config, mock_churchtools_server
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -113,12 +113,15 @@ class Pipeline:
     agenda_required: bool = False
     service_leads: object = None
     nobody: object = None
+    background_dir: pathlib.Path | None = None
 
 
-def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
+def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborator)
     monkeypatch: pytest.MonkeyPatch,
     *,
     appointment_permission: bool = True,
+    backgrounds: pathlib.Path | None = None,
+    agenda_items: list[Item] | None = None,
     failing_step: str | None = None,
     failure_message: str = '502 Server Error: Bad Gateway for url: '
     'https://churchtools.test',
@@ -167,7 +170,7 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
         ) -> tuple[list[Item], FakeSongSheets]:
             record('download')
             pipeline.download_kwargs = kwargs
-            return AGENDA_ITEMS, FakeSongSheets()
+            return agenda_items or AGENDA_ITEMS, FakeSongSheets()
 
         def get_service_info(self) -> ServiceInfo:
             record('service_info')
@@ -178,6 +181,13 @@ def install_fake_pipeline(  # noqa: C901 (one small fake per collaborator)
     class FakeImmichAPI:
         def __init__(self, _config: Configuration) -> None:
             record('immich')
+
+        def download_random_background(
+            self, output_dir: pathlib.Path
+        ) -> pathlib.Path | None:
+            record('immich.background')
+            pipeline.background_dir = output_dir
+            return backgrounds
 
     class FakePowerPointServices:
         def __init__(self, _config: Configuration) -> None:
@@ -465,6 +475,80 @@ def test_agenda_runs_without_a_reachable_immich_instance(
     assert 'Skipped Immich connector: 502 Server Error' in result.output
 
 
+def make_song_items(tmp_path: pathlib.Path) -> list[Item]:
+    songs = tmp_path / 'Songs'
+    songs.mkdir()
+    (songs / 'with.sng').write_bytes(
+        b'#Title=With\r\n#BackgroundImage=Backgrounds\\sky.jpg\r\n---\r\nVerse\r\n'
+    )
+    (songs / 'without.sng').write_bytes(b'#Title=Without\r\n---\r\nVerse\r\n')
+    return [
+        Item(AgendaItemType.SONG, 'With', str(songs / 'with.sng')),
+        Item(AgendaItemType.SONG, 'Without', str(songs / 'without.sng')),
+        # The same song twice is one file, so it needs only one background.
+        Item(AgendaItemType.SONG, 'Without', str(songs / 'without.sng')),
+        Item(AgendaItemType.SONG, 'No .sng file'),
+        Item(AgendaItemType.FILE, 'Not a song', str(songs / 'with.sng')),
+    ]
+
+
+def test_agenda_adds_background_images_to_songs_without_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    image = tmp_path / 'Backgrounds' / 'asset-1.jpg'
+    pipeline = install_fake_pipeline(
+        monkeypatch, backgrounds=image, agenda_items=make_song_items(tmp_path)
+    )
+    config = make_config(output_dir=str(tmp_path))
+    result = invoke(['agenda', '2026-08-16'], config)
+    assert result.exit_code == 0
+    # Only the song without a background asks Immich, and only once.
+    assert pipeline.steps.count('immich.background') == 1
+    assert pipeline.steps.index('immich.background') < pipeline.steps.index(
+        'create_schedule'
+    )
+    assert pipeline.background_dir == tmp_path / 'Backgrounds'
+    assert (tmp_path / 'Songs' / 'without.sng').read_bytes() == (
+        f'#Title=Without\r\n#BackgroundImage={image}\r\n---\r\nVerse\r\n'.encode()
+    )
+    assert b'sky.jpg' in (tmp_path / 'Songs' / 'with.sng').read_bytes()
+
+
+def test_agenda_adds_no_background_images_without_song_download(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    pipeline = install_fake_pipeline(
+        monkeypatch,
+        backgrounds=tmp_path / 'image.jpg',
+        agenda_items=make_song_items(tmp_path),
+    )
+    selection = dataclasses.replace(DownloadSelection.everything(), songs=False)
+    install_fake_interactive_screen(monkeypatch, selection)
+    result = invoke([], make_config(output_dir=str(tmp_path)))
+    assert result.exit_code == 0
+    assert 'immich.background' not in pipeline.steps
+    assert b'Background' not in (tmp_path / 'Songs' / 'without.sng').read_bytes()
+
+
+def test_agenda_writes_the_schedule_although_the_background_images_fail(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    pipeline = install_fake_pipeline(
+        monkeypatch,
+        backgrounds=tmp_path / 'image.jpg',
+        agenda_items=make_song_items(tmp_path),
+        failing_step='immich.background',
+    )
+    with caplog.at_level(logging.WARNING):
+        result = invoke(['agenda', '2026-08-16'], make_config(output_dir=str(tmp_path)))
+    assert result.exit_code == 0
+    assert 'launch' in pipeline.steps
+    assert 'Failed to set background image' in caplog.text
+    assert b'Background' not in (tmp_path / 'Songs' / 'without.sng').read_bytes()
+
+
 def test_agenda_writes_the_schedule_although_the_service_info_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -681,13 +765,11 @@ def test_songs_usage_accepts_an_open_start_year_range(
 def test_songs_usage_reports_an_unwritable_output_file(
     mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
 ) -> None:
-    # The real statistics run, not the fake one: only the permissions request the
-    # ChurchToolsAPI constructor makes is registered, so walking the events would
-    # fail on an unregistered URL instead of producing the message asserted below.
-    # That is what pins the check to happen before the walk, whose work it saves.
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global', json=make_global_permissions()
-    )
+    # The real statistics run, not the fake one: only the requests the ChurchToolsAPI
+    # constructor makes are registered, so walking the events would fail on an
+    # unregistered URL instead of producing the message asserted below. That is what
+    # pins the check to happen before the walk, whose work it saves.
+    mock_churchtools_server(mocked_responses)
     (tmp_path / 'blocker').write_text('not a directory', encoding='utf-8')
     output_file = tmp_path / 'blocker' / 'dir' / 'usage.csv'
     result = invoke(

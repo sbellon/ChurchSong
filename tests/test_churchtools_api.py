@@ -25,6 +25,7 @@ from tests.conftest import (
     FakeConfiguration,
     make_config,
     make_global_permissions,
+    mock_churchtools_server,
 )
 
 if typing.TYPE_CHECKING:
@@ -66,12 +67,38 @@ def test_log_records_name_the_churchtools_component(
     assert [record.name for record in caplog.records] == ['churchsong.churchtools']
 
 
+def test_init_logs_the_server_version(
+    config: Configuration,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    mock_churchtools_server(mocked_responses, version='3.136.2')
+    with caplog.at_level(logging.INFO):
+        api = ChurchToolsAPI(config)
+    # For telling afterwards which server version a run talked to.
+    assert f'ChurchTools at {CHURCHTOOLS_BASE_URL} is version 3.136.2' in caplog.text
+    assert api.has_version('3.136')
+    assert not api.has_version('3.137')
+
+
+def test_init_survives_an_unknown_server_version(
+    config: Configuration,
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A version string that does not parse must not cost the run its ChurchTools.
+    mock_churchtools_server(mocked_responses, version='not a version')
+    with caplog.at_level(logging.WARNING):
+        api = ChurchToolsAPI(config)
+    assert 'Cannot determine the ChurchTools version' in caplog.text
+    assert not api.has_version('1')
+
+
 def test_init_rejects_missing_basic_permissions(
     config: Configuration, mocked_responses: responses.RequestsMock
 ) -> None:
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(churchservice_view=False),
+    mock_churchtools_server(
+        mocked_responses, make_global_permissions(churchservice_view=False)
     )
     with pytest.raises(CliError, match='Missing required permissions'):
         ChurchToolsAPI(config)
@@ -130,7 +157,7 @@ def test_get_events_reports_an_off_shape_answer(
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events', body=answer)
     with pytest.raises(CliError, match='/api/events') as excinfo:
         list(churchtools_api.get_events(datetime.date(2026, 8, 23)))
-    # `_fetch_permissions()` has proven the base URL good by now, so the message must
+    # `_fetch_required()` has proven the base URL good by now, so the message must
     # not send the user back to the configuration - the cause is on the server.
     assert 'Did you configure' not in str(excinfo.value)
 
@@ -184,10 +211,7 @@ def test_trailing_slash_in_base_url_does_not_double_the_path_separator(
         },
         SongBeamer={'output_dir': 'output'},
     )
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(),
-    )
+    mock_churchtools_server(mocked_responses)
     ChurchToolsAPI(config)
     url = mocked_responses.calls[0].request.url
     assert url == f'{CHURCHTOOLS_BASE_URL}/api/permissions/global'
@@ -272,7 +296,7 @@ def test_get_songs_stops_when_the_server_does_not_advance_the_page(
         # Getting fewer than the 10 asked for proves the generator ended by itself.
         names = [song.name for song in itertools.islice(songs, 10)]
     assert names == ['Amazing Grace']
-    assert len(mocked_responses.calls) == 1 + 2  # permissions + page 1 + page 2
+    assert len(mocked_responses.calls) == 2 + 2  # permissions, version + 2 pages
     assert 'page 1 when page 2 was requested' in caplog.text
 
 
@@ -412,9 +436,8 @@ def test_upload_event_file_is_skipped_without_edit_permission(
 ) -> None:
     # No POST endpoint is registered: if the missing permission did not
     # short-circuit the upload, the HTTP call would fail the test.
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(edit_events=False),
+    mock_churchtools_server(
+        mocked_responses, make_global_permissions(edit_events=False)
     )
     api = ChurchToolsAPI(make_config())
     api.upload_event_file(make_event_full(), 'songsheet.pdf', b'%PDF-1.7')
@@ -564,9 +587,8 @@ def test_get_songs_treats_an_event_without_agenda_as_songless(
 def test_get_person_returns_none_without_the_required_permission(
     mocked_responses: responses.RequestsMock, caplog: pytest.LogCaptureFixture
 ) -> None:
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(view_alldata=False),
+    mock_churchtools_server(
+        mocked_responses, make_global_permissions(view_alldata=False)
     )
     api = ChurchToolsAPI(make_config())
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', status=403)
@@ -703,9 +725,8 @@ def test_delete_event_file_is_skipped_without_edit_permission(
 ) -> None:
     # No DELETE endpoint is registered: without the short-circuit the HTTP
     # call would fail the test.
-    mocked_responses.get(
-        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
-        json=make_global_permissions(edit_events=False),
+    mock_churchtools_server(
+        mocked_responses, make_global_permissions(edit_events=False)
     )
     api = ChurchToolsAPI(make_config())
     event_file = EventFile.model_validate(
@@ -731,6 +752,9 @@ def test_does_not_send_back_session_cookie(
         f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
         json=make_global_permissions(),
         headers={'Set-Cookie': 'ChurchToolsV2_ct_test=secret; path=/'},
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/info', json={'version': '3.136.2'}
     )
     mocked_responses.post(
         f'{CHURCHTOOLS_BASE_URL}/api/files/service/2', json={'data': []}

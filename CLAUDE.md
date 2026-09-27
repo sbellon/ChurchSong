@@ -119,11 +119,37 @@ compatibility patches go — dated comments mark the existing ones.
 once and hard-asserts what basic operation needs (`CliError`), while every optional feature calls
 `has_permissions([...], 'reason')`, which logs a warning and lets the caller skip that feature. Add
 new optional features that way rather than by asserting. The whole trio lives in `BaseAPI`, together
-with the fetch error ladder (`_fetch_config_checked()`, which keeps the "Did you configure ...?"
+with the fetch error ladder (`_fetch_required()`, which keeps the "Did you configure ...?"
 hints `_parse()` deliberately omits). What a client supplies is its endpoint, its permission model,
 and — as `BaseAPI._permissions` is typed by the `PermissionSet` protocol — that model's
 `get_permission()`: a dotted-path walk over a pydantic tree for ChurchTools, a flat membership test
 for Immich. The payload shape is known where it is parsed, not in the client.
+
+Every JSON answer goes through one primitive, `BaseAPI._validate(model, r)`, which raises; the
+wrappers differ by what they do on failure, not by what they fetch: `_parse()` fails with a
+`CliError` naming the endpoint, `_fetch()` adds the GET, `_fetch_required()` diagnoses URL and
+token, `_fetch_version()` only warns. A call that degrades on an off-shape answer uses
+`_validate()` directly and says why in a "Not `_parse()`" comment.
+
+`ImmichAPI` asserts nothing: media upload and background download are independent optional
+features, each checked once in its constructor. The upload is enabled by its tags — an empty
+`_upload_tag_ids` (none configured or none usable) means nothing is uploaded, as no file may end
+up in Immich untagged. Immich identifies its objects by UUID strings, typed by the `type UUID = str`
+alias in `immich/__init__.py` in models and signatures alike, so they cannot be mistaken for other
+strings like names.
+
+**Server versions** follow the same pattern and live in `BaseAPI` as well: a client that needs
+them fetches the version once in its constructor, `self._version = self._fetch_version(Model,
+endpoint)`, and — as `BaseAPI._version` is typed by the `VersionInfo` protocol, next to
+`PermissionSet` — its model supplies `get_version()`, turning the payload into a version string
+(Immich: `major`/`minor`/`patch` of `/api/server/version`; ChurchTools: the `version` string of
+the public `/api/info`). Only `BaseAPI` parses it into a `packaging.version.Version`:
+`_fetch_version()` does so once and treats a string that does not parse like a failed request.
+`_fetch_version()` logs the version at INFO, so the log file tells afterwards which server
+versions a run talked to. A feature needing a newer server calls
+`has_version(minimum, 'reason')` — log and skip like `has_permissions()`, an unknown version
+counting as too old — against a named version string constant such as
+`ImmichAPI.SEARCH_FILTER_VERSION = '3.2'`; `packaging` stays inside `BaseAPI`.
 
 A ChurchTools `view *` permission is often a *list of ids*, not a boolean, so holding it does not
 mean seeing every object — and the **element type names the axis those ids scope** (`CalendarID`,
@@ -153,6 +179,20 @@ the `AgendaItemType` values (hence their capitalization), pydantic rejects a key
 to keep in sync, so adding an `AgendaItemType` needs no other change. `Item` and `Person` stay in
 `churchtools/events.py`.
 
+**Song backgrounds** are the optional step after the download: `_handle_agenda()` calls
+`SongBackgrounds(config, immich).add_missing()` (`songbeamer/sng.py`), which checks every
+downloaded `.sng` for a `#BackgroundImage` header line and inserts one pointing at a random Immich
+JPEG/PNG original of the album named `Immich.backgrounds_album`
+(`ImmichAPI.download_random_background()`; every album of that name counts, own or shared). The
+random search uses the structured `filter` of Immich 3.2 (`albumIds.any`, file name endings,
+`trashedAt` — the filter does not exclude the trash on its own), and the feature is disabled on
+older servers: they silently drop unknown fields and would return random assets of the whole
+library. `sng.py` holds `SngFile`, the one place that decodes `.sng` content the way SongBeamer
+does (UTF-8 with BOM, Windows ANSI without) and splits it into `header` (the leading `#Key=Value`
+lines) and `body`. Song verification fills `Arrangement.sng_header` from it, so every `#Key` check
+sees the header only, never a verse line starting with `#`. Undecodable bytes survive as
+`surrogateescape`, so a file written back differs only in what was changed.
+
 **SongBeamer output** (`songbeamer/__init__.py`) writes `Schedule.col`, a Delphi-style object text
 format. The module docstring documents the grammar and the `'text'#252'more'` non-ASCII escaping;
 `AgendaItem._encode`/`_decode` implement it (`_test_encode_decode` is a round-trip sanity helper).
@@ -169,8 +209,8 @@ which loads the template and implements `save()`; a missing or unloadable templa
 **Song verification** (`churchtools/song_verification.py`) uses a decorator registry:
 `@SongChecks.register('CCLI')` on a `(Song, list[Arrangement]) -> list[str]` function. The key
 doubles as the result-table column header and as the value accepted by `--execute_checks`, so adding
-a check is a single registered function. A check that reads `Arrangement.sng_file_content` has to
-say so with `needs_sng_content=True`, as `verify_songs()` downloads the `.sng` files only when an
+a check is a single registered function. A check that reads `Arrangement.sng_header` has to
+say so with `needs_sng_header=True`, as `verify_songs()` downloads the `.sng` files only when an
 active check asks for them; an undeclared read silently sees an empty list, so the declaration is
 verified against what the checks actually read in `tests/test_song_verification.py`.
 

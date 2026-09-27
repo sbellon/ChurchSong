@@ -7,6 +7,7 @@ import http.cookiejar
 import typing
 import urllib.parse
 
+import packaging.version
 import pydantic
 import requests
 import requests.adapters
@@ -119,10 +120,24 @@ class PermissionSet(typing.Protocol):
     def get_permission(self, perm: str) -> bool | typing.Sequence[int]: ...
 
 
+class VersionInfo(typing.Protocol):
+    """What a client's version payload has to answer for the checks below.
+
+    The payloads differ in shape, but `get_version()` returns the server version
+    from each of them as a string like `"3.136.2"`, which `BaseAPI` parses. It must
+    compute from the payload alone: `_fetch_version()` rejects a string that does not
+    parse, so the same string cannot fail later on in `has_version()` either.
+    """
+
+    def get_version(self) -> str: ...
+
+
 class BaseAPI:
     _base_url: str
     _headers: dict[str, str]
     _permissions: PermissionSet
+    # Stays `None` for a client that does not fetch its version, or cannot.
+    _version: VersionInfo | None = None
 
     def __init__(
         self, log: logging.Logger, service: str, *, persist_cookies: bool = True
@@ -151,20 +166,27 @@ class BaseAPI:
             )
         atexit.register(self._session.close)
 
-    def _parse[T: pydantic.BaseModel](
-        self, model: type[T], r: requests.Response, api_url: str
-    ) -> T:
-        """Parse a response body, or fail with a `CliError` naming the endpoint.
+    def _validate[T](self, model: type[T], r: requests.Response) -> T:
+        """Validate the JSON body of a response into `model`.
 
-        For a call whose failure has no recovery. Where a caller catches the
-        `pydantic.ValidationError` to degrade instead, parse without this.
+        Raises `requests.exceptions.JSONDecodeError` or `pydantic.ValidationError`,
+        for a caller that catches them to degrade. Without recovery, use `_parse()`.
+        """
+        # Not `model(**r.json())`: that raises an uncaught `TypeError` on a JSON body
+        # that is not an object, and root models take no keyword arguments. And not
+        # `model.model_validate()`: a `TypeAdapter` validates any type, including a
+        # model only typed by a protocol like `VersionInfo`.
+        return pydantic.TypeAdapter(model).validate_python(r.json())
+
+    def _parse[T](self, model: type[T], r: requests.Response, api_url: str) -> T:
+        """Validate a response body, or fail with a `CliError` naming the endpoint.
+
+        For a call whose failure has no recovery.
         """
         try:
-            # Not `model(**r.json())`: that raises an uncaught `TypeError` on a JSON
-            # body that is not an object, and root models take no keyword arguments.
-            return model.model_validate(r.json())
+            return self._validate(model, r)
         except (requests.exceptions.JSONDecodeError, pydantic.ValidationError) as e:
-            # The request itself worked, and `_fetch_permissions()` has already proven
+            # The request itself worked, and `_fetch_required()` has already proven
             # the base URL good, so this is the service answering something the models
             # do not know - most likely an update on its side. Name the endpoint, as
             # the exception message alone does not say who was asked.
@@ -172,23 +194,21 @@ class BaseAPI:
             self._log.error(msg)
             raise CliError(msg) from None
 
-    def _fetch_config_checked[T: pydantic.BaseModel](
-        self, model: type[T], api_url: str
-    ) -> T:
-        """Fetch and parse the answer that proves base URL and token good.
+    def _fetch[T](self, model: type[T], api_url: str) -> T:
+        """GET `api_url` and validate the answer; raises on any failure."""
+        return self._validate(model, self._get(api_url))
 
-        For the one call a client makes before any other, to fetch permissions to be
-        checked on a granular level later one.
+    def _fetch_required[T](self, model: type[T], api_url: str) -> T:
+        """Fetch what the client cannot work without, diagnosing a failure.
 
-        Do not merge with `_parse()`: this is the call that proves the base URL, so
-        its messages keep the configuration hints `_parse()` omits on purpose.
+        For the call a client makes before any other, which proves base URL and
+        token good: its errors carry the configuration hints `_parse()` omits.
         """
         url_hint = (
             f'Did you configure the URL of your {self._service} instance correctly?'
         )
         try:
-            r = self._get(api_url)
-            return model.model_validate(r.json())
+            return self._fetch(model, api_url)
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.MissingSchema,
@@ -215,6 +235,55 @@ class BaseAPI:
             msg = f'Unexpected answer from "{self._base_url}": {e}\n\n{url_hint}'
             self._log.error(msg)
             raise CliError(msg) from None
+
+    def _fetch_version[T: VersionInfo](self, model: type[T], api_url: str) -> T | None:
+        """Fetch and log the server version, or `None` if it cannot be determined.
+
+        The version is logged to be able to tell afterwards which server version a
+        run talked to. Unlike the permissions, it is no precondition of the client
+        itself, so a failure only logs a warning and leaves it to `has_version()` to
+        skip what depends on it.
+        """
+        try:
+            info = self._fetch(model, api_url)
+            version = packaging.version.Version(info.get_version())
+        except (
+            requests.exceptions.RequestException,
+            pydantic.ValidationError,
+            packaging.version.InvalidVersion,
+        ) as e:
+            self._log.warning('Cannot determine the %s version: %s', self._service, e)
+            return None
+        self._log.info('%s at %s is version %s', self._service, self._base_url, version)
+        return info
+
+    def has_version(self, minimum: str, log_reason: str = '') -> bool:
+        """Whether the server is version `minimum` (like `"3.2"`) or later.
+
+        Works like `has_permissions()`: logs why a feature is skipped, if given the
+        feature in `log_reason`.
+
+        An unknown version counts as too old: its reason was logged when fetching it.
+        """
+        if self._version is None:
+            if log_reason:
+                self._log.warning(
+                    'Skipping %s, the %s version is unknown', log_reason, self._service
+                )
+            return False
+        # Cannot fail: `_fetch_version()` has parsed the same string already.
+        version = packaging.version.Version(self._version.get_version())
+        if version < packaging.version.Version(minimum):
+            if log_reason:
+                self._log.warning(
+                    'Skipping %s, it requires %s %s or later, but the server is %s',
+                    log_reason,
+                    self._service,
+                    minimum,
+                    version,
+                )
+            return False
+        return True
 
     def _get_missing_permissions(self, *required_perms: str) -> list[str]:
         """Return those of `required_perms` that the token does not hold."""

@@ -31,7 +31,7 @@ def make_arrangement(
     source_reference: str | None = None,
     duration: int | None = 180,
     files: list[dict[str, str]] | None = None,
-    sng_lines: list[str] | None = None,
+    sng_header: list[str] | None = None,
 ) -> Arrangement:
     arrangement = Arrangement.model_validate(
         {
@@ -47,8 +47,8 @@ def make_arrangement(
             'files': files or [],
         }
     )
-    if sng_lines is not None:
-        arrangement.sng_file_content = sng_lines
+    if sng_header is not None:
+        arrangement.sng_header = sng_header
     return arrangement
 
 
@@ -118,14 +118,14 @@ def test_tags_check_flags_missing_source_tag() -> None:
 
 
 def test_tags_check_flags_missing_en_de_tag_for_multilang_sng() -> None:
-    arrangement = make_arrangement(sng_lines=['#LangCount=2', '#Title=Amazing Grace'])
+    arrangement = make_arrangement(sng_header=['#LangCount=2', '#Title=Amazing Grace'])
     assert run_check('Tags', make_song(tags=['EN/DE']), [arrangement]) == ['']
     assert run_check('Tags', make_song(), [arrangement]) == ['miss "EN/DE"']
 
 
 def test_bgimage_check_flags_sng_without_background_image() -> None:
-    with_bg = make_arrangement(sng_lines=['#BackgroundImage=bg.jpg'])
-    without_bg = make_arrangement(sng_lines=['#Title=Amazing Grace'])
+    with_bg = make_arrangement(sng_header=['#BackgroundImage=bg.jpg'])
+    without_bg = make_arrangement(sng_header=['#Title=Amazing Grace'])
     no_content = make_arrangement()
     assert run_check('BGImg', make_song(), [with_bg]) == ['']
     assert run_check('BGImg', make_song(), [without_bg]) == ['miss']
@@ -134,8 +134,8 @@ def test_bgimage_check_flags_sng_without_background_image() -> None:
 
 def test_languages_check_flags_en_de_tagged_song_without_lang_markers() -> None:
     song = make_song(tags=['EN/DE'])
-    incomplete = make_arrangement(sng_lines=['#Title=Amazing Grace'])
-    complete = make_arrangement(sng_lines=['#LangCount=2', '#TitleLang2=Gnade'])
+    incomplete = make_arrangement(sng_header=['#Title=Amazing Grace'])
+    complete = make_arrangement(sng_header=['#LangCount=2', '#TitleLang2=Gnade'])
     assert run_check('#Lang', song, [incomplete]) == [
         'miss #LangCount, miss #TitleLang'
     ]
@@ -156,12 +156,12 @@ def test_registry_rejects_duplicate_registration() -> None:
         SongChecks.register('CCLI')(lambda _song, _arrangements: [])
 
 
-def test_declared_sng_content_need_matches_what_the_checks_read(
+def test_declared_sng_header_need_matches_what_the_checks_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Whether a check reads the .sng file content is declared at registration, and a
+    # Whether a check reads the .sng file header is declared at registration, and a
     # wrong declaration is silent: verify_songs() skips the download when no active
-    # check asks for the content, so an undeclared read sees an empty list and
+    # check asks for the header, so an undeclared read sees an empty list and
     # produces a wrong result instead of an error. The declaration is therefore not
     # trusted but watched - which, unlike inspecting the check source, also catches
     # content reached through a helper, an alias or a comprehension variable.
@@ -176,27 +176,27 @@ def test_declared_sng_content_need_matches_what_the_checks_read(
                     source={'name': 'Feiert Jesus 5', 'shorty': 'FJ5'},
                     source_reference='123',
                     files=[{'name': 'song.sng', 'fileUrl': 'https://ct.test/f/1'}],
-                    sng_lines=['#LangCount=2', '#Title=Amazing Grace'],
+                    sng_header=['#LangCount=2', '#Title=Amazing Grace'],
                 )
             ],
         ),
         (
             'EN/DE tagged song',
             make_song(tags=['EN/DE']),
-            [make_arrangement(sng_lines=['#Title=Amazing Grace'])],
+            [make_arrangement(sng_header=['#Title=Amazing Grace'])],
         ),
     ]
 
     # Patch after building the arrangements, as the recording property has no setter.
     reads: list[str] = []
-    original_fget = Arrangement.sng_file_content.fget
+    original_fget = Arrangement.sng_header.fget
     assert original_fget is not None
 
     def recording_fget(arrangement: Arrangement) -> list[str]:
         reads.append(arrangement.name)
         return original_fget(arrangement)
 
-    monkeypatch.setattr(Arrangement, 'sng_file_content', property(recording_fget))
+    monkeypatch.setattr(Arrangement, 'sng_header', property(recording_fget))
 
     for name, check in SongChecks.available_checks().items():
         read_content = False
@@ -204,10 +204,10 @@ def test_declared_sng_content_need_matches_what_the_checks_read(
             reads.clear()
             check.func(song, arrangements)
             read_content = read_content or bool(reads)
-        assert read_content == check.needs_sng_file_contents, (
-            f'check {name} is registered with needs_sng_content='
-            f'{check.needs_sng_file_contents}, but it '
-            f'{"reads" if read_content else "never reads"} sng_file_content'
+        assert read_content == check.needs_sng_header, (
+            f'check {name} is registered with needs_sng_header='
+            f'{check.needs_sng_header}, but it '
+            f'{"reads" if read_content else "never reads"} sng_header'
         )
 
 
@@ -506,6 +506,74 @@ def test_verify_songs_strips_the_byte_order_mark_of_sng_files(
         all_arrangements=False,
     )
     assert 'No problems found.' in capsys.readouterr().out
+
+
+def test_verify_songs_decodes_sng_files_by_their_byte_order_mark(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(
+                42,
+                'Amazing Grace',
+                arrangements=[make_arrangement_json(files=[SNG_FILE])],
+            )
+        ],
+    )
+    # The encoding the server claims is not what SongBeamer goes by: decoded as
+    # latin-1, the BOM would turn into three characters in front of the key.
+    mocked_responses.get(
+        SNG_FILE['fileUrl'],
+        body=b'\xef\xbb\xbf#BackgroundImage=bg.jpg\n#Title=Amazing Grace',
+        content_type='text/plain; charset=iso-8859-1',
+    )
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=['BGImg'],
+        all_arrangements=False,
+    )
+    assert 'No problems found.' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ('check', 'expected'), [('BGImg', 'miss'), ('#Lang', 'miss #LangCount')]
+)
+def test_verify_songs_checks_the_sng_header_only(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    capsys: pytest.CaptureFixture[str],
+    check: str,
+    expected: str,
+) -> None:
+    register_all_songs(
+        mocked_responses,
+        [
+            make_song_json(
+                42,
+                'Amazing Grace',
+                tags=['EN/DE'],
+                arrangements=[make_arrangement_json(files=[SNG_FILE])],
+            )
+        ],
+    )
+    # Like SongBeamer, only the header counts, not a verse line looking like it.
+    mocked_responses.get(
+        SNG_FILE['fileUrl'],
+        body=b'#Title=Amazing Grace\n---\n#BackgroundImage=bg.jpg\n#LangCount=2\n',
+    )
+    ChurchToolsSongVerification(churchtools_api).verify_songs(
+        date=None,
+        include_tags=[],
+        exclude_tags=[],
+        execute_checks=[check],
+        all_arrangements=False,
+    )
+    assert expected in capsys.readouterr().out
 
 
 def test_verify_songs_skips_sng_download_for_checks_that_do_not_need_it(
