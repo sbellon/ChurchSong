@@ -406,14 +406,14 @@ class ChurchToolsEvent:
         download_files: bool = True,
         download_songs: bool = True,
         upload_songsheets: bool = True,
-        immich: ImmichAPI | None,
+        immich: ImmichAPI,
     ) -> tuple[list[Item], SongSheets]:
         msg_items = (
             ['Downloading agenda items']
             + (['event files'] if download_files else [])
             + (['songs'] if download_songs else [])
             + (['uploading song sheets'] if upload_songsheets else [])
-            + (['Immich upload'] if immich else [])
+            + (['Immich upload'] if immich.upload_enabled else [])
         )
         logger.info(', '.join(msg_items))
         agenda_items: list[Item] = []
@@ -440,8 +440,7 @@ class ChurchToolsEvent:
                                     Subfolder.FILES,
                                     overwrite=download_files,
                                 )
-                                if immich:
-                                    immich.upload_media_file(file_path)
+                                immich.upload_media_file(file_path)
                                 event_file = Item(
                                     AgendaItemType.FILE, item.title, file_path
                                 )

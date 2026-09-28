@@ -132,11 +132,17 @@ token, `_fetch_version()` only warns. A call that degrades on an off-shape answe
 `_validate()` directly and says why in a "Not `_parse()`" comment.
 
 `ImmichAPI` asserts nothing: media upload and background download are independent optional
-features, each checked once in its constructor. The upload is enabled by its tags — an empty
-`_upload_tag_ids` (none configured or none usable) means nothing is uploaded, as no file may end
-up in Immich untagged. Immich identifies its objects by UUID strings, typed by the `type UUID = str`
-alias in `immich/__init__.py` in models and signatures alike, so they cannot be mistaken for other
-strings like names.
+features. Its constructor makes no request and cannot fail, leaving both features off; `connect()`
+contacts Immich and switches on each feature that is configured and permitted. Only URL and token
+(`_fetch_required()`) can fail `connect()`, which `_handle_agenda()` therefore calls inside a
+`guard()`; a failure while setting up one feature (tag or album lookup, tag creation) is caught
+there and switches off just that feature, so their lookups use `_validate()`, not `_parse()`. So
+`immich` is always an instance, and callers only ask its `upload_enabled` /
+`backgrounds_enabled`. The upload is enabled by its tags — an empty `_upload_tag_ids` (none
+configured or none usable) means nothing is uploaded, as no file may end up in Immich untagged.
+Immich identifies its objects by UUID strings, typed by the `type UUID = str` alias in
+`immich/__init__.py` in models and signatures alike, so they cannot be mistaken for other strings
+like names.
 
 **Server versions** follow the same pattern and live in `BaseAPI` as well: a client that needs
 them fetches the version once in its constructor, `self._version = self._fetch_version(Model,
@@ -167,7 +173,7 @@ all: the levels gate *fields*, so an insufficient one yields a person with field
 **Agenda pipeline** (`churchtools/events.py`): `ChurchToolsEvent.download_agenda_items()` walks
 event files and agenda items into `output_dir/{Songs,Files}`, feeds PDFs into `SongSheets` (chords
 + leads via reportlab/pypdf, "MISSING" watermark page for absent songs) and hands media files to
-the `ImmichAPI` it is given, if any. It returns `(list[Item], SongSheets)` — the `list[Item]` is
+the `ImmichAPI` it is given, if its upload is enabled. It returns `(list[Item], SongSheets)` — the `list[Item]` is
 the internal agenda representation shared with the SongBeamer writer, and *uploading* the sheets
 is deliberately left to the caller, which does it as a guarded optional step.
 

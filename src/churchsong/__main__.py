@@ -328,9 +328,10 @@ def _handle_agenda(
                 ppa.create(cta.get_appointments(event))
                 ppa.save()
 
-    immich: ImmichAPI | None = None
+    # Always an instance: if connecting fails, its features just stay off.
+    immich = ImmichAPI(config)
     with optional_steps.guard('Immich connector'):
-        immich = ImmichAPI(config)
+        immich.connect()
 
     agenda_items, song_sheets = cte.download_agenda_items(
         download_files=selection.files,
@@ -342,7 +343,7 @@ def _handle_agenda(
     with optional_steps.guard('song sheet upload'):
         song_sheets.upload()
 
-    if selection.songs and immich:
+    if selection.songs and immich.backgrounds_enabled:
         with optional_steps.guard('song background images'):
             SongBackgrounds(config, immich).add_missing(agenda_items)
 

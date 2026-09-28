@@ -15,7 +15,17 @@ from churchsong.immich import ImmichAPI
 from churchsong.utils import CliError
 from tests.conftest import IMMICH_BASE_URL, make_config, mock_immich_server
 
+if typing.TYPE_CHECKING:
+    from churchsong.configuration import Configuration
+
 UPLOAD_PERMISSIONS = ['asset.upload', 'tag.read', 'tag.asset']
+
+
+def connect_immich(config: Configuration) -> ImmichAPI:
+    """An `ImmichAPI` connected to the (mocked) Immich instance of `config`."""
+    api = ImmichAPI(config)
+    api.connect()
+    return api
 
 
 @pytest.fixture
@@ -25,7 +35,7 @@ def immich_api(mocked_responses: responses.RequestsMock) -> ImmichAPI:
     mocked_responses.get(
         f'{IMMICH_BASE_URL}/api/tags', json=[{'id': 't1', 'name': 'Upload'}]
     )
-    return ImmichAPI(make_config(immich={'upload_tags': ['Upload']}))
+    return connect_immich(make_config(immich={'upload_tags': ['Upload']}))
 
 
 def mock_upload(
@@ -60,7 +70,7 @@ def test_upload_is_skipped_without_permission(
     # Neither the tags are enumerated nor is anything uploaded: no such request is
     # registered, so it would fail the test.
     with caplog.at_level(logging.WARNING):
-        api = ImmichAPI(make_config(immich={'upload_tags': ['Upload']}))
+        api = connect_immich(make_config(immich={'upload_tags': ['Upload']}))
         api.upload_media_file(str(make_media_file(tmp_path)))
     assert f'Skipping media upload due to missing permissions: "{missing}"' in (
         caplog.text
@@ -76,9 +86,57 @@ def test_upload_is_skipped_without_upload_tags(
     # Nothing is uploaded that could not be tagged: no tag enumeration, no upload,
     # and - as an unconfigured feature - no warning either.
     with caplog.at_level(logging.WARNING):
-        api = ImmichAPI(make_config(immich={}))
+        api = connect_immich(make_config(immich={}))
         api.upload_media_file(str(make_media_file(tmp_path)))
     assert not caplog.records
+    assert not api.upload_enabled
+
+
+def test_enabled_predicates_follow_the_usable_tags_and_album(
+    immich_api: ImmichAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # The fixture has a usable upload tag but no backgrounds album ...
+    assert immich_api.upload_enabled
+    assert not immich_api.backgrounds_enabled
+    # ... and a read-only token the other way round.
+    api = make_background_api(mocked_responses, BACKGROUND_PERMISSIONS)
+    assert not api.upload_enabled
+    assert api.backgrounds_enabled
+
+
+def test_nothing_is_enabled_without_immich_section() -> None:
+    api = ImmichAPI(make_config())
+    api.connect()
+    assert not api.upload_enabled
+    assert not api.backgrounds_enabled
+
+
+def test_init_does_not_contact_immich(mocked_responses: responses.RequestsMock) -> None:
+    # No endpoint is registered: a request from the constructor would fail the test.
+    api = ImmichAPI(
+        make_config(immich={'upload_tags': ['Upload'], 'backgrounds_album': 'Bg'})
+    )
+    # Before `connect()`, both features are off, which is a valid state to use.
+    assert not api.upload_enabled
+    assert not api.backgrounds_enabled
+    assert not mocked_responses.calls
+
+
+def test_failed_connect_leaves_a_usable_instance(
+    mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
+) -> None:
+    mocked_responses.get(f'{IMMICH_BASE_URL}/api/api-keys/me', status=401)
+    api = ImmichAPI(
+        make_config(immich={'upload_tags': ['Upload'], 'backgrounds_album': 'Bg'})
+    )
+    with pytest.raises(CliError, match='Immich API token'):
+        api.connect()
+    assert not api.upload_enabled
+    assert not api.backgrounds_enabled
+    # Neither feature makes a request: none is registered beyond the failed one.
+    api.upload_media_file(str(make_media_file(tmp_path)))
+    assert api.download_random_background(tmp_path) is None
+    assert len(mocked_responses.calls) == 1
 
 
 def test_log_records_name_the_immich_component(
@@ -146,7 +204,7 @@ def make_immich_api(
     mock_immich_server(mocked_responses, permissions)
     if known_tags is not None:
         mocked_responses.get(f'{IMMICH_BASE_URL}/api/tags', json=known_tags)
-    return ImmichAPI(make_config(immich={'upload_tags': tags or []}))
+    return connect_immich(make_config(immich={'upload_tags': tags or []}))
 
 
 def make_media_file(tmp_path: pathlib.Path) -> pathlib.Path:
@@ -155,7 +213,7 @@ def make_media_file(tmp_path: pathlib.Path) -> pathlib.Path:
     return media_file
 
 
-def test_init_reports_an_unreachable_immich_instance(
+def test_connect_reports_an_unreachable_immich_instance(
     mocked_responses: responses.RequestsMock,
 ) -> None:
     mocked_responses.get(
@@ -163,18 +221,18 @@ def test_init_reports_an_unreachable_immich_instance(
         body=requests.exceptions.ConnectionError('no route to host'),
     )
     with pytest.raises(CliError, match='configure the URL'):
-        ImmichAPI(make_config(immich={}))
+        connect_immich(make_config(immich={}))
 
 
-def test_init_reports_a_wrong_immich_token(
+def test_connect_reports_a_wrong_immich_token(
     mocked_responses: responses.RequestsMock,
 ) -> None:
     mocked_responses.get(f'{IMMICH_BASE_URL}/api/api-keys/me', status=401)
     with pytest.raises(CliError, match='Immich API token'):
-        ImmichAPI(make_config(immich={}))
+        connect_immich(make_config(immich={}))
 
 
-def test_init_reports_a_non_json_answer_as_a_url_problem(
+def test_connect_reports_a_non_json_answer_as_a_url_problem(
     mocked_responses: responses.RequestsMock,
 ) -> None:
     mocked_responses.get(
@@ -183,18 +241,18 @@ def test_init_reports_a_non_json_answer_as_a_url_problem(
         content_type='text/html',
     )
     with pytest.raises(CliError, match='configure the URL') as excinfo:
-        ImmichAPI(make_config(immich={}))
+        connect_immich(make_config(immich={}))
     assert IMMICH_BASE_URL in str(excinfo.value)
 
 
-def test_init_reports_an_off_shape_permissions_answer(
+def test_connect_reports_an_off_shape_permissions_answer(
     mocked_responses: responses.RequestsMock,
 ) -> None:
     mocked_responses.get(
         f'{IMMICH_BASE_URL}/api/api-keys/me', json={'message': 'maintenance'}
     )
     with pytest.raises(CliError, match='configure the URL') as excinfo:
-        ImmichAPI(make_config(immich={}))
+        connect_immich(make_config(immich={}))
     assert IMMICH_BASE_URL in str(excinfo.value)
 
 
@@ -259,19 +317,6 @@ def test_upload_uses_the_tags_that_are_usable(
     assert json.loads(typing.cast('bytes', body))['tagIds'] == ['t1']
 
 
-def test_tag_enumeration_reports_an_off_shape_answer(
-    mocked_responses: responses.RequestsMock,
-) -> None:
-    with pytest.raises(CliError, match='/api/tags') as excinfo:
-        make_immich_api(
-            mocked_responses,
-            ['asset.upload', 'tag.read', 'tag.asset'],
-            tags=['Service'],
-            known_tags=[{'id': 't1'}],  # a tag without a name
-        )
-    assert 'Immich' in str(excinfo.value)
-
-
 def test_upload_skips_unsupported_files(
     immich_api: ImmichAPI,
     mocked_responses: responses.RequestsMock,
@@ -319,7 +364,7 @@ def test_upload_skips_excluded_files(
     mocked_responses.get(
         f'{IMMICH_BASE_URL}/api/tags', json=[{'id': 't1', 'name': 'Upload'}]
     )
-    api = ImmichAPI(
+    api = connect_immich(
         make_config(
             immich={'upload_tags': ['Upload'], 'exclude_globbings': ['*_edited.jpg']}
         )
@@ -397,7 +442,7 @@ def make_background_api(
         server_version is not None and server_version >= (3, 2, 0)
     ):
         mocked_responses.get(f'{IMMICH_BASE_URL}/api/albums', json=albums)
-    return ImmichAPI(make_config(immich={'backgrounds_album': 'Backgrounds'}))
+    return connect_immich(make_config(immich={'backgrounds_album': 'Backgrounds'}))
 
 
 def mock_random_search(
@@ -525,7 +570,7 @@ def test_immich_version_is_logged(
 ) -> None:
     mock_immich_server(mocked_responses, [], version=(3, 2, 1))
     with caplog.at_level(logging.INFO):
-        ImmichAPI(make_config(immich={}))
+        connect_immich(make_config(immich={}))
     assert f'Immich at {IMMICH_BASE_URL} is version 3.2.1' in caplog.text
 
 
@@ -557,16 +602,6 @@ def test_backgrounds_are_skipped_without_the_album(
         )
     assert_no_background(api, mocked_responses, tmp_path)
     assert 'Album "Backgrounds" not found' in caplog.text
-
-
-def test_album_listing_reports_an_off_shape_answer(
-    mocked_responses: responses.RequestsMock,
-) -> None:
-    with pytest.raises(CliError, match='/api/albums'):
-        make_background_api(
-            mocked_responses,
-            albums=[{'id': 'al1'}],  # an album without a name
-        )
 
 
 def test_random_background_searches_the_album_and_downloads_originals(
@@ -693,3 +728,87 @@ def test_random_background_survives_a_failing_download(
         assert api.download_random_background(tmp_path) is None
     assert '404' in caplog.text
     assert not list(tmp_path.iterdir())
+
+
+FAILING_ANSWERS = [
+    pytest.param({'status': 500}, id='server-error'),
+    pytest.param(
+        {'body': requests.exceptions.ConnectionError('connection reset')},
+        id='connection-error',
+    ),
+    pytest.param({'json': [{'id': 't1'}]}, id='off-shape'),  # an entry without name
+]
+
+
+def make_api_with_both_features(
+    mocked_responses: responses.RequestsMock,
+    *,
+    tags_answer: dict[str, typing.Any],
+    albums_answer: dict[str, typing.Any],
+) -> ImmichAPI:
+    mock_immich_server(mocked_responses, [*UPLOAD_PERMISSIONS, *BACKGROUND_PERMISSIONS])
+    mocked_responses.get(f'{IMMICH_BASE_URL}/api/tags', **tags_answer)
+    mocked_responses.get(f'{IMMICH_BASE_URL}/api/albums', **albums_answer)
+    return connect_immich(
+        make_config(
+            immich={'upload_tags': ['Upload'], 'backgrounds_album': 'Backgrounds'}
+        )
+    )
+
+
+@pytest.mark.parametrize('answer', FAILING_ANSWERS)
+def test_a_failing_tag_lookup_only_skips_the_media_upload(
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    answer: dict[str, typing.Any],
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        api = make_api_with_both_features(
+            mocked_responses, tags_answer=answer, albums_answer={'json': ALBUMS}
+        )
+    assert not api.upload_enabled
+    assert api.backgrounds_enabled
+    assert 'Skipping media upload, cannot look up the upload tags' in caplog.text
+
+
+@pytest.mark.parametrize('answer', FAILING_ANSWERS)
+def test_a_failing_album_lookup_only_skips_the_backgrounds(
+    mocked_responses: responses.RequestsMock,
+    caplog: pytest.LogCaptureFixture,
+    answer: dict[str, typing.Any],
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        api = make_api_with_both_features(
+            mocked_responses,
+            tags_answer={'json': [{'id': 't1', 'name': 'Upload'}]},
+            albums_answer=answer,
+        )
+    assert api.upload_enabled
+    assert not api.backgrounds_enabled
+    assert 'Skipping background image download, cannot look up the albums' in (
+        caplog.text
+    )
+
+
+@pytest.mark.parametrize('answer', FAILING_ANSWERS)
+def test_a_failing_tag_creation_leaves_out_only_that_tag(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    answer: dict[str, typing.Any],
+) -> None:
+    mocked_responses.post(f'{IMMICH_BASE_URL}/api/tags', **answer)
+    with caplog.at_level(logging.WARNING):
+        api = make_immich_api(
+            mocked_responses,
+            [*UPLOAD_PERMISSIONS, 'tag.create'],
+            tags=['Service', 'New'],
+            known_tags=[{'id': 't1', 'name': 'Service'}],
+        )
+    assert 'Failed to create tag "New" in Immich' in caplog.text
+    media_file = make_media_file(tmp_path)
+    mock_upload(mocked_responses, media_file)
+    api.upload_media_file(str(media_file))
+    body = mocked_responses.calls[-1].request.body
+    assert body is not None
+    assert json.loads(typing.cast('bytes', body))['tagIds'] == ['t1']

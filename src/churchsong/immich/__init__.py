@@ -108,6 +108,11 @@ class ImmichAPI(BaseAPI):
     SEARCH_FILTER_VERSION = '3.2'
 
     def __init__(self, config: Configuration) -> None:
+        """Set up the connector without contacting Immich yet, so this cannot fail.
+
+        Both features start switched off, which is a valid state to use the instance
+        in: `connect()` switches on what is configured and usable.
+        """
         super().__init__(logger, 'Immich')
         if config.immich:
             self._base_url = config.immich.base_url
@@ -117,58 +122,87 @@ class ImmichAPI(BaseAPI):
             }
             self._include_globbings = config.immich.include_globbings
             self._exclude_globbings = config.immich.exclude_globbings
-
-            self._permissions = self._fetch_required(Permissions, '/api/api-keys/me')
-            self._version = self._fetch_version(
-                ServerVersionResponse, '/api/server/version'
-            )
-
-            # Media upload and background download are independent optional features.
-            # Their respective permissions are checked for upon querying the tag/album
-            # IDs, so without the respective permissions we just end up with an empty
-            # list of IDs.
-            self._upload_tag_ids: list[UUID] = (
-                self._get_tag_ids(config.immich.upload_tags)
-                if config.immich.upload_tags
-                and self.has_permissions(
-                    ['asset.upload', 'tag.read', 'tag.asset'],
-                    'media upload',
-                )
-                else []
-            )
-            self._backgrounds_album_ids: list[UUID] = (
-                self._get_album_ids(config.immich.backgrounds_album)
-                if config.immich.backgrounds_album
-                and self.has_permissions(
-                    ['album.read', 'asset.read', 'asset.download'],
-                    'background image download',
-                )
-                and self.has_version(
-                    self.SEARCH_FILTER_VERSION, 'background image download'
-                )
-                else []
-            )
+            self._upload_tags = config.immich.upload_tags
+            self._backgrounds_album = config.immich.backgrounds_album
         else:
-            self._upload_tag_ids: list[UUID] = []
-            self._backgrounds_album_ids: list[UUID] = []
+            self._base_url = ''
+            self._headers = {}
+            self._include_globbings = []
+            self._exclude_globbings = []
+            self._upload_tags = []
+            self._backgrounds_album = None
+
+        # Media upload and background download are independent optional features,
+        # switched on by `connect()` with the IDs they need.
+        self._upload_tag_ids: list[UUID] = []
+        self._backgrounds_album_ids: list[UUID] = []
 
         # Candidates for background images, fetched on first demand.
         self._background_candidates: list[UUID] | None = None
         self._background_index = 0
 
+    def connect(self) -> None:
+        """Contact the configured Immich instance and set up the usable features.
+
+        Raises a `CliError` if URL or token are wrong, leaving both features off. A
+        feature that is not configured or not permitted stays off, and a failure
+        while setting one up only switches off that one.
+        """
+        if not self._base_url:
+            return
+        self._permissions = self._fetch_required(Permissions, '/api/api-keys/me')
+        self._version = self._fetch_version(
+            ServerVersionResponse, '/api/server/version'
+        )
+        if self._upload_tags and self.has_permissions(
+            ['asset.upload', 'tag.read', 'tag.asset'], 'media upload'
+        ):
+            self._upload_tag_ids = self._get_tag_ids(self._upload_tags)
+        if (
+            self._backgrounds_album
+            and self.has_permissions(
+                ['album.read', 'asset.read', 'asset.download'],
+                'background image download',
+            )
+            and self.has_version(
+                self.SEARCH_FILTER_VERSION, 'background image download'
+            )
+        ):
+            self._backgrounds_album_ids = self._get_album_ids(self._backgrounds_album)
+
+    @property
+    def upload_enabled(self) -> bool:
+        """Whether media files are uploaded: only with a usable upload tag."""
+        return bool(self._upload_tag_ids)
+
+    @property
+    def backgrounds_enabled(self) -> bool:
+        """Whether background images can come from a usable backgrounds album."""
+        return bool(self._backgrounds_album_ids)
+
     def _create_tag(self, tagname: str) -> UUID | None:
         if not self.has_permissions(['tag.create'], 'tag creation'):
             return None
-        api_url = '/api/tags'
-        r = self._post(api_url, json={'name': tagname})
-        return self._parse(TagResponse, r, api_url).id
+        try:
+            r = self._post('/api/tags', json={'name': tagname})
+            # Not `_parse()`: a tag that cannot be created is left out, as is one
+            # without the permission to create it.
+            return self._validate(TagResponse, r).id
+        except (requests.RequestException, pydantic.ValidationError) as e:
+            logger.warning('Failed to create tag "%s" in Immich: %s', tagname, e)
+            return None
 
     def _get_tag_ids(self, tagnames: list[str]) -> list[UUID]:
-        api_url = '/api/tags'
-        r = self._get(api_url)
-        tag2id = {
-            tag.name: tag.id for tag in self._parse(TagResponseResults, r, api_url).root
-        }
+        try:
+            r = self._get('/api/tags')
+            # Not `_parse()`: a failure only costs the media upload, not the connector.
+            tags = self._validate(TagResponseResults, r).root
+        except (requests.RequestException, pydantic.ValidationError) as e:
+            logger.warning(
+                'Skipping media upload, cannot look up the upload tags in Immich: %s', e
+            )
+            return []
+        tag2id = {tag.name: tag.id for tag in tags}
         tag_ids = [
             tag_id
             for tagname in tagnames
@@ -184,13 +218,21 @@ class ImmichAPI(BaseAPI):
         return tag_ids
 
     def _get_album_ids(self, album_name: str) -> list[UUID]:
-        api_url = '/api/albums'
-        r = self._get(api_url)
-        album_ids = [
-            album.id
-            for album in self._parse(AlbumResponseResults, r, api_url).root
-            if album.album_name == album_name
-        ]
+        # Match the name here instead of passing it as a query parameter, which a
+        # server not knowing it would silently drop and answer with all albums. All
+        # albums of that name count, e.g. an own and a shared one.
+        try:
+            r = self._get('/api/albums')
+            # Not `_parse()`: a failure only costs the backgrounds, not the connector.
+            albums = self._validate(AlbumResponseResults, r).root
+        except (requests.RequestException, pydantic.ValidationError) as e:
+            logger.warning(
+                'Skipping background image download, cannot look up the albums in '
+                'Immich: %s',
+                e,
+            )
+            return []
+        album_ids = [album.id for album in albums if album.album_name == album_name]
         if not album_ids:
             logger.warning('Album "%s" not found in Immich', album_name)
         return album_ids
@@ -256,7 +298,7 @@ class ImmichAPI(BaseAPI):
 
     def upload_media_file(self, filename: str) -> None:
         if (
-            self._upload_tag_ids
+            self.upload_enabled
             and any(incl.match(filename) for incl in self._include_globbings)
             and not any(excl.match(filename) for excl in self._exclude_globbings)
         ):
@@ -338,7 +380,7 @@ class ImmichAPI(BaseAPI):
         Returns `None` if the backgrounds album is not usable, holds no image or the
         download fails - a missing background must not cost an event its schedule.
         """
-        if not self._backgrounds_album_ids:
+        if not self.backgrounds_enabled:
             return None
         try:
             if (asset_id := self._next_background_candidate()) is None:

@@ -180,7 +180,13 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
 
     class FakeImmichAPI:
         def __init__(self, _config: Configuration) -> None:
+            # Like the real one: both features are off until connected.
+            self.backgrounds_enabled = False
+
+        def connect(self) -> None:
             record('immich')
+            # A configured background image stands for a usable backgrounds album.
+            self.backgrounds_enabled = backgrounds is not None
 
         def download_random_background(
             self, output_dir: pathlib.Path
@@ -462,14 +468,22 @@ def test_agenda_writes_the_schedule_although_the_song_sheet_upload_fails(
 
 
 def test_agenda_runs_without_a_reachable_immich_instance(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
-    pipeline = install_fake_pipeline(monkeypatch, failing_step='immich')
+    pipeline = install_fake_pipeline(
+        monkeypatch, failing_step='immich', backgrounds=tmp_path / 'image.jpg'
+    )
+
+    def no_song_backgrounds(*_args: object) -> None:
+        pytest.fail('SongBackgrounds must not be set up without a connection')
+
+    monkeypatch.setattr(cli, 'SongBackgrounds', no_song_backgrounds)
     config = make_config(songbeamer=TEMPLATES)
     result = invoke(['agenda', '2026-08-16'], config)
     assert result.exit_code == 0
-    # The download gets no Immich connector instead of never being reached at all.
-    assert pipeline.download_kwargs['immich'] is None
+    # The download still gets the connector, only with its features switched off,
+    # although backgrounds would have been available.
+    assert pipeline.download_kwargs['immich'] is not None
     assert 'create_schedule' in pipeline.steps
     assert 'launch' in pipeline.steps
     assert 'Skipped Immich connector: 502 Server Error' in result.output
@@ -528,6 +542,22 @@ def test_agenda_adds_no_background_images_without_song_download(
     assert result.exit_code == 0
     assert 'immich.background' not in pipeline.steps
     assert b'Background' not in (tmp_path / 'Songs' / 'without.sng').read_bytes()
+
+
+def test_agenda_adds_no_background_images_without_backgrounds_album(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    # An Immich connector alone is no reason to walk the songs: without a usable
+    # backgrounds album there is nothing to set.
+    install_fake_pipeline(monkeypatch, agenda_items=make_song_items(tmp_path))
+
+    def no_song_backgrounds(*_args: object) -> None:
+        pytest.fail('SongBackgrounds must not be set up without a backgrounds album')
+
+    monkeypatch.setattr(cli, 'SongBackgrounds', no_song_backgrounds)
+    result = invoke(['agenda', '2026-08-16'], make_config(output_dir=str(tmp_path)))
+    assert result.exit_code == 0
+    assert 'Skipped song background images' not in result.output
 
 
 def test_agenda_writes_the_schedule_although_the_background_images_fail(
