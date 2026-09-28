@@ -310,11 +310,13 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     )
 
     event = make_churchtools_event(churchtools_api, config)
+    immich = ImmichAPI(config)
+    immich.connect()
     with caplog.at_level(logging.ERROR):
         items, _song_sheets = event.download_agenda_items(
             download_files=False,
             upload_songsheets=False,
-            immich=ImmichAPI(config),
+            immich=immich,
         )
 
     photo = tmp_path / 'Files' / 'IMG_1234.jpg'
@@ -323,7 +325,7 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     ]
     assert not photo.exists()
     # The file that was never written must not abort the event: Immich sees only
-    # the requests of its constructor, and the missing file is contained by
+    # the requests of connecting, and the missing file is contained by
     # `upload_media_file` instead of escaping as a `FileNotFoundError`.
     assert [
         call.request.url
@@ -337,12 +339,14 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
     assert 'IMG_1234.jpg' in caplog.text
 
 
-def test_download_agenda_items_without_immich_still_downloads(
+def test_download_agenda_items_without_upload_tags_skips_immich_upload(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    config = make_config(output_dir=str(tmp_path))
+    config = make_config(output_dir=str(tmp_path), immich={})
+    mock_immich_server(mocked_responses, ['asset.upload', 'tag.read', 'tag.asset'])
     register_event_endpoints(
         mocked_responses,
         event_files=[
@@ -359,11 +363,44 @@ def test_download_agenda_items_without_immich_still_downloads(
         body=b'jpeg content',
         headers={'Content-Disposition': 'filename="IMG_1234.jpg"'},
     )
-    # An Immich instance that could not be reached leaves the caller without a
-    # connector at all; the event files are still downloaded.
+    event = make_churchtools_event(churchtools_api, config)
+    immich = ImmichAPI(config)
+    immich.connect()
+    # No upload endpoint is registered: an upload attempt would fail the test.
+    with caplog.at_level(logging.INFO):
+        event.download_agenda_items(upload_songsheets=False, immich=immich)
+    assert 'Downloading agenda items' in caplog.text
+    assert 'Immich upload' not in caplog.text
+
+
+def test_download_agenda_items_with_unreachable_immich_still_downloads(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+) -> None:
+    config = make_config(output_dir=str(tmp_path), immich={'upload_tags': ['Upload']})
+    register_event_endpoints(
+        mocked_responses,
+        event_files=[
+            {
+                'title': 'Photo',
+                'domainType': 'file',
+                'domainIdentifier': 903,
+                'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
+            },
+        ],
+    )
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/files/903',
+        body=b'jpeg content',
+        headers={'Content-Disposition': 'filename="IMG_1234.jpg"'},
+    )
+    # An Immich instance that could not be connected to has both features off, as
+    # has one never connected: no Immich request is registered, and the event
+    # files are still downloaded.
     event = make_churchtools_event(churchtools_api, config)
     (item,), _song_sheets = event.download_agenda_items(
-        upload_songsheets=False, immich=None
+        upload_songsheets=False, immich=ImmichAPI(config)
     )
     photo = tmp_path / 'Files' / 'IMG_1234.jpg'
     assert item.filename == str(photo)
@@ -1169,7 +1206,7 @@ def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
     # Both types are rejected in ChurchToolsEvent.__init__, before any download.
     with caplog.at_level(logging.WARNING):
         event = make_churchtools_event(churchtools_api, config)
-        items, _song_sheets = event.download_agenda_items(immich=None)
+        items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert [item.type for item in items] == [
         AgendaItemType.LINK,
         AgendaItemType.HEADER,
@@ -1528,7 +1565,7 @@ def test_download_uses_the_token_for_a_differently_cased_host(
     )
     event = ChurchToolsEvent(churchtools_api, make_event_short(), config)
     (item,), _song_sheets = event.download_agenda_items(
-        upload_songsheets=False, immich=None
+        upload_songsheets=False, immich=ImmichAPI(config)
     )
     notes = tmp_path / 'Files' / 'Notes.pdf'
     assert item.filename == str(notes)
