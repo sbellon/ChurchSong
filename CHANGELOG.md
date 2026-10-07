@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.14.0 (2026-10-07)
 
 ### Added
 - set a random JPEG or PNG image of the Immich (3.2 or later) album configured as
