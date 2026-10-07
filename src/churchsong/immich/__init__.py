@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+import base64
 import datetime
 import enum
 import hashlib
@@ -14,7 +15,7 @@ import typing
 import pydantic
 import requests
 
-from churchsong.utils.file import atomic_replace
+from churchsong.utils.file import atomic_replace, safe_filename
 from churchsong.utils.http import BaseAPI
 
 if typing.TYPE_CHECKING:
@@ -70,6 +71,9 @@ class AlbumResponseResults(pydantic.RootModel[list[AlbumResponse]]):
 
 class AssetResponse(BaseModel):
     id: UUID
+    filename: str | None = pydantic.Field(default=None, alias='originalFileName')
+    mimetype: str | None = pydantic.Field(default=None, alias='originalMimeType')
+    checksum: str | None = None  # SHA-1 of the original file, base64 encoded
 
 
 class AssetResponseResults(pydantic.RootModel[list[AssetResponse]]):
@@ -138,7 +142,7 @@ class ImmichAPI(BaseAPI):
         self._backgrounds_album_ids: list[UUID] = []
 
         # Candidates for background images, fetched on first demand.
-        self._background_candidates: list[UUID] | None = None
+        self._background_candidates: list[AssetResponse] | None = None
         self._background_index = 0
 
     def connect(self) -> None:
@@ -317,8 +321,8 @@ class ImmichAPI(BaseAPI):
                 # Keep flying as the Immich upload should not crash an event.
                 logger.error('Failed to upload "%s" to Immich: %s', filename, e)
 
-    def _fetch_background_candidates(self) -> list[UUID]:
-        # Use the Immich 3.2 API default `size` of 250 random image ids being returned.
+    def _fetch_background_candidates(self) -> list[AssetResponse]:
+        # Use the Immich 3.2 API default `size` of 250 random images being returned.
         payload: JsonObject = {
             'filter': {
                 'type': {'eq': 'IMAGE'},
@@ -334,14 +338,12 @@ class ImmichAPI(BaseAPI):
             },
         }
         r = self._post('/api/search/random', json=payload)
-        candidates = [
-            asset.id for asset in self._validate(AssetResponseResults, r).root
-        ]
+        candidates = self._validate(AssetResponseResults, r).root
         if not candidates:
             logger.warning('No JPEG or PNG images in the backgrounds album in Immich')
         return candidates
 
-    def _next_background_candidate(self) -> UUID | None:
+    def _next_background_candidate(self) -> AssetResponse | None:
         # The server returns the candidates in random order already. Handing them out
         # in that order gives the songs of one event distinct backgrounds as long as
         # there are enough; once all are used, a new random batch is fetched. A batch
@@ -361,13 +363,29 @@ class ImmichAPI(BaseAPI):
         self._background_index += 1
         return candidate
 
+    def _background_filename(self, asset: AssetResponse) -> str:
+        # Prefer the name the image was uploaded with, then fall back to UUID.
+        if asset.filename:
+            return asset.filename
+        suffix = mimetypes.guess_extension(asset.mimetype) if asset.mimetype else None
+        return f'{asset.id}{suffix or ".jpg"}'
+
+    def _is_downloaded(self, asset: AssetResponse, filename: pathlib.Path) -> bool:
+        if not asset.checksum or not filename.is_file():
+            return False
+        sha1 = bytes.fromhex(self._get_sha1_checksum(filename))
+        return base64.b64encode(sha1).decode() == asset.checksum
+
     def _download_original(
-        self, asset_id: UUID, output_dir: pathlib.Path
+        self, asset: AssetResponse, output_dir: pathlib.Path
     ) -> pathlib.Path:
-        r = self._get(f'/api/assets/{asset_id}/original')
-        mime_type = r.headers.get('Content-Type', '').partition(';')[0].strip()
-        suffix = mimetypes.guess_extension(mime_type) if mime_type else None
-        filename = output_dir / f'{asset_id}{suffix or ".jpg"}'
+        filename = output_dir / safe_filename(self._background_filename(asset))
+        # The backgrounds folder outlives a run, so an image may be there already.
+        if self._is_downloaded(asset, filename):
+            logger.info('Background image "%s" is downloaded already', filename.name)
+            return filename
+        logger.info('Downloading background image "%s" from Immich', filename.name)
+        r = self._get(f'/api/assets/{asset.id}/original')
         with atomic_replace(filename) as tmp_file:
             tmp_file.write_bytes(r.content)
         return filename
@@ -383,10 +401,9 @@ class ImmichAPI(BaseAPI):
         if not self.backgrounds_enabled:
             return None
         try:
-            if (asset_id := self._next_background_candidate()) is None:
+            if (asset := self._next_background_candidate()) is None:
                 return None
-            logger.info('Downloading background image "%s" from Immich', asset_id)
-            return self._download_original(asset_id, output_dir)
+            return self._download_original(asset, output_dir)
         except (requests.RequestException, pydantic.ValidationError, OSError) as e:
             logger.error('Failed to download background image from Immich: %s', e)
             return None

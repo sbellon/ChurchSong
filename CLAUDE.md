@@ -190,6 +190,10 @@ to keep in sync, so adding an `AgendaItemType` needs no other change. `Item` and
 downloaded `.sng` for a `#BackgroundImage` header line and inserts one pointing at a random Immich
 JPEG/PNG original of the album named `Immich.backgrounds_album`
 (`ImmichAPI.download_random_background()`; every album of that name counts, own or shared). The
+image keeps its `originalFileName` (through `safe_filename()`), the asset UUID names it only if
+Immich gave none; distinct names within the album are up to whoever curates it. The name is
+settled from the search answer alone, so an image already in the `Backgrounds` folder with the
+SHA-1 Immich reports as `checksum` is not downloaded again. The
 random search uses the structured `filter` of Immich 3.2 (`albumIds.any`, file name endings,
 `trashedAt` — the filter does not exclude the trash on its own), and the feature is disabled on
 older servers: they silently drop unknown fields and would return random assets of the whole

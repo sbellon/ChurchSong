@@ -106,7 +106,9 @@ define which event file patterns to consider for media upload and which to ignor
 If you configure `backgrounds_album` with the name of an Immich album, every
 downloaded song file without a `#BackgroundImage` gets a random JPEG or PNG image of
 that album as background. The original images are downloaded into the `Backgrounds`
-folder of `output_dir`. This requires Immich 3.2 or later and the permissions
+folder of `output_dir` under their original file names, so the images of the album
+should have distinct ones. An image that is in that folder already is not downloaded
+again unless it changed in Immich. This requires Immich 3.2 or later and the permissions
 `album.read`, `asset.read` and `asset.download`, and happens only if song files are
 selected for download.
 
