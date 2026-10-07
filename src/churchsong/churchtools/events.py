@@ -454,6 +454,10 @@ class ChurchToolsEvent:
                             'Failed to download event file for %s: %s', item.title, e
                         )
             for item in self._agenda.items:
+                if item.type is EventAgendaItemType.SONG and item.song:
+                    # item.title may not be the song title so rather use item.song.title
+                    # instead. Done up here for the progress bar to show it as well.
+                    item.title = item.song.title
                 with progress.do_progress(
                     item, description=f'Downloading: {item.title}'
                 ):
@@ -465,9 +469,6 @@ class ChurchToolsEvent:
                                 agenda_item = Item(AgendaItemType.NORMAL, item.title)
                             case EventAgendaItemType.SONG:
                                 if item.song:
-                                    # item.title may not be the song title itself,
-                                    # so rather use item.song.title instead.
-                                    item.title = item.song.title
                                     files = self._song_files(
                                         item.song,
                                         modified_date=item.meta.modified_date,
