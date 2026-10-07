@@ -23,6 +23,7 @@ from churchsong.churchtools.events import (
     Person,
 )
 from churchsong.immich import ImmichAPI
+from churchsong.utils.progress import Progress
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
     IMMICH_BASE_URL,
@@ -1177,6 +1178,34 @@ def test_download_agenda_items_survives_markup_in_an_item_title(
     event = make_churchtools_event(churchtools_api, config)
     items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert [item.title for item in items] == ['Welcome', 'Lied [/x] Schluss']
+
+
+def test_download_agenda_items_shows_the_song_title_in_the_progress_bar(
+    churchtools_api: ChurchToolsAPI,
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = make_config(output_dir=str(tmp_path))
+    # ChurchTools leaves the title of a song item empty, the song carries it.
+    register_event_endpoints(mocked_responses, agenda_items=[SONG_ITEM | {'title': ''}])
+    register_song(mocked_responses, files=[])
+    descriptions: list[str | None] = []
+    do_progress = Progress.do_progress
+
+    def record[T](
+        self: Progress, item: T, description: str | None = None
+    ) -> typing.ContextManager[T]:
+        descriptions.append(description)
+        return do_progress(self, item, description)
+
+    monkeypatch.setattr(Progress, 'do_progress', record)
+    event = make_churchtools_event(churchtools_api, config)
+    items, _song_sheets = event.download_agenda_items(
+        upload_songsheets=False, immich=ImmichAPI(config)
+    )
+    assert [item.title for item in items] == ['Amazing Grace']
+    assert descriptions == ['Downloading: Amazing Grace']
 
 
 def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
