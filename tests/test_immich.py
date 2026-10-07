@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+import base64
+import hashlib
 import json
 import logging
 import pathlib
@@ -449,10 +451,15 @@ def mock_random_search(
     mocked_responses: responses.RequestsMock,
     album_ids: list[str],
     asset_ids: list[str],
+    fields: dict[str, dict[str, str]] | None = None,
 ) -> None:
+    # `fields` holds what the answer tells about an asset besides its ID, like
+    # `originalFileName`, `originalMimeType` or `checksum`. An asset without an
+    # entry stands for an answer lacking all of them.
+    fields = fields or {}
     mocked_responses.post(
         f'{IMMICH_BASE_URL}/api/search/random',
-        json=[{'id': asset_id} for asset_id in asset_ids],
+        json=[{'id': asset_id} | fields.get(asset_id, {}) for asset_id in asset_ids],
         match=[
             responses.matchers.json_params_matcher(
                 {
@@ -653,16 +660,127 @@ def test_random_background_searches_all_albums_of_that_name(
     assert api.download_random_background(tmp_path) == tmp_path / 'a1.jpg'
 
 
-def test_random_background_takes_the_extension_from_the_content_type(
+def test_random_background_without_a_file_name_takes_the_extension_from_the_mime_type(
     mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
 ) -> None:
     api = make_background_api(mocked_responses)
-    mock_random_search(mocked_responses, ['al1'], ['a1'])
-    mock_original(mocked_responses, 'a1', content_type='image/png')
+    mock_random_search(
+        mocked_responses, ['al1'], ['a1'], {'a1': {'originalMimeType': 'image/png'}}
+    )
+    # What the download calls the image does not matter, the path is settled before.
+    mock_original(mocked_responses, 'a1', content_type='image/jpeg')
     image = api.download_random_background(tmp_path / 'Backgrounds')
     assert image == tmp_path / 'Backgrounds' / 'a1.png'
     assert image is not None
     assert image.exists()
+
+
+def test_random_background_is_named_like_the_original_file(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    api = make_background_api(mocked_responses)
+    # The name wins over the MIME type, which only names the fallback.
+    mock_random_search(
+        mocked_responses,
+        ['al1'],
+        ['a1'],
+        {'a1': {'originalFileName': 'Sunrise.JPG', 'originalMimeType': 'image/png'}},
+    )
+    mock_original(mocked_responses, 'a1')
+    with caplog.at_level(logging.INFO):
+        image = api.download_random_background(tmp_path)
+    assert image == tmp_path / 'Sunrise.JPG'
+    assert image is not None
+    assert image.read_bytes() == b'original of a1'
+    assert 'Downloading background image "Sunrise.JPG"' in caplog.text
+
+
+@pytest.mark.parametrize('file_name', [None, ''])
+def test_random_background_without_a_file_name_is_named_like_the_asset(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    file_name: str | None,
+) -> None:
+    api = make_background_api(mocked_responses)
+    fields = {} if file_name is None else {'a1': {'originalFileName': file_name}}
+    mock_random_search(mocked_responses, ['al1'], ['a1'], fields)
+    mock_original(mocked_responses, 'a1')
+    assert api.download_random_background(tmp_path) == tmp_path / 'a1.jpg'
+
+
+def test_random_background_file_name_cannot_leave_the_output_dir(
+    mocked_responses: responses.RequestsMock, tmp_path: pathlib.Path
+) -> None:
+    api = make_background_api(mocked_responses)
+    mock_random_search(
+        mocked_responses,
+        ['al1'],
+        ['a1'],
+        {'a1': {'originalFileName': '..\\../evil:sky?.jpg'}},
+    )
+    mock_original(mocked_responses, 'a1')
+    output_dir = tmp_path / 'Backgrounds'
+    assert api.download_random_background(output_dir) == output_dir / 'evil_sky_.jpg'
+    assert [path.name for path in tmp_path.iterdir()] == ['Backgrounds']
+
+
+def immich_checksum(content: bytes) -> str:
+    return base64.b64encode(
+        hashlib.sha1(content, usedforsecurity=False).digest()
+    ).decode()
+
+
+@pytest.mark.parametrize(
+    ('fields', 'name'),
+    [
+        ({'originalFileName': 'Sunrise.jpg'}, 'Sunrise.jpg'),
+        # An image saved under its UUID is found again just as well.
+        ({'originalMimeType': 'image/png'}, 'a1.png'),
+        ({}, 'a1.jpg'),
+    ],
+)
+def test_random_background_is_not_downloaded_again(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+    fields: dict[str, str],
+    name: str,
+) -> None:
+    api = make_background_api(mocked_responses)
+    (tmp_path / name).write_bytes(b'sunrise')
+    mock_random_search(
+        mocked_responses,
+        ['al1'],
+        ['a1'],
+        {'a1': fields | {'checksum': immich_checksum(b'sunrise')}},
+    )
+    # No original is registered: asking for it would fail the download.
+    with caplog.at_level(logging.INFO):
+        image = api.download_random_background(tmp_path)
+    assert image == tmp_path / name
+    assert f'Background image "{name}" is downloaded already' in caplog.text
+    assert not any(
+        '/original' in (call.request.url or '') for call in mocked_responses.calls
+    )
+
+
+@pytest.mark.parametrize('checksum', [None, 'garbage', immich_checksum(b'other')])
+def test_random_background_replaces_a_file_that_is_another_image(
+    mocked_responses: responses.RequestsMock,
+    tmp_path: pathlib.Path,
+    checksum: str | None,
+) -> None:
+    api = make_background_api(mocked_responses)
+    (tmp_path / 'Sunrise.jpg').write_bytes(b'sunrise')
+    fields = {'originalFileName': 'Sunrise.jpg'} | (
+        {} if checksum is None else {'checksum': checksum}
+    )
+    mock_random_search(mocked_responses, ['al1'], ['a1'], {'a1': fields})
+    mock_original(mocked_responses, 'a1')
+    assert api.download_random_background(tmp_path) == tmp_path / 'Sunrise.jpg'
+    assert (tmp_path / 'Sunrise.jpg').read_bytes() == b'original of a1'
 
 
 def test_random_background_from_an_album_without_images(
