@@ -17,7 +17,7 @@
 - media files are only uploaded to Immich if at least one tag in `upload_tags` can be
   applied to them, nothing is uploaded untagged any more
 - internal refactorings and code cleanups
-- updated external dependencies (platformdirs, pypdf, urllib3)
+- updated external dependencies (platformdirs, pypdf, typer, urllib3)
 
 ## 0.13.1 (2026-09-07)
 
