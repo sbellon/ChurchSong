@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # `/` covers the workflows in `.github/workflows`, but not a composite action
+  # in a subdirectory, so the one holding the `setup-uv` pin is listed as well.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup
+    schedule:
+      interval: weekly
+    # One pull request for all pending updates instead of one per action.
+    groups:
+      actions:
+        patterns:
+          - "*"
