@@ -21,7 +21,7 @@ from churchsong.utils import CliError
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
-    import datetime
+    import datetime as dt
     import pathlib
 
     from churchsong.churchtools import ChurchToolsAPI
@@ -154,8 +154,8 @@ class ChurchToolsSongStatistics:
 
     def song_usage(
         self,
-        from_date: datetime.datetime,
-        to_date: datetime.datetime,
+        from_date: dt.datetime,
+        to_date: dt.datetime,
         *,
         output_file: pathlib.Path | None = None,
         output_format: FormatType,

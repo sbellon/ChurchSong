@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import io
 import logging
 import typing
@@ -623,7 +623,7 @@ def make_toc_layout(num_songs: int) -> tuple[float, list[float]]:
     )
     for nr in range(1, num_songs + 1):
         sheet.append(f'Hymn {nr}', f'{1000 + nr}', 'Standard', make_pdf_reader('x'))
-    last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
+    last_modified = dt.datetime(2026, 8, 16, tzinfo=dt.UTC)
     positions = extract_pdf_text_positions(sheet.finalize(last_modified=last_modified))
     title_y = next(y for text, y in positions if text == 'Song Sheets Chords')
     return title_y, [y for text, y in positions if text.startswith('Hymn ')]
@@ -667,7 +667,7 @@ def test_song_sheet_marks_a_missing_song_with_a_watermark() -> None:
     )
     sheet.append('Amazing Grace', '22025', 'Standard', make_pdf_reader('chords'))
     sheet.append('Be Thou My Vision', '12345', 'Standard', None)  # no PDF in the DB
-    last_modified = datetime.datetime(2026, 8, 16, tzinfo=datetime.UTC)
+    last_modified = dt.datetime(2026, 8, 16, tzinfo=dt.UTC)
     text = extract_pdf_text(sheet.finalize(last_modified=last_modified))
     # Title page with the table of contents, then one page per song.
     assert 'Song Sheets Chords' in text

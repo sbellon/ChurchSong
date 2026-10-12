@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import logging
 import typing
 
@@ -310,7 +310,7 @@ def register_event_songs(
     )
 
 
-EVENT_DATE = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+EVENT_DATE = dt.datetime(2026, 8, 20, tzinfo=dt.UTC)
 
 SNG_FILE = {'name': 'song.sng', 'fileUrl': f'{CHURCHTOOLS_BASE_URL}/files/1/song.sng'}
 

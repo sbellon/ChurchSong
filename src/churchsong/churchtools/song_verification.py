@@ -17,7 +17,7 @@ from churchsong.songbeamer.sng import SngFile
 from churchsong.utils.progress import Progress
 
 if typing.TYPE_CHECKING:
-    import datetime
+    import datetime as dt
 
     from churchsong.churchtools import Arrangement, ChurchToolsAPI, Song, Tag
 
@@ -208,7 +208,7 @@ class ChurchToolsSongVerification:
     def verify_songs(  # noqa: C901, PLR0912
         self,
         *,
-        date: datetime.datetime | None,
+        date: dt.datetime | None,
         include_tags: list[str],
         exclude_tags: list[str],
         execute_checks: list[str],

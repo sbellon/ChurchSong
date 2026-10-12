@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import enum
 import logging
 import typing
@@ -35,7 +35,7 @@ class TableFiller:
         self,
         config: Configuration,
         table_type: TableType,
-        one_week_later: datetime.datetime,
+        one_week_later: dt.datetime,
     ) -> None:
         self._appointments_config = config.songbeamer.powerpoint.appointments
         self._table_type = table_type
@@ -192,14 +192,12 @@ class TableFiller:
 
 
 class PowerPointAppointments(PowerPointBase):
-    def __init__(
-        self, config: Configuration, event_start_date: datetime.datetime
-    ) -> None:
+    def __init__(self, config: Configuration, event_start_date: dt.datetime) -> None:
         logger.info('Creating PowerPoint appointments slides')
         super().__init__(
             config, config.songbeamer.powerpoint.appointments.template_pptx
         )
-        self._one_week_later = event_start_date + datetime.timedelta(days=8)
+        self._one_week_later = event_start_date + dt.timedelta(days=8)
         self._weekly_table = TableFiller(
             config=config,
             table_type=TableType.WEEKLY,
