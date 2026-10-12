@@ -84,6 +84,25 @@ class SngFile:
         """Whether the `header` lines of a song file set a background image."""
         return any(line.startswith(cls.BACKGROUND_IMAGE_KEY) for line in header)
 
+    def remove_dangling_background_images(self) -> list[str]:
+        """Remove the `#BackgroundImage` lines naming an absolute path without a file.
+
+        Returns the removed paths. A relative path is left alone: SongBeamer resolves
+        it against its own background folder, which is not known here.
+        """
+        removed: list[str] = []
+        kept: list[str] = []
+        for line in self.header:
+            if line.startswith(self.BACKGROUND_IMAGE_KEY):
+                value = line.removeprefix(self.BACKGROUND_IMAGE_KEY).rstrip('\r\n')
+                image = pathlib.Path(value)
+                if image.is_absolute() and not image.exists():
+                    removed.append(value)
+                    continue
+            kept.append(line)
+        self.header = kept
+        return removed
+
     def set_background_image(self, image: pathlib.Path) -> None:
         """Insert a `#BackgroundImage` line at the end of the header.
 
@@ -101,7 +120,7 @@ class SngFile:
 
 
 class SongBackgrounds:
-    """Give the songs of an agenda without a background a random one from Immich."""
+    """Give the songs of an agenda without a usable background one from Immich."""
 
     def __init__(self, config: Configuration, immich: ImmichAPI) -> None:
         self._immich = immich
@@ -124,6 +143,14 @@ class SongBackgrounds:
                 ):
                     try:
                         sng = SngFile.read(sng_file)
+                        # A background that cannot be shown counts as none. The
+                        # removal reaches the file only together with its replacement.
+                        for dangling in sng.remove_dangling_background_images():
+                            logger.debug(
+                                'Dropping missing background image "%s" of "%s"',
+                                dangling,
+                                sng_file.name,
+                            )
                         if SngFile.has_background_image(sng.header):
                             continue
                         if image := self._immich.download_random_background(
