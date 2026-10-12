@@ -1,5 +1,10 @@
 # ChangeLog
 
+## Unreleased
+
+### Changed
+- updated external dependencies (platformdirs, pydantic, pypdf)
+
 ## 0.14.0 (2026-10-07)
 
 ### Added
