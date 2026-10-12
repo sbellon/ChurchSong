@@ -189,7 +189,9 @@ to keep in sync, so adding an `AgendaItemType` needs no other change. `Item` and
 `SongBackgrounds(config, immich).add_missing()` (`songbeamer/sng.py`), which checks every
 downloaded `.sng` for a `#BackgroundImage` header line and inserts one pointing at a random Immich
 JPEG/PNG original of the album named `Immich.backgrounds_album`
-(`ImmichAPI.download_random_background()`; every album of that name counts, own or shared). The
+(`ImmichAPI.download_random_background()`; every album of that name counts, own or shared). A
+line with an *absolute* path to a file that does not exist counts as none and is replaced
+(`SngFile.remove_dangling_background_images()`); a relative one is SongBeamer's to resolve. The
 image keeps its `originalFileName` (through `safe_filename()`), the asset UUID names it only if
 Immich gave none; distinct names within the album are up to whoever curates it. The name is
 settled from the search answer alone, so an image already in the `Backgrounds` folder with the

@@ -528,6 +528,38 @@ def test_agenda_adds_background_images_to_songs_without_one(
     assert b'sky.jpg' in (tmp_path / 'Songs' / 'with.sng').read_bytes()
 
 
+def test_agenda_replaces_a_background_image_that_does_not_exist(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    image = tmp_path / 'Backgrounds' / 'asset-1.jpg'
+    songs = tmp_path / 'Songs'
+    songs.mkdir()
+    existing = tmp_path / 'sky.jpg'
+    existing.touch()
+    kept = f'#Title=Kept\r\n#BackgroundImage={existing}\r\n---\r\n'.encode()
+    (songs / 'kept.sng').write_bytes(kept)
+    (songs / 'dangling.sng').write_bytes(
+        f'#Title=Dangling\r\n#BackgroundImage={tmp_path / "gone.jpg"}\r\n'
+        f'#LangCount=1\r\n---\r\nVerse\r\n'.encode()
+    )
+    pipeline = install_fake_pipeline(
+        monkeypatch,
+        backgrounds=image,
+        agenda_items=[
+            Item(AgendaItemType.SONG, 'Kept', str(songs / 'kept.sng')),
+            Item(AgendaItemType.SONG, 'Dangling', str(songs / 'dangling.sng')),
+        ],
+    )
+    result = invoke(['agenda', '2026-08-16'], make_config(output_dir=str(tmp_path)))
+    assert result.exit_code == 0
+    assert pipeline.steps.count('immich.background') == 1
+    assert (songs / 'kept.sng').read_bytes() == kept
+    assert (songs / 'dangling.sng').read_bytes() == (
+        f'#Title=Dangling\r\n#LangCount=1\r\n#BackgroundImage={image}\r\n'
+        f'---\r\nVerse\r\n'.encode()
+    )
+
+
 def test_agenda_adds_no_background_images_without_song_download(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:

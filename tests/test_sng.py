@@ -141,6 +141,39 @@ def test_set_background_image_uses_an_absolute_path(
     assert str(tmp_path / 'Backgrounds' / 'asset.jpg').encode() in bytes(sng)
 
 
+def test_remove_dangling_background_images_drops_missing_absolute_paths_only(
+    tmp_path: pathlib.Path,
+) -> None:
+    existing = tmp_path / 'sky.jpg'
+    existing.touch()
+    missing = tmp_path / 'gone.jpg'
+    sng = SngFile(
+        f'#Title=A\r\n#BackgroundImage={missing}\r\n#BackgroundImage={existing}\r\n'
+        f'#BackgroundImage=Backgrounds\\gone.jpg\r\n#LangCount=1\r\n---\r\n'
+        f'#BackgroundImage={missing}\r\n'.encode()
+    )
+    assert sng.remove_dangling_background_images() == [str(missing)]
+    # An existing image and a relative path stay, and so does a verse line.
+    assert bytes(sng) == (
+        f'#Title=A\r\n#BackgroundImage={existing}\r\n'
+        f'#BackgroundImage=Backgrounds\\gone.jpg\r\n#LangCount=1\r\n---\r\n'
+        f'#BackgroundImage={missing}\r\n'.encode()
+    )
+
+
+def test_remove_dangling_background_images_then_set_replaces_the_line(
+    tmp_path: pathlib.Path,
+) -> None:
+    # The last header line without a line break is the one that gets removed.
+    sng = SngFile(f'#Title=A\n#BackgroundImage={tmp_path / "gone.jpg"}'.encode())
+    assert sng.remove_dangling_background_images() == [str(tmp_path / 'gone.jpg')]
+    assert not SngFile.has_background_image(sng.header)
+    sng.set_background_image(tmp_path / 'asset.jpg')
+    assert bytes(sng) == (
+        f'#Title=A\n#BackgroundImage={tmp_path / "asset.jpg"}\n'.encode()
+    )
+
+
 def test_read_and_write_round_trip_a_file(tmp_path: pathlib.Path) -> None:
     sng_file = tmp_path / 'song.sng'
     sng_file.write_bytes(codecs.BOM_UTF8 + b'#Title=A\r\n---\r\n')
