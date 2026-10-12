@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import logging
 import pathlib
 import sys
@@ -114,7 +114,7 @@ def test_create_schedule_keeps_one_line_per_grammar_element(
     tmp_path: pathlib.Path,
 ) -> None:
     SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
-        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
         agenda_items=[
             Item(AgendaItemType.SONG, 'Amazing\nGrace'),
             Item(AgendaItemType.HEADER, ' '),
@@ -218,7 +218,7 @@ def test_create_schedule_assembles_slides_agenda_and_services(
             }
         },
     )
-    event_date = datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+    event_date = dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC)
     SongBeamer(config).create_schedule(
         event_date=event_date,
         agenda_items=[
@@ -265,7 +265,7 @@ def test_create_schedule_inserts_every_slide_matching_the_same_item(
         },
     )
     SongBeamer(config).create_schedule(
-        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
         agenda_items=[Item(AgendaItemType.HEADER, 'Infos')],
         service_items=[],
     )
@@ -301,7 +301,7 @@ def test_create_schedule_does_not_let_an_inserted_slide_trigger_another_one(
         },
     )
     SongBeamer(config).create_schedule(
-        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
         agenda_items=[Item(AgendaItemType.HEADER, 'Infos')],
         service_items=[],
     )
@@ -330,7 +330,7 @@ def test_create_schedule_warns_about_an_unparsable_slide(
     )
     with caplog.at_level(logging.WARNING):
         SongBeamer(config).create_schedule(
-            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
             agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
@@ -362,7 +362,7 @@ def test_create_schedule_warns_once_about_the_broken_block_of_a_slide_only(
     )
     with caplog.at_level(logging.WARNING):
         SongBeamer(config).create_schedule(
-            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
             agenda_items=[
                 Item(AgendaItemType.HEADER, 'Infos'),
                 Item(AgendaItemType.HEADER, 'More Infos'),
@@ -397,7 +397,7 @@ def test_create_schedule_does_not_warn_about_a_valid_slide(
     )
     with caplog.at_level(logging.WARNING):
         SongBeamer(config).create_schedule(
-            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
             agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
@@ -516,7 +516,7 @@ def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
     monkeypatch.setattr(pathlib.Path, 'replace', failing_replace)
     with pytest.raises(CliError, match='Cannot write'):
         SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
-            event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+            event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
             agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
             service_items=[],
         )
@@ -527,7 +527,7 @@ def test_create_schedule_keeps_the_previous_schedule_if_it_cannot_be_replaced(
 
 def test_create_schedule_writes_crlf_line_endings(tmp_path: pathlib.Path) -> None:
     SongBeamer(make_config(output_dir=str(tmp_path))).create_schedule(
-        event_date=datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC),
+        event_date=dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC),
         agenda_items=[Item(AgendaItemType.SONG, 'Amazing Grace')],
         service_items=[],
     )

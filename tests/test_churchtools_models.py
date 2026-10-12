@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import logging
 import warnings
 
@@ -97,10 +97,10 @@ def test_appointment_all_day_dates_get_time_and_timezone_attached() -> None:
     start = appointment.base.start_date
     end = appointment.base.end_date
     assert start.tzinfo is not None
-    assert start.date() == datetime.date(2026, 8, 23)
-    assert start.time() == datetime.time.min
-    assert end.date() == datetime.date(2026, 8, 23)
-    assert end.time() == datetime.time.max
+    assert start.date() == dt.date(2026, 8, 23)
+    assert start.time() == dt.time.min
+    assert end.date() == dt.date(2026, 8, 23)
+    assert end.time() == dt.time.max
 
 
 def test_appointment_calculated_dates_override_base_dates() -> None:

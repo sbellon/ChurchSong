@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import csv
-import datetime
+import datetime as dt
 import io
 import pathlib
 import typing
@@ -28,8 +28,8 @@ if typing.TYPE_CHECKING:
 
     from churchsong.churchtools import ChurchToolsAPI
 
-FROM_DATE = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
-TO_DATE = datetime.datetime(2026, 12, 31, tzinfo=datetime.UTC)
+FROM_DATE = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+TO_DATE = dt.datetime(2026, 12, 31, tzinfo=dt.UTC)
 
 
 def make_song_json(song_id: int, name: str) -> dict[str, object]:
@@ -102,8 +102,8 @@ def test_song_usage_rich_output_with_single_year_title(
 ) -> None:
     register_usage_endpoints(mocked_responses, '2026-01-01', '2026-12-31')
     ChurchToolsSongStatistics(churchtools_api).song_usage(
-        datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
-        datetime.datetime(2026, 12, 31, tzinfo=datetime.UTC),
+        dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+        dt.datetime(2026, 12, 31, tzinfo=dt.UTC),
         output_format=ChurchToolsSongStatistics.FormatType.RICH,
     )
     out = capsys.readouterr().out

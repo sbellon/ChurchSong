@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import dataclasses
-import datetime
+import datetime as dt
 import logging
 import subprocess
 import typing
@@ -109,7 +109,7 @@ class Pipeline:
     schedule_kwargs: dict[str, object] = dataclasses.field(
         default_factory=dict[str, object]
     )
-    requested_date: datetime.datetime | None = None
+    requested_date: dt.datetime | None = None
     agenda_required: bool = False
     service_leads: object = None
     nobody: object = None
@@ -139,7 +139,7 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
             record('api')
 
         def get_next_event(
-            self, from_date: datetime.datetime, *, agenda_required: bool = False
+            self, from_date: dt.datetime, *, agenda_required: bool = False
         ) -> EventShort:
             record('get_next_event')
             pipeline.requested_date = from_date
@@ -209,7 +209,7 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
 
     class FakePowerPointAppointments:
         def __init__(
-            self, _config: Configuration, _event_start_date: datetime.datetime
+            self, _config: Configuration, _event_start_date: dt.datetime
         ) -> None:
             record('appointments')
 
@@ -440,7 +440,7 @@ def test_agenda_command_runs_the_full_pipeline(
         'launch',
     ]
     assert pipeline.requested_date is not None
-    assert pipeline.requested_date.date() == datetime.date(2026, 8, 16)
+    assert pipeline.requested_date.date() == dt.date(2026, 8, 16)
     assert pipeline.agenda_required is True
     # The `agenda` command always downloads everything.
     assert pipeline.download_kwargs['download_files'] is True
@@ -728,8 +728,8 @@ def test_songs_verify_forwards_flattened_options(
     )
     assert result.exit_code == 0
     date = recorded['date']
-    assert isinstance(date, datetime.datetime)
-    assert date.date() == datetime.date(2026, 8, 16)
+    assert isinstance(date, dt.datetime)
+    assert date.date() == dt.date(2026, 8, 16)
     assert recorded['include_tags'] == ['German', 'English', 'Worship']
     assert recorded['exclude_tags'] == ['Archive']
     assert recorded['execute_checks'] == ['CCLI', 'Tags']
@@ -766,8 +766,8 @@ def test_songs_usage_forwards_year_range_and_format(
     assert result.exit_code == 0
     from_date = recorded['from_date']
     to_date = recorded['to_date']
-    assert isinstance(from_date, datetime.datetime)
-    assert isinstance(to_date, datetime.datetime)
+    assert isinstance(from_date, dt.datetime)
+    assert isinstance(to_date, dt.datetime)
     assert (from_date.year, from_date.month, from_date.day) == (2024, 1, 1)
     assert (to_date.year, to_date.month, to_date.day) == (2026, 12, 31)
     assert recorded['output_file'] == output_file
@@ -784,8 +784,8 @@ def test_songs_usage_accepts_an_open_start_year_range(
     assert result.exit_code == 0
     from_date = recorded['from_date']
     to_date = recorded['to_date']
-    assert isinstance(from_date, datetime.datetime)
-    assert isinstance(to_date, datetime.datetime)
+    assert isinstance(from_date, dt.datetime)
+    assert isinstance(to_date, dt.datetime)
     assert from_date.year == 2000
     assert to_date.year == 2020
     assert recorded['output_file'] is None

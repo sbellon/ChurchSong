@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import itertools
 import logging
 import typing
@@ -156,7 +156,7 @@ def test_get_events_reports_an_off_shape_answer(
 ) -> None:
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events', body=answer)
     with pytest.raises(CliError, match='/api/events') as excinfo:
-        list(churchtools_api.get_events(datetime.date(2026, 8, 23)))
+        list(churchtools_api.get_events(dt.date(2026, 8, 23)))
     # `_fetch_required()` has proven the base URL good by now, so the message must
     # not send the user back to the configuration - the cause is on the server.
     assert 'Did you configure' not in str(excinfo.value)
@@ -366,7 +366,7 @@ def test_get_next_event_skips_already_finished_events(
         },
     )
     # Now query for exactly the `end_date` of the 'Past' event:
-    from_date = datetime.datetime(2026, 8, 16, 12, 0, 0, tzinfo=datetime.UTC)
+    from_date = dt.datetime(2026, 8, 16, 12, 0, 0, tzinfo=dt.UTC)
     event = churchtools_api.get_next_event(from_date)
     assert event.id == 2
     assert event.name == 'Next'
@@ -376,7 +376,7 @@ def test_get_next_event_without_any_event_raises_cli_error(
     churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
 ) -> None:
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events', json={'data': []})
-    from_date = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+    from_date = dt.datetime(2026, 8, 20, tzinfo=dt.UTC)
     with pytest.raises(CliError, match='No events present'):
         churchtools_api.get_next_event(from_date)
 
@@ -395,7 +395,7 @@ def test_get_next_event_requiring_agenda_raises_cli_error_on_404(
         },
     )
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events/2/agenda', status=404)
-    from_date = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+    from_date = dt.datetime(2026, 8, 20, tzinfo=dt.UTC)
     with pytest.raises(CliError, match='No event agenda present'):
         churchtools_api.get_next_event(from_date, agenda_required=True)
 
@@ -715,7 +715,7 @@ def test_get_next_event_reraises_unexpected_agenda_errors(
         },
     )
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/events/2/agenda', status=500)
-    from_date = datetime.datetime(2026, 8, 20, tzinfo=datetime.UTC)
+    from_date = dt.datetime(2026, 8, 20, tzinfo=dt.UTC)
     with pytest.raises(requests.exceptions.HTTPError):
         churchtools_api.get_next_event(from_date, agenda_required=True)
 

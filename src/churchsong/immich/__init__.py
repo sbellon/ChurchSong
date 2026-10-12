@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import base64
-import datetime
+import datetime as dt
 import enum
 import hashlib
 import logging
@@ -285,13 +285,13 @@ class ImmichAPI(BaseAPI):
         mime_type, _ = mimetypes.guess_file_type(filename)
         stat = filename.stat()
         data = {
-            'fileCreatedAt': datetime.datetime.fromtimestamp(
+            'fileCreatedAt': dt.datetime.fromtimestamp(
                 stat.st_birthtime if sys.platform == 'win32' else stat.st_ctime,
-                datetime.UTC,
+                dt.UTC,
             ).isoformat(),
-            'fileModifiedAt': datetime.datetime.fromtimestamp(
+            'fileModifiedAt': dt.datetime.fromtimestamp(
                 stat.st_mtime,
-                datetime.UTC,
+                dt.UTC,
             ).isoformat(),
         }
         with filename.open('rb') as fd:

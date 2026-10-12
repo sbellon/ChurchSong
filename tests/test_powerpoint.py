@@ -4,7 +4,7 @@
 
 import base64
 import copy
-import datetime
+import datetime as dt
 import logging
 import os
 import pathlib
@@ -351,12 +351,10 @@ def test_appointments_distributes_and_formats_appointments(
     make_appointments_template(template, weekly_rows=2, irregular_rows=5)
     (tmp_path / 'output').mkdir()
     config = make_powerpoint_config(tmp_path, 'Appointments', template)
-    event_date = datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+    event_date = dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC)
 
-    def local(day: int, hour: int, month: int = 8) -> datetime.datetime:
-        return datetime.datetime(
-            2026, month, day, hour, tzinfo=datetime.UTC
-        ).astimezone()
+    def local(day: int, hour: int, month: int = 8) -> dt.datetime:
+        return dt.datetime(2026, month, day, hour, tzinfo=dt.UTC).astimezone()
 
     appointments = [
         # Weekly repetitions within the next week go to the weekly table ...
@@ -446,7 +444,7 @@ def test_appointments_without_matching_tables_are_dropped(
     prs.save(os.fspath(template))
     (tmp_path / 'output').mkdir()
     config = make_powerpoint_config(tmp_path, 'Appointments', template)
-    event_date = datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+    event_date = dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC)
 
     powerpoint = PowerPointAppointments(config, event_date)
     powerpoint.create([make_appointment('Concert', '2026-09-05T14:00:00Z')])
@@ -528,7 +526,7 @@ def create_appointments(tmp_path: pathlib.Path, template: pathlib.Path) -> pathl
     (tmp_path / 'output').mkdir(exist_ok=True)
     config = make_powerpoint_config(tmp_path, 'Appointments', template)
     powerpoint = PowerPointAppointments(
-        config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+        config, dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC)
     )
     powerpoint.create(
         [
@@ -550,7 +548,7 @@ def test_missing_appointments_template_skips_powerpoint(
 ) -> None:
     config = make_config(output_dir=str(tmp_path))
     powerpoint = PowerPointAppointments(
-        config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
+        config, dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC)
     )
     powerpoint.create([make_appointment('Concert', '2026-09-05T14:00:00Z')])
     powerpoint.save()
@@ -562,9 +560,7 @@ def test_log_records_name_the_powerpoint_module_they_come_from(
 ) -> None:
     config = make_config(output_dir=str(tmp_path))
     with caplog.at_level(logging.INFO):
-        PowerPointAppointments(
-            config, datetime.datetime(2026, 8, 23, 10, 0, tzinfo=datetime.UTC)
-        )
+        PowerPointAppointments(config, dt.datetime(2026, 8, 23, 10, 0, tzinfo=dt.UTC))
     # The subclass and PowerPointBase live in different modules, so a logger held by
     # the base class would report both of these records under the same name.
     assert [record.name for record in caplog.records] == [

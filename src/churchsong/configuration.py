@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
-import datetime
+import datetime as dt
 import enum
 import fnmatch
 import gettext
@@ -136,7 +136,7 @@ def validate_datetime_format(fmt: str) -> str:
     # the target platform. Reject it here, where the error can name the offending
     # configuration field instead of surfacing from an f-string three modules away.
     try:
-        datetime.datetime.now(tz=datetime.UTC).strftime(fmt)
+        dt.datetime.now(tz=dt.UTC).strftime(fmt)
     except ValueError as e:
         msg = f'is not a valid date/time format: {e}'
         raise ValueError(msg) from None

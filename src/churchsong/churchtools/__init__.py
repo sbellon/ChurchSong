@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 import enum
 import io
 import logging
@@ -163,8 +163,8 @@ class CalendarAppointmentBase(DeprecationAwareModel):
     image: Image | None
     link: str | None
     is_internal: bool = pydantic.Field(alias='isInternal')
-    start_date: datetime.datetime = pydantic.Field(alias='startDate')
-    end_date: datetime.datetime = pydantic.Field(alias='endDate')
+    start_date: dt.datetime = pydantic.Field(alias='startDate')
+    end_date: dt.datetime = pydantic.Field(alias='endDate')
     all_day: bool = pydantic.Field(alias='allDay')
     repeat_id: RepeatId | None = pydantic.Field(alias='repeatId')
     repeat_frequency: int | None = pydantic.Field(alias='repeatFrequency')
@@ -195,15 +195,13 @@ class CalendarAppointmentAppointment(DeprecationAwareModel):
         ):
             all_day = base.get('allDay', False)
             for key, time_part in (
-                ('startDate', datetime.time.min),
-                ('endDate', datetime.time.max),
+                ('startDate', dt.time.min),
+                ('endDate', dt.time.max),
             ):
                 if (value := calculated.get(key)) and isinstance(value, str):
                     if all_day and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
                         value = (
-                            datetime.datetime.combine(
-                                datetime.date.fromisoformat(value), time_part
-                            )
+                            dt.datetime.combine(dt.date.fromisoformat(value), time_part)
                             .astimezone()
                             .isoformat()
                         )
@@ -251,8 +249,8 @@ class ServicesData(DeprecationAwareModel):
 class EventShort(DeprecationAwareModel):
     id: int
     name: str
-    start_date: datetime.datetime = pydantic.Field(alias='startDate')
-    end_date: datetime.datetime = pydantic.Field(alias='endDate')
+    start_date: dt.datetime = pydantic.Field(alias='startDate')
+    end_date: dt.datetime = pydantic.Field(alias='endDate')
 
 
 class EventsData(DeprecationAwareModel):
@@ -313,8 +311,8 @@ class EventFile(DeprecationAwareModel):
 class EventFull(DeprecationAwareModel):
     id: int
     name: str
-    start_date: datetime.datetime = pydantic.Field(alias='startDate')
-    end_date: datetime.datetime = pydantic.Field(alias='endDate')
+    start_date: dt.datetime = pydantic.Field(alias='startDate')
+    end_date: dt.datetime = pydantic.Field(alias='endDate')
     event_files: list[EventFile] = pydantic.Field(alias='eventFiles')
     event_services: list[EventService] = pydantic.Field(alias='eventServices')
 
@@ -339,7 +337,7 @@ class EventAgendaItemType(enum.StrEnum):
 
 
 class EventAgendaItemMeta(DeprecationAwareModel):
-    modified_date: datetime.datetime = pydantic.Field(alias='modifiedDate')
+    modified_date: dt.datetime = pydantic.Field(alias='modifiedDate')
 
 
 class EventAgendaItem(DeprecationAwareModel):
@@ -628,9 +626,7 @@ class ChurchToolsAPI(BaseAPI):
         self, event: EventShort
     ) -> typing.Generator[CalendarAppointmentBase]:
         """Get non-internal appointments of the next N weeks *after* event."""
-        next_n_weeks = event.start_date + datetime.timedelta(
-            weeks=self._look_ahead_weeks
-        )
+        next_n_weeks = event.start_date + dt.timedelta(weeks=self._look_ahead_weeks)
         api_url = '/api/calendars/appointments'
         r = self._get(
             api_url,
@@ -658,7 +654,7 @@ class ChurchToolsAPI(BaseAPI):
         yield from result.data
 
     def get_events(
-        self, from_date: datetime.date, to_date: datetime.date | None = None
+        self, from_date: dt.date, to_date: dt.date | None = None
     ) -> typing.Generator[EventShort]:
         # Get all events that meet the given search criteria. It is important to note
         # that some of the search parameters are mutually exclusive. Most importantly,
@@ -677,7 +673,7 @@ class ChurchToolsAPI(BaseAPI):
         yield from result.data
 
     def get_next_event(
-        self, from_date: datetime.datetime, *, agenda_required: bool = False
+        self, from_date: dt.datetime, *, agenda_required: bool = False
     ) -> EventShort:
         try:
             event_iter = self.get_events(from_date)

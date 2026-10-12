@@ -16,7 +16,7 @@ from churchsong.utils import CliError, expand_envvars
 from churchsong.utils.file import atomic_replace
 
 if typing.TYPE_CHECKING:
-    import datetime
+    import datetime as dt
     from collections.abc import Callable
 
     from churchsong.configuration import SongBeamerColorConfig
@@ -305,7 +305,7 @@ class SongBeamer:
     def create_schedule(
         self,
         *,
-        event_date: datetime.datetime,
+        event_date: dt.datetime,
         agenda_items: list[Item],
         service_items: list[Item],
     ) -> None:

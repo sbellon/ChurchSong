@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import datetime
+import datetime as dt
 
 import pytest
 import tzlocal
@@ -45,7 +45,7 @@ def test_parse_year_range_open_start_defaults_to_2000() -> None:
 
 
 def test_parse_year_range_open_end_defaults_to_current_year() -> None:
-    current_year = datetime.datetime.now(tz=tzlocal.get_localzone()).year
+    current_year = dt.datetime.now(tz=tzlocal.get_localzone()).year
     date_range = parse_year_range('2024-')
     assert date_range.from_date.year == 2024
     assert date_range.from_date.month == 1
@@ -56,7 +56,7 @@ def test_parse_year_range_open_end_defaults_to_current_year() -> None:
 
 
 def test_parse_year_range_empty_defaults_to_current_year() -> None:
-    current_year = datetime.datetime.now(tz=tzlocal.get_localzone()).year
+    current_year = dt.datetime.now(tz=tzlocal.get_localzone()).year
     date_range = parse_year_range('')
     assert date_range.from_date.year == current_year
     assert date_range.from_date.month == 1
@@ -79,7 +79,7 @@ def test_parse_datetime_makes_naive_datetime_timezone_aware() -> None:
 
 def test_parse_datetime_keeps_explicit_timezone() -> None:
     date = parse_datetime('2026-08-16T10:00:00+02:00')
-    assert date.utcoffset() == datetime.timedelta(hours=2)
+    assert date.utcoffset() == dt.timedelta(hours=2)
 
 
 def test_parse_datetime_or_all() -> None:

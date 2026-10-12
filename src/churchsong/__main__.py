@@ -4,7 +4,7 @@
 
 import contextlib
 import dataclasses
-import datetime  # noqa: TC003 (used within Annotated)
+import datetime as dt  # noqa: TC003 (used within Annotated)
 import logging
 import os
 import pathlib  # noqa: TC003 (used within Annotated)
@@ -91,7 +91,7 @@ def callback(
 def agenda(
     ctx: typer.Context,
     date: typing.Annotated[
-        datetime.datetime,
+        dt.datetime,
         typer.Argument(  # pyright: ignore[reportUnknownMemberType]
             parser=parse_datetime,
             default_factory=lambda: now().isoformat(),
@@ -109,7 +109,7 @@ def agenda(
 def verify(  # noqa: PLR0913
     ctx: typer.Context,
     date: typing.Annotated[
-        datetime.datetime,
+        dt.datetime,
         typer.Argument(  # pyright: ignore[reportUnknownMemberType]
             parser=parse_datetime_or_all,
             default_factory=lambda: now().isoformat(),
@@ -295,7 +295,7 @@ class _OptionalSteps:
 
 
 def _handle_agenda(
-    date: datetime.datetime, config: Configuration, selection: DownloadSelection
+    date: dt.datetime, config: Configuration, selection: DownloadSelection
 ) -> None:
     sel = '' if all(dataclasses.asdict(selection).values()) else f' and {selection}'
     logger.info(

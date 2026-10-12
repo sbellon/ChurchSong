@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import dataclasses
-import datetime
+import datetime as dt
 import enum
 import io
 import logging
@@ -82,7 +82,7 @@ class SongFiles:
     sng_file: File | None
     chords_file: File | None
     leads_file: File | None
-    last_modified: datetime.datetime
+    last_modified: dt.datetime
 
 
 class PdfSheet:
@@ -99,7 +99,7 @@ class PdfSheet:
         self._pdf = pypdf.PdfWriter()
         self._toc: list[tuple[str, str, str]] = [toc_header]
 
-    def _create_title_page(self, last_modified: datetime.datetime) -> pypdf.PageObject:
+    def _create_title_page(self, last_modified: dt.datetime) -> pypdf.PageObject:
         data = io.BytesIO()
         pagesize = reportlab.lib.pagesizes.A4
         canvas = reportlab.pdfgen.canvas.Canvas(data, pagesize=pagesize)
@@ -219,7 +219,7 @@ class PdfSheet:
         )
         self._toc.append((title, ccli, arrangement))
 
-    def finalize(self, last_modified: datetime.datetime) -> bytes:
+    def finalize(self, last_modified: dt.datetime) -> bytes:
         self._pdf.insert_page(
             self._create_title_page(last_modified=last_modified), index=0
         )
@@ -244,7 +244,7 @@ class SongSheets:
         toc_header = (_('Title'), _('CCLI No.'), _('Arrangement'))
         if self._enabled:
             event_startdate = f'{self._event.start_date.astimezone():{datetime_format}}'
-            self._last_modified = datetime.datetime.min.replace(tzinfo=datetime.UTC)
+            self._last_modified = dt.datetime.min.replace(tzinfo=dt.UTC)
             subtitle = f'{self._event.name} - {event_startdate}'
             subsubtitle = f'{_("Last update")}: {{last_modified:{datetime_format}}}'
             self._chords_pdf = PdfSheet(chords_name, subtitle, subsubtitle, toc_header)
@@ -365,7 +365,7 @@ class ChurchToolsEvent:
             return None
 
     def _song_files(
-        self, agenda_song: EventAgendaSong, *, modified_date: datetime.datetime
+        self, agenda_song: EventAgendaSong, *, modified_date: dt.datetime
     ) -> SongFiles | None:
         try:
             song = self.cta.get_song(agenda_song.song_id)
