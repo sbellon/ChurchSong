@@ -8,6 +8,10 @@ updates:
       - /.github/actions/setup
     schedule:
       interval: weekly
+    commit-message:
+      prefix: deps
+    assignees:
+      - sbellon
     # One pull request for all pending updates instead of one per action.
     groups:
       actions:
@@ -21,6 +25,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: deps
+    assignees:
+      - sbellon
     groups:
       python:
         patterns:
