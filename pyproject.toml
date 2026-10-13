@@ -45,7 +45,7 @@ lint = ["pyright>=1.1.400", "ruff>=0.11.9"]
 test = ["pytest>=8.4", "responses>=0.25.8"]
 
 [build-system]
-requires = ["uv_build>=0.11.16,<0.13"]
+requires = ["uv_build>=0.11.16,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv]
