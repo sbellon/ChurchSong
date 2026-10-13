@@ -13,3 +13,15 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # Dependabot runs uv itself: it updates `uv.lock` (and `pyproject.toml` only
+  # where a new release falls outside the declared range), so `uv lock --check`
+  # in CI keeps passing. Covers `dependencies` and the `dependency-groups`.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns:
+          - "*"
