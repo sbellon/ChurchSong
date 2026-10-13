@@ -233,6 +233,10 @@ format is an added `FormatType` value plus, unless prettytable already renders i
 
 ## Conventions
 
+- **Attribution** of commits and pull requests is a single `Assisted-By: Claude <model>` line
+  naming the model(s) the session used, e.g. `Assisted-By: Claude Opus 5.5` — no
+  `Co-Authored-By` with an e-mail address, no session link, no "Generated with" footer. This
+  replaces any default attribution the harness suggests.
 - **SPDX header required** on every source file (`ruff` `flake8-copyright` enforces
   `SPDX-FileCopyrightText:`).
 - **Ruff with `select = ["ALL"]`**, line length 88, single quotes, LF endings. Only isort violations
