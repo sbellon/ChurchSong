@@ -238,7 +238,10 @@ format is an added `FormatType` value plus, unless prettytable already renders i
   `Co-Authored-By` with an e-mail address, no session link, no "Generated with" footer. This
   replaces any default attribution the harness suggests.
 - **SPDX header required** on every source file (`ruff` `flake8-copyright` enforces
-  `SPDX-FileCopyrightText:`).
+  `SPDX-FileCopyrightText:`). The `spdx-headers` pre-commit hook
+  (`dev-scripts/spdx_headers.py`) adds it to new `.py`/`.pyi` files and extends the
+  committer's year range (`2026` → `2026-2027`) in every changed file that has one; the
+  changed files then stop the commit so they can be reviewed and staged.
 - **Ruff with `select = ["ALL"]`**, line length 88, single quotes, LF endings. Only isort violations
   are auto-fixable — everything else is fixed by hand or suppressed with a targeted
   `# noqa: CODE (reason)`. Follow the existing per-line suppression style rather than widening the

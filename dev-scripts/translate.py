@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 #
-# SPDX-FileCopyrightText: 2024-2025 Stefan Bellon
+# SPDX-FileCopyrightText: 2024-2026 Stefan Bellon
 #
 # SPDX-License-Identifier: MIT
 #
