@@ -53,3 +53,5 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          # Files already on PyPI are skipped, so a failed run can simply be re-run.
+          skip-existing: true
