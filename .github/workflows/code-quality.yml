@@ -13,12 +13,20 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   UV_LOCKED: 1
-# The job names are required status checks in the repository ruleset, so renaming
-# or merging jobs needs a matching change there. Only `typing` and `testing` run
-# on Windows: pyright analyses the `sys.platform == 'win32'` branches only there,
-# and some tests only run there. Everything else is platform independent, and
-# Linux runners check out and set up considerably faster. The tools come from the
-# `lint` dependency group, so `uv.lock` pins their versions and Dependabot updates them.
+# Every job is a required status check in the repository ruleset, so renaming or
+# adding jobs needs a matching change there. (A job that only `needs` the others
+# would not do: when one of those fails, it is skipped, and GitHub counts a skipped
+# required check as passed.) So the jobs do not wait for each other, and a run
+# takes as long as its slowest job.
+#
+# Only `typing` and `testing` run on Windows: pyright analyses the
+# `sys.platform == 'win32'` branches only there, and some tests only run there.
+# Both run with the oldest Python that `requires-python` allows and with the
+# newest, which a fresh installation gets. Everything else is platform
+# independent, and Linux runners check out and set up considerably faster. The
+# tools come from the `lint` dependency group, so `uv.lock` pins their versions
+# and Dependabot updates them. `uv run` syncs the environment itself before it
+# runs a command.
 jobs:
   lockfile:
     runs-on: ubuntu-latest
@@ -42,21 +50,33 @@ jobs:
       - name: Run ruff format
         run: uv run --only-group lint ruff format --check .
   typing:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [minimum, newest]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - name: Sync dependencies
-        run: uv sync
+      - name: Select the oldest supported Python
+        if: matrix.python == 'minimum'
+        shell: bash
+        run: echo "UV_PYTHON=$(sed -n 's/^requires-python = ">=\(.*\)"$/\1/p' pyproject.toml)" >> "$GITHUB_ENV"
       - name: Run pyright
         run: uv run pyright --project .
   testing:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [minimum, newest]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - name: Sync dependencies
-        run: uv sync
+      - name: Select the oldest supported Python
+        if: matrix.python == 'minimum'
+        shell: bash
+        run: echo "UV_PYTHON=$(sed -n 's/^requires-python = ">=\(.*\)"$/\1/p' pyproject.toml)" >> "$GITHUB_ENV"
       - name: Run pytest
         run: uv run pytest
   typos:
@@ -66,11 +86,8 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Run typos
         run: uv run --only-group lint typos --force-exclude
-  # Kept as the final gate: it is the only required check that depends on `testing`
-  # and `typos`, so dropping `needs` also means requiring those two in the ruleset.
   build:
     runs-on: ubuntu-latest
-    needs: [lockfile, linting, formatting, typing, testing, typos]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup

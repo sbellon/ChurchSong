@@ -1,15 +1,16 @@
-name: Set up Python and uv
-description: Install the Python version required by pyproject.toml and uv.
+name: Set up uv
+description: Install uv, which provides the Python version required by pyproject.toml.
 runs:
   using: composite
   steps:
-    - name: "Set up Python"
-      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-      with:
-        python-version-file: "pyproject.toml"
-
     - name: "Install uv"
       uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         # The wheels download in about a second, which is less than a cache round trip.
         enable-cache: false
+
+    # Like `resources/install.ps1` for the users: only uv's own Python builds, which
+    # uv downloads on first use, never one installed on the runner.
+    - name: "Use uv-managed Python only"
+      shell: bash
+      run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
