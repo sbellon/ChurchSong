@@ -17,7 +17,8 @@ env:
 # or merging jobs needs a matching change there. Only `typing` and `testing` run
 # on Windows: pyright analyses the `sys.platform == 'win32'` branches only there,
 # and some tests only run there. Everything else is platform independent, and
-# Linux runners check out and set up considerably faster.
+# Linux runners check out and set up considerably faster. The tools come from the
+# `lint` dependency group, so `uv.lock` pins their versions and Dependabot updates them.
 jobs:
   lockfile:
     runs-on: ubuntu-latest
@@ -32,30 +33,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Run ruff check
-        run: uvx ruff check .
+        run: uv run --only-group lint ruff check .
   formatting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Run ruff format
-        run: uvx ruff format --check .
+        run: uv run --only-group lint ruff format --check .
   typing:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Sync dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync
       - name: Run pyright
-        run: uvx pyright --project .
+        run: uv run pyright --project .
   testing:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Sync dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync
       - name: Run pytest
         run: uv run pytest
   typos:
@@ -64,7 +65,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Run typos
-        run: uvx typos --force-exclude
+        run: uv run --only-group lint typos --force-exclude
   # Kept as the final gate: it is the only required check that depends on `testing`
   # and `typos`, so dropping `needs` also means requiring those two in the ruleset.
   build:

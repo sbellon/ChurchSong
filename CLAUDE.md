@@ -19,27 +19,28 @@ PEP 758 unparenthesized `except A, B:`), so older interpreters will not even par
 Dependency and env management is [uv](https://docs.astral.sh/uv/); there is no `pip`/`venv` path.
 
 ```sh
-uv sync --all-extras --dev      # set up / refresh .venv
+uv sync                         # set up / refresh .venv
 uv run ChurchSong --help        # run from the working tree
 uv run ChurchSong agenda 2026-08-16
 uv run ChurchSong songs verify all --execute_checks CCLI,Tags
 uv run ChurchSong songs usage 2024-2026 --format rich
 ```
 
-Quality gates (exactly what CI runs, in `.github/workflows/code-quality.yml`):
+Quality gates (what CI runs, in `.github/workflows/code-quality.yml`; ruff, pyright and typos
+come from the `lint` dependency group, so `uv.lock` pins their versions):
 
 ```sh
 uv lock --check                 # lockfile must match pyproject.toml
-uvx ruff check .                # lint
-uvx ruff format --check .       # format (drop --check to apply)
-uvx pyright --project .         # type check (strict) — needs `uv sync` first
-uv run pytest                   # test suite in tests/ — needs `uv sync` first
-uvx typos --force-exclude       # spell check (crate-ci/typos)
+uv run ruff check .             # lint
+uv run ruff format --check .    # format (drop --check to apply)
+uv run pyright --project .      # type check (strict)
+uv run pytest                   # test suite in tests/
+uv run typos --force-exclude    # spell check (crate-ci/typos)
 uv build                        # sdist + wheel
 ```
 
 The same checks (minus lockfile/build) run as a git pre-commit hook via the `pre-commit`
-framework (`.pre-commit-config.yaml`, local hooks calling `uvx`/`uv run`, cross-platform).
+framework (`.pre-commit-config.yaml`, local hooks calling `uv run`, cross-platform).
 One-time setup after cloning: `uv sync && uv run pre-commit install`. Bypass with
 `git commit --no-verify` when committing intentionally red work-in-progress.
 
