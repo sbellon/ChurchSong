@@ -8,6 +8,12 @@ updates:
       - /.github/actions/setup
     schedule:
       interval: weekly
+    # New releases of the actions (which run with the workflows' permissions)
+    # are only proposed after a week, when a hijacked one has usually been
+    # noticed and pulled. The project's own dependencies have no cooldown, so
+    # their fixes arrive right away.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: deps
     assignees:
