@@ -2,13 +2,16 @@
 name = "ChurchSong"
 version = "0.14.0"
 authors = [{ name = "Stefan Bellon" }]
-description = "Download the event agenda from ChurchTool and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
+description = "Download the event agenda from ChurchTools and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 classifiers = [
+    "Environment :: Console",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
 ]
@@ -32,8 +35,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sbellon/ChurchSong"
-Repository = "https://github.com/sbellon/ChurchSong.git"
+Repository = "https://github.com/sbellon/ChurchSong"
 Changelog = "https://github.com/sbellon/ChurchSong/blob/main/CHANGELOG.md"
 
 [project.scripts]
@@ -122,30 +124,19 @@ extend-ignore-re = [
 extend-glob = ["*.po"]
 check-file = false
 
+# Release version bumps: `uvx bump-my-version bump patch|minor|major`.
 [tool.bumpversion]
 current_version = "0.14.0"
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
-serialize = ["{major}.{minor}.{patch}"]
-search = "{current_version}"
-replace = "{new_version}"
-regex = false
-ignore_missing_version = false
-ignore_missing_files = false
-tag = false
-sign_tags = false
-tag_name = "v{new_version}"
-tag_message = "Bump version: {current_version} → {new_version}"
-allow_dirty = false
 commit = true
-message = "Bump version: {current_version} → {new_version}"
-moveable_tags = []
-commit_args = ""
-setup_hooks = []
 pre_commit_hooks = ["uv sync", "git add uv.lock"]
-post_commit_hooks = []
 
+# Only the project's own version, at the start of a line, not a dependency
+# that happens to have the same version.
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
+regex = true
+search = '^version = "{current_version}"'
+replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.md"

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The main purpose of this tool is to download the event agenda from ChurchTool as well
+The main purpose of this tool is to download the event agenda from ChurchTools as well
 as the names of the service staff, preparing a PowerPoint slide with the names and
 portraits to be presented at the beginning of the event.
 
@@ -46,7 +46,7 @@ which you have to install first and make it accessible via PATH. This can be don
 following the steps listed at
 [Standalone Installer](https://docs.astral.sh/uv/getting-started/installation/).
 
-Afterwards you have to execute `uv install ChurchSong` to install ChurchSong itself.
+Afterwards you have to execute `uv tool install ChurchSong` to install ChurchSong itself.
 
 You may put the files `ChurchSong.bat` and `ChurchSong.ico` from `resources` folder
 somewhere for convenience as you can just double-click it to load the upcoming agenda
@@ -82,7 +82,7 @@ questions regarding how to create those templates, please get in contact with me
 #### Service slide
 
 You can prepare a PowerPoint template with a slide master which contains placeholders
-for pictures and names for the team members. The ChurchTool's service team name has to
+for pictures and names for the team members. The ChurchTools service team name has to
 be put at the PowerPoint base placeholder via the Select Pane (Alt-F10).
 
 #### Appointment slide
