@@ -19,6 +19,7 @@ env:
 # and some tests only run there. Everything else is platform independent, and
 # Linux runners check out and set up considerably faster. The tools come from the
 # `lint` dependency group, so `uv.lock` pins their versions and Dependabot updates them.
+# `uv run` syncs the environment itself before it runs a command.
 jobs:
   lockfile:
     runs-on: ubuntu-latest
@@ -46,8 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - name: Sync dependencies
-        run: uv sync
       - name: Run pyright
         run: uv run pyright --project .
   testing:
@@ -55,8 +54,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - name: Sync dependencies
-        run: uv sync
       - name: Run pytest
         run: uv run pytest
   typos:
