@@ -41,7 +41,7 @@ ChurchSong = "churchsong.__main__:main"
 
 [dependency-groups]
 dev = ["babel>=2.17.0", "pre-commit>=4.0"]
-lint = ["pyright>=1.1.400", "ruff>=0.11.9"]
+lint = ["pyright>=1.1.400", "ruff>=0.11.9", "typos>=1.51.1"]
 test = ["pytest>=8.4", "responses>=0.25.8"]
 
 [build-system]
@@ -50,7 +50,7 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
-default-groups = ["dev", "test"]
+default-groups = ["dev", "lint", "test"]
 
 [tool.setuptools.package-data]
 "churchsong" = ["locales/*.po"]
@@ -112,7 +112,7 @@ classmethod-decorators = [
 
 [tool.typos.default.extend-words]
 # Package name of the CA bundle, not a typo of "certify" (newer typos
-# dictionaries flag it; the version pinned in CI does not know it yet).
+# dictionaries flag it).
 certifi = "certifi"
 
 [tool.typos.default]
