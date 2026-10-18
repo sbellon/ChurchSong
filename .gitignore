@@ -12,6 +12,5 @@ wheels/
 .venv
 .envrc
 
-# Editors (the shared Zed project settings are versioned)
-.zed/*
-!.zed/settings.json
+# Editors
+.zed/
