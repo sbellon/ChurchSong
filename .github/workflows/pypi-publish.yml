@@ -1,24 +1,41 @@
-# This workflow will upload a Python Package to PyPI when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
-
 name: Upload Python Package
 
+# Publishing a GitHub release (tag `v<version>`) builds the sdist and the wheel
+# and publishes them on PyPI (`ChurchSong`). Files already on PyPI are skipped,
+# so a failed run can simply be re-run. Starting the workflow by hand only
+# builds, to try the release build.
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  UV_LOCKED: 1
+
 jobs:
   release-build:
-    runs-on: windows-latest
+    # A pure Python wheel, the same on every platform; Linux runners set up faster.
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install uv
+      - name: Set up Python and uv
         uses: ./.github/actions/setup
+
+      - name: Check that the release tag matches the version in pyproject.toml
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(uv version --short)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::release tag $TAG does not match version $version in pyproject.toml (expected v$version)"
+            exit 1
+          fi
 
       - name: Build release distributions
         run: uv build
@@ -30,14 +47,14 @@ jobs:
           path: dist/
 
   pypi-publish:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     needs:
       - release-build
     permissions:
       id-token: write
 
-    # Dedicated environments with protections for publishing are strongly recommended.
-    # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
+    # Only `v*` tags may deploy to this environment, and only after approval.
     environment:
       name: pypi
       url: https://pypi.org/project/ChurchSong
@@ -50,7 +67,7 @@ jobs:
           path: dist/
 
       - name: Publish release distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/
           # Files already on PyPI are skipped, so a failed run can simply be re-run.

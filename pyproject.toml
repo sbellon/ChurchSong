@@ -52,9 +52,6 @@ build-backend = "uv_build"
 package = true
 default-groups = ["dev", "test"]
 
-[tool.setuptools.package-data]
-"churchsong" = ["locales/*.po"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
