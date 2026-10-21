@@ -15,8 +15,9 @@ updates:
       timezone: Europe/Berlin
     # New releases of the actions (which run with the workflows' permissions)
     # are only proposed after a week, when a hijacked one has usually been
-    # noticed and pulled. The project's own dependencies have no cooldown, so
-    # their fixes arrive right away.
+    # noticed and pulled. The project's own dependencies have no cooldown set,
+    # but Dependabot still holds back their new releases for about three days;
+    # only security updates arrive right away.
     cooldown:
       default-days: 7
     commit-message:
