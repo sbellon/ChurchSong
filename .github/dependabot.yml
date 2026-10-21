@@ -46,7 +46,14 @@ updates:
       prefix: deps
     assignees:
       - sbellon
+    # `uv-build` (the build backend in `[build-system]`) is not locked in
+    # `uv.lock`, so while a new release fits the declared range there is
+    # nothing to change, and Dependabot then drops the whole group update.
+    # On its own it still gets a pull request once a release falls outside
+    # the range.
     groups:
       python:
         patterns:
           - "*"
+        exclude-patterns:
+          - uv-build
