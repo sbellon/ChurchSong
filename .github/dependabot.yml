@@ -35,6 +35,9 @@ updates:
   # with `all` also their transitive dependencies, like `uv lock --upgrade`.
   - package-ecosystem: uv
     directory: /
+    # Without it, Dependabot raises every lower bound in `pyproject.toml` to the
+    # version it updates to, although ChurchSong does not need that version.
+    versioning-strategy: increase-if-necessary
     allow:
       - dependency-type: all
     schedule:
