@@ -17,12 +17,12 @@ classifiers = [
 ]
 dependencies = [
     "packaging>=25.0",
-    "platformdirs>=4.3.6",
+    "platformdirs>=4.13.4",
     "polib>=1.2.0",
     "prettytable>=3.12.0",
     "psutil>=6.1.0; sys_platform == 'win32'",
     "pydantic>=2.9.2",
-    "pypdf>=6.1.1",
+    "pypdf>=6.21.1",
     "python-pptx>=1.0.2",
     "reportlab>=4.4.4",
     "requests>=2.32.3",
@@ -43,7 +43,7 @@ ChurchSong = "churchsong.__main__:main"
 
 [dependency-groups]
 dev = ["babel>=2.17.0", "pre-commit>=4.0"]
-lint = ["pyright>=1.1.400", "ruff>=0.11.9", "typos>=1.51.1"]
+lint = ["pyright>=1.1.400", "ruff>=0.17.1", "typos>=1.51.1"]
 test = ["pytest>=8.4", "responses>=0.25.8"]
 
 [build-system]
