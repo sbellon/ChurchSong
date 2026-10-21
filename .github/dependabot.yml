@@ -6,8 +6,13 @@ updates:
     directories:
       - /
       - /.github/actions/setup
+    # A fixed time: without `day` and `time`, Dependabot runs at a time of
+    # its own choosing, not necessarily once a week on the same day.
     schedule:
       interval: weekly
+      day: saturday
+      time: "06:00"
+      timezone: Europe/Berlin
     # New releases of the actions (which run with the workflows' permissions)
     # are only proposed after a week, when a hijacked one has usually been
     # noticed and pulled. The project's own dependencies have no cooldown, so
@@ -34,6 +39,9 @@ updates:
       - dependency-type: all
     schedule:
       interval: weekly
+      day: saturday
+      time: "06:00"
+      timezone: Europe/Berlin
     commit-message:
       prefix: deps
     assignees:
