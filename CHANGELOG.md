@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.14.2 (2026-10-24)
+
 ### Changed
 - `Ctrl-C` quits the interactive screen just like `Ctrl-Q`
 
