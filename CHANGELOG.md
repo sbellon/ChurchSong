@@ -1,6 +1,6 @@
 # ChangeLog
 
-## Unreleased
+## 0.14.1 (2026-10-24)
 
 ### Changed
 - a `#BackgroundImage` with an absolute path to a file that does not exist is replaced
