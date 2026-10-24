@@ -218,6 +218,9 @@ class SongBeamerColorItemConfig(BaseModel):
     bgcolor: str | None = None
 
 
+# A `RootModel`, as the `[SongBeamer.Color]` keys are the `AgendaItemType` values, not
+# fixed field names. Not derived from our `BaseModel`, so it sets `frozen` itself, and
+# it redeclares `root` only to give it a default.
 class SongBeamerColorConfig(
     pydantic.RootModel[dict[AgendaItemType, SongBeamerColorItemConfig]]
 ):
