@@ -38,6 +38,10 @@ updates:
     directory: /
     # Without it, Dependabot raises every lower bound in `pyproject.toml` to the
     # version it updates to, although ChurchSong does not need that version.
+    # It does not take effect yet: for uv, the option never reaches the update
+    # job, which still raises the lower bounds, so they have to be put back by
+    # hand. See dependabot/dependabot-core#16112 and
+    # dependabot/dependabot-core#14908.
     versioning-strategy: increase-if-necessary
     allow:
       - dependency-type: all
