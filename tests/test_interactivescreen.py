@@ -303,6 +303,17 @@ def test_space_on_the_submit_button_returns_the_selection() -> None:
     )
 
 
+@pytest.mark.parametrize('key', ['ctrl+q', 'ctrl+c'])
+def test_quit_keys_exit_without_a_selection(key: str) -> None:
+    async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
+        await pilot.press(key)
+        await pilot.pause()
+        assert not app.is_running
+
+    app = run_scenario(scenario)
+    assert app.return_value is None
+
+
 def test_backwards_cursor_navigation_outlines_exactly_one_widget() -> None:
     async def scenario(app: InteractiveScreen, pilot: AppPilot) -> None:
         # Leave the mouse hovering over a widget the cursor keys pass through,
