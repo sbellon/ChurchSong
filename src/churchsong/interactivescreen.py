@@ -8,6 +8,7 @@ import typing
 import packaging.version
 from textual import on, work
 from textual.app import App
+from textual.binding import Binding
 from textual.color import Color
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
@@ -261,6 +262,9 @@ class InteractiveScreen(App[DownloadSelection]):
         ('up', 'focus_previous', 'Up'),
         ('down', 'focus_next', 'Down'),
         ('^q', 'quit', 'Quit'),
+        # Textual only hints at ^q on ^c, but ^c is what quits a console program.
+        # Hidden, as the footer already shows ^q for quitting.
+        Binding('ctrl+c', 'quit', 'Quit', show=False),
     ]
 
     def __init__(self, config: Configuration) -> None:
