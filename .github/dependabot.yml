@@ -29,6 +29,12 @@ updates:
       actions:
         patterns:
           - "*"
+      # Security updates come in a group of their own, so that its name in
+      # the title tells them apart from version updates.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # Dependabot runs uv itself: it updates `uv.lock` (and `pyproject.toml` only
   # where a new release falls outside the declared range), so `uv lock --check`
@@ -65,3 +71,9 @@ updates:
           - "*"
         exclude-patterns:
           - uv-build
+      # Security updates come in a group of their own, so that its name in
+      # the title tells them apart from version updates.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
