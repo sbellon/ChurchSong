@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.14.3 (2026-10-24)
+
+### Changed
+- updated external dependencies (pypdf)
+
 ## 0.14.2 (2026-10-24)
 
 ### Changed
