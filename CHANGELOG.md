@@ -1,11 +1,11 @@
 # ChangeLog
 
-## Unreleased
+## 0.14.1 (2026-10-24)
 
 ### Changed
 - a `#BackgroundImage` with an absolute path to a file that does not exist is replaced
   by a random image of the Immich `backgrounds_album` as well
-- updated external dependencies (certifi, platformdirs, pydantic, pypdf)
+- updated external dependencies (certifi, pillow, platformdirs, pydantic, pypdf)
 
 ## 0.14.0 (2026-10-07)
 

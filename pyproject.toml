@@ -1,6 +1,6 @@
 [project]
 name = "ChurchSong"
-version = "0.14.0"
+version = "0.14.1"
 authors = [{ name = "Stefan Bellon" }]
 description = "Download the event agenda from ChurchTools and instantiate a PowerPoint slide template with the names and portraits of service staff as well as song database verification."
 readme = "README.md"
@@ -126,7 +126,7 @@ check-file = false
 
 # Release version bumps: `uvx bump-my-version bump patch|minor|major`.
 [tool.bumpversion]
-current_version = "0.14.0"
+current_version = "0.14.1"
 commit = true
 pre_commit_hooks = ["uv sync", "git add uv.lock"]
 
