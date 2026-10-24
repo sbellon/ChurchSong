@@ -183,7 +183,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "packaging", specifier = ">=25.0" },
-    { name = "platformdirs", specifier = ">=4.13.5" },
+    { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "polib", specifier = ">=1.2.0" },
     { name = "prettytable", specifier = ">=3.12.0" },
     { name = "psutil", marker = "sys_platform == 'win32'", specifier = ">=6.1.0" },

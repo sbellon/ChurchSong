@@ -17,7 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "packaging>=25.0",
-    "platformdirs>=4.13.5",
+    "platformdirs>=4.3.6",
     "polib>=1.2.0",
     "prettytable>=3.12.0",
     "psutil>=6.1.0; sys_platform == 'win32'",
