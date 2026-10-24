@@ -143,7 +143,7 @@ wheels = [
 
 [[package]]
 name = "churchsong"
-version = "0.14.1"
+version = "0.14.2"
 source = { editable = "." }
 default-groups = ["dev", "lint", "test"]
 dependencies = [
