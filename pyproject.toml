@@ -140,5 +140,7 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.md"
-search = "Unreleased"
-replace = "{new_version} ({now:%Y-%m-%d})"
+search = "## Unreleased"
+replace = """## Unreleased
+
+## {new_version} ({now:%Y-%m-%d})"""
