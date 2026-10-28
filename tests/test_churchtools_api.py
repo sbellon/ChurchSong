@@ -733,7 +733,7 @@ def test_delete_event_file_is_skipped_without_edit_permission(
         {
             'title': 'Song Sheets Chords.pdf',
             'domainType': 'file',
-            'domainIdentifier': 900,
+            'domainIdentifier': '900',
             'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/900',
         }
     )

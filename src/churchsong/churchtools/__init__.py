@@ -295,7 +295,7 @@ class EventFileDomainType(enum.StrEnum):
 class EventFile(DeprecationAwareModel):
     title: str
     domain_type: EventFileDomainType = pydantic.Field(alias='domainType')
-    domain_identifier: int = pydantic.Field(alias='domainIdentifier')
+    domain_identifier: str = pydantic.Field(alias='domainIdentifier')
     frontend_url: str = pydantic.Field(alias='frontendUrl')
 
     @pydantic.field_validator('domain_type', mode='before')
