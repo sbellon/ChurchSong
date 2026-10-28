@@ -1,0 +1,28 @@
+name: ChurchTools OpenAPI Check
+
+# Compares the ChurchTools API models with the OpenAPI description of the public
+# demo instance (every instance serves the same spec), so that an upstream change
+# shows up before it fails a run. Scheduled for Friday afternoon, the last time
+# ChurchTools is likely to deploy a change during working hours: a red run then
+# tells whether the coming Sunday may fail. GitHub mails a failed scheduled run to
+# whoever last changed the schedule. Not part of the code quality checks, as a
+# change on ChurchTools' side must not block a pull request.
+on:
+  schedule:
+    - cron: '0 16 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UV_LOCKED: 1
+
+jobs:
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Compare the models with the spec of demo.church.tools
+        run: uv run dev-scripts/check_openapi.py
