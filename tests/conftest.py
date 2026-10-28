@@ -3,16 +3,56 @@
 # SPDX-License-Identifier: MIT
 
 import gettext
+import importlib.util
+import pathlib
+import re
 import typing
+import urllib.parse
 
 import pytest
 import responses
 
 from churchsong.churchtools import ChurchToolsAPI
 from churchsong.configuration import Configuration, TomlConfig
+from churchsong.utils.http import BaseAPI
+
+if typing.TYPE_CHECKING:
+    import types
+
+    import pydantic
+    import requests
 
 CHURCHTOOLS_BASE_URL = 'https://churchtools.test'
 IMMICH_BASE_URL = 'https://immich.test'
+
+
+def load_check_openapi() -> types.ModuleType:
+    # A dev script, not a module of the package, so it is loaded by its path.
+    path = pathlib.Path(__file__).parents[1] / 'dev-scripts' / 'check_openapi.py'
+    spec = importlib.util.spec_from_file_location('check_openapi', path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The endpoints `dev-scripts/check_openapi.py` checks, as the spec spells them.
+OPENAPI_ENDPOINTS = typing.cast(
+    'dict[str, type[pydantic.BaseModel]]', load_check_openapi().ENDPOINTS
+)
+
+
+def endpoint_template(path: str) -> str:
+    """Spell an endpoint so that a spec placeholder and a concrete id compare equal.
+
+    `/events/{eventId}/agenda` and `/events/4711/agenda` both become
+    `/events/{}/agenda`.
+    """
+    return '/'.join(
+        '{}' if re.fullmatch(r'\{\w*\}|\d+', segment) else segment
+        for segment in path.split('/')
+    )
 
 
 class FakeConfiguration(Configuration):
@@ -126,6 +166,39 @@ def install_null_translations() -> None:
     # FakeConfiguration used in tests bypasses it, so install the identity
     # translation for code that calls _() at runtime (e.g. SongSheets).
     gettext.NullTranslations().install()
+
+
+@pytest.fixture(autouse=True)
+def churchtools_answers_are_checked_against_openapi(
+    monkeypatch: pytest.MonkeyPatch,
+) -> typing.Iterator[None]:
+    """Fail a test in which ChurchTools answers an endpoint, or with a model, that
+    `dev-scripts/check_openapi.py` does not list, so the script cannot fall behind.
+
+    Every JSON answer goes through `BaseAPI._validate()`, which knows both the model
+    and, from the response, the endpoint that was really asked.
+    """
+    listed = {
+        (endpoint_template(path), model) for path, model in OPENAPI_ENDPOINTS.items()
+    }
+    answered: set[tuple[str, type]] = set()
+    validate = BaseAPI._validate  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+    def recording_validate(
+        self: BaseAPI, model: type[typing.Any], r: requests.Response
+    ) -> typing.Any:  # noqa: ANN401 (whatever the model validates to)
+        if isinstance(self, ChurchToolsAPI):
+            path = urllib.parse.urlsplit(r.request.url or '').path
+            answered.add((endpoint_template(path.removeprefix('/api')), model))
+        return validate(self, model, r)
+
+    monkeypatch.setattr(BaseAPI, '_validate', recording_validate)
+    yield
+    if unlisted := answered - listed:
+        pytest.fail(
+            'ENDPOINTS in dev-scripts/check_openapi.py lacks '
+            + ', '.join(f'{path} -> {model.__name__}' for path, model in unlisted)
+        )
 
 
 @pytest.fixture

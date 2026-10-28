@@ -60,6 +60,28 @@ Regenerate translation catalogs after touching any `_('...')` string:
 ./dev-scripts/translate.py      # pybabel extract + update src/churchsong/locales/*.po
 ```
 
+Check the ChurchTools API models against the OpenAPI description a ChurchTools instance publishes
+(public, no token needed) after an upstream change, or before relying on a field the models have
+not read so far:
+
+```sh
+uv run dev-scripts/check_openapi.py     # spec of https://demo.church.tools
+uv run dev-scripts/check_openapi.py https://example.church.tools   # or a downloaded spec file
+```
+
+Without an argument it asks ChurchTools' public demo instance: being hosted-only, every instance
+serves the same spec. It reports every field a model reads that the spec leaves undocumented, marks
+deprecated, allows to be null where the model does not, types differently, or gives enum values the
+model does not know, and exits with 1 for any of them not listed in its `KNOWN_DEVIATIONS`. The spec
+is not the truth, though: it has declared fields non-null that the server sent as `null`, so confirm
+a finding against real answers before changing a model, and record the spec's errors in
+`KNOWN_DEVIATIONS` with the reason. Its `ENDPOINTS` list (spec path → model) is kept complete by the
+tests: an autouse fixture in `tests/conftest.py` records every ChurchTools answer passing through
+`BaseAPI._validate()` and fails a test answered from an unlisted endpoint or with an unlisted model,
+and `tests/test_check_openapi.py` compares the list with the `/api/...` URLs in the `ChurchToolsAPI`
+source, which also catches an endpoint no test asks. A new endpoint therefore needs an entry there
+(or in `WRITE_ONLY_ENDPOINTS` of that test, if no answer is read).
+
 Releases use `bump-my-version` (config in `pyproject.toml`): it rewrites the version in
 `pyproject.toml`, turns the `## Unreleased` heading in `CHANGELOG.md` into the new version, runs
 `uv sync`, and commits. So **add user-visible changes under `## Unreleased` in `CHANGELOG.md`** as
