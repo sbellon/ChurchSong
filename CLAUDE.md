@@ -82,6 +82,10 @@ and `tests/test_check_openapi.py` compares the list with the `/api/...` URLs in 
 source, which also catches an endpoint no test asks. A new endpoint therefore needs an entry there
 (or in `WRITE_ONLY_ENDPOINTS` of that test, if no answer is read).
 
+`.github/workflows/openapi-check.yml` runs the script every Friday at 16:00 UTC (and by hand), the
+last time ChurchTools is likely to deploy a change before a Sunday. A red run stays red until each
+finding is dealt with, in a model or as a `KNOWN_DEVIATIONS` entry; it is no pull request check.
+
 Releases use `bump-my-version` (config in `pyproject.toml`): it rewrites the version in
 `pyproject.toml`, turns the `## Unreleased` heading in `CHANGELOG.md` into the new version, runs
 `uv sync`, and commits. So **add user-visible changes under `## Unreleased` in `CHANGELOG.md`** as
