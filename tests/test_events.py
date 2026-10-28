@@ -1208,7 +1208,7 @@ def test_download_agenda_items_shows_the_song_title_in_the_progress_bar(
     assert descriptions == ['Downloading: Amazing Grace']
 
 
-def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
+def test_unknown_file_type_still_produces_the_schedule(
     churchtools_api: ChurchToolsAPI,
     mocked_responses: responses.RequestsMock,
     tmp_path: pathlib.Path,
@@ -1229,21 +1229,18 @@ def test_unknown_agenda_item_and_file_type_still_produce_the_schedule(
         ],
         agenda_items=[
             {'title': 'Welcome', 'type': 'header', 'meta': META},
-            {'title': 'Prayer', 'type': 'brandnew', 'meta': META},
         ],
     )
-    # Both types are rejected in ChurchToolsEvent.__init__, before any download.
+    # The type is rejected in ChurchToolsEvent.__init__, before any download.
     with caplog.at_level(logging.WARNING):
         event = make_churchtools_event(churchtools_api, config)
         items, _song_sheets = event.download_agenda_items(immich=ImmichAPI(config))
     assert [item.type for item in items] == [
         AgendaItemType.LINK,
         AgendaItemType.HEADER,
-        AgendaItemType.NORMAL,
     ]
-    assert [item.title for item in items] == ['Arrangement', 'Welcome', 'Prayer']
+    assert [item.title for item in items] == ['Arrangement', 'Welcome']
     assert 'Unknown file domain type "song_arrangement"' in caplog.text
-    assert 'Unknown agenda item type "brandnew"' in caplog.text
 
 
 def test_download_file_falls_back_to_the_item_title(

@@ -346,23 +346,6 @@ class EventAgendaItem(DeprecationAwareModel):
     meta: EventAgendaItemMeta
     song: EventAgendaSong | None = None
 
-    # As of 19-02-2026, "title" sometimes is an empty string and sometimes a null value.
-    @pydantic.field_validator('title', mode='before')
-    @classmethod
-    def _title_not_null(cls, value: JsonValue) -> JsonValue:
-        if value is None:
-            return ''
-        return value
-
-    # As of 19-02-2026, ChurchTools seems to have changed "normal" to "text".
-    @pydantic.field_validator('type', mode='before')
-    @classmethod
-    def _map_unknown_type(cls, value: JsonValue) -> JsonValue:
-        if isinstance(value, str) and value not in set(EventAgendaItemType):
-            logger.warning('Unknown agenda item type "%s", treating as text', value)
-            return EventAgendaItemType.TEXT
-        return value
-
 
 class EventAgenda(DeprecationAwareModel):
     id: int
