@@ -112,19 +112,19 @@ def test_download_agenda_items_full_pipeline(
                 # Stale song sheet from a previous run: deleted, not downloaded.
                 'title': 'Song Sheets Chords.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 900,
+                'domainIdentifier': '900',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/900',
             },
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
             {
                 'title': 'Livestream',
                 'domainType': 'link',
-                'domainIdentifier': 902,
+                'domainIdentifier': '902',
                 'frontendUrl': 'https://stream.test/live',
             },
         ],
@@ -267,7 +267,7 @@ def test_download_agenda_items_with_disabled_songsheets_skips_stale_sheets(
                 # so any HTTP request for it would fail the test.
                 'title': 'Song Sheets Leads.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 900,
+                'domainIdentifier': '900',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/900',
             },
         ],
@@ -296,7 +296,7 @@ def test_download_agenda_items_without_download_files_skips_immich_upload(
             {
                 'title': 'Photo',
                 'domainType': 'file',
-                'domainIdentifier': 903,
+                'domainIdentifier': '903',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
             },
         ],
@@ -354,7 +354,7 @@ def test_download_agenda_items_without_upload_tags_skips_immich_upload(
             {
                 'title': 'Photo',
                 'domainType': 'file',
-                'domainIdentifier': 903,
+                'domainIdentifier': '903',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
             },
         ],
@@ -386,7 +386,7 @@ def test_download_agenda_items_with_unreachable_immich_still_downloads(
             {
                 'title': 'Photo',
                 'domainType': 'file',
-                'domainIdentifier': 903,
+                'domainIdentifier': '903',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/903',
             },
         ],
@@ -690,13 +690,13 @@ def test_download_agenda_items_survives_a_failing_file_download(
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
             {
                 'title': 'Livestream',
                 'domainType': 'link',
-                'domainIdentifier': 902,
+                'domainIdentifier': '902',
                 'frontendUrl': 'https://stream.test/live',
             },
         ],
@@ -725,13 +725,13 @@ def test_download_agenda_items_survives_a_dropped_connection(
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
             {
                 'title': 'Livestream',
                 'domainType': 'link',
-                'domainIdentifier': 902,
+                'domainIdentifier': '902',
                 'frontendUrl': 'https://stream.test/live',
             },
         ],
@@ -929,13 +929,13 @@ def test_unwritable_download_target_keeps_the_agenda_running(
             {
                 'title': 'Notes.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
             {
                 'title': 'Handout.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 902,
+                'domainIdentifier': '902',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/902',
             },
         ],
@@ -1223,7 +1223,7 @@ def test_unknown_file_type_still_produces_the_schedule(
                 # recorded as a link, downloading it as a file would fail the test.
                 'title': 'Arrangement',
                 'domainType': 'song_arrangement',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
         ],
@@ -1255,7 +1255,7 @@ def test_download_file_falls_back_to_the_item_title(
             {
                 'title': 'Notes.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             }
         ],
@@ -1293,7 +1293,7 @@ def test_download_file_decodes_the_content_disposition_filename(
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             }
         ],
@@ -1322,7 +1322,7 @@ def test_download_file_replaces_a_dangerous_filename(
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             }
         ],
@@ -1476,7 +1476,7 @@ def test_download_file_streams_the_body_instead_of_buffering_it(
             {
                 'title': 'Video.mp4',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             }
         ],
@@ -1526,13 +1526,13 @@ def test_download_file_sanitises_a_windows_illegal_filename(
             {
                 'title': 'Notes',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             },
             {
                 'title': 'Handout',
                 'domainType': 'file',
-                'domainIdentifier': 902,
+                'domainIdentifier': '902',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/902',
             },
         ],
@@ -1577,7 +1577,7 @@ def test_download_uses_the_token_for_a_differently_cased_host(
             {
                 'title': 'Notes.pdf',
                 'domainType': 'file',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': f'{CHURCHTOOLS_BASE_URL}/files/901',
             }
         ],

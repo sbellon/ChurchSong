@@ -30,7 +30,7 @@ def test_unknown_event_file_domain_type_degrades_to_link(
             {
                 'title': 'Arrangement',
                 'domainType': 'song_arrangement',
-                'domainIdentifier': 901,
+                'domainIdentifier': '901',
                 'frontendUrl': 'https://churchtools.test/files/901',
             }
         )
