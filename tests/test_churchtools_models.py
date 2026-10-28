@@ -144,10 +144,10 @@ def test_scalar_instead_of_model_stays_a_validation_error(
 def test_event_service_prefers_person_domain_attributes_over_name() -> None:
     service = EventService.model_validate(
         {
-            'personId': 5,
             'name': 'Fallback Name',
             'serviceId': 1,
             'person': {
+                'domainIdentifier': '5',
                 'title': 'Title Name',
                 'domainAttributes': {'firstName': 'Jane', 'lastName': 'Doe'},
             },
@@ -159,10 +159,13 @@ def test_event_service_prefers_person_domain_attributes_over_name() -> None:
 def test_event_service_falls_back_to_person_title() -> None:
     service = EventService.model_validate(
         {
-            'personId': 5,
             'name': 'Fallback Name',
             'serviceId': 1,
-            'person': {'title': 'Title Name', 'domainAttributes': {}},
+            'person': {
+                'domainIdentifier': '5',
+                'title': 'Title Name',
+                'domainAttributes': {},
+            },
         }
     )
     assert service.name == 'Title Name'

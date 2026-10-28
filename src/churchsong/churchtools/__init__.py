@@ -262,8 +262,12 @@ class EventsData(DeprecationAwareModel):
     data: list[EventShort]
 
 
+class EventServicePerson(DeprecationAwareModel):
+    domain_identifier: str = pydantic.Field(alias='domainIdentifier')
+
+
 class EventService(DeprecationAwareModel):
-    person_id: int | None = pydantic.Field(alias='personId')
+    person: EventServicePerson | None
     name: str | None
     service_id: int = pydantic.Field(alias='serviceId')
 
@@ -598,7 +602,7 @@ class ChurchToolsAPI(BaseAPI):
         result = self._parse(CalendarsData, r, api_url)
         yield from result.data
 
-    def get_person(self, person_id: int) -> Person | None:
+    def get_person(self, person_id: str) -> Person | None:
         try:
             r = self._get(f'/api/persons/{person_id}')
         except requests.exceptions.HTTPError as e:

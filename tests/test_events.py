@@ -436,9 +436,9 @@ def test_get_service_info_resolves_persons_nicknames_and_replacements(
     register_event_endpoints(
         mocked_responses,
         event_services=[
-            {'personId': 5, 'name': None, 'serviceId': 1},
-            {'personId': None, 'name': 'Volunteer Name', 'serviceId': 2},
-            {'personId': None, 'name': None, 'serviceId': 3},
+            {'person': {'domainIdentifier': '5'}, 'name': None, 'serviceId': 1},
+            {'person': None, 'name': 'Volunteer Name', 'serviceId': 2},
+            {'person': None, 'name': None, 'serviceId': 3},
         ],
     )
     mocked_responses.get(
@@ -502,8 +502,8 @@ def test_get_service_info_falls_back_for_an_unreadable_person(  # noqa: PLR0913,
     register_event_endpoints(
         mocked_responses,
         event_services=[
-            {'personId': 5, 'name': 'Jane Doe', 'serviceId': 1},
-            {'personId': None, 'name': 'Volunteer Name', 'serviceId': 2},
+            {'person': {'domainIdentifier': '5'}, 'name': 'Jane Doe', 'serviceId': 1},
+            {'person': None, 'name': 'Volunteer Name', 'serviceId': 2},
         ],
     )
     mocked_responses.get(
@@ -1380,8 +1380,8 @@ def test_get_service_info_merges_several_persons_of_one_service(
     register_event_endpoints(
         mocked_responses,
         event_services=[
-            {'personId': None, 'name': 'Jane Doe', 'serviceId': 1},
-            {'personId': None, 'name': 'John Newton', 'serviceId': 1},
+            {'person': None, 'name': 'Jane Doe', 'serviceId': 1},
+            {'person': None, 'name': 'John Newton', 'serviceId': 1},
         ],
     )
     mocked_responses.get(
@@ -1416,8 +1416,8 @@ def test_get_service_info_skips_a_service_without_a_name(
     register_event_endpoints(
         mocked_responses,
         event_services=[
-            {'personId': None, 'name': 'Jane Doe', 'serviceId': 1},
-            {'personId': None, 'name': 'John Newton', 'serviceId': 2},
+            {'person': None, 'name': 'Jane Doe', 'serviceId': 1},
+            {'person': None, 'name': 'John Newton', 'serviceId': 2},
         ],
     )
     mocked_responses.get(
@@ -1448,7 +1448,7 @@ def test_get_service_info_takes_the_nobody_name_from_the_replacements(
     )
     register_event_endpoints(
         mocked_responses,
-        event_services=[{'personId': None, 'name': None, 'serviceId': 1}],
+        event_services=[{'person': None, 'name': None, 'serviceId': 1}],
     )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/services',
