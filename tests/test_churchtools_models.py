@@ -168,38 +168,31 @@ def test_event_service_falls_back_to_person_title() -> None:
     assert service.name == 'Title Name'
 
 
-def test_deprecated_field_dict_form_emits_warning() -> None:
-    with pytest.warns(DeprecationWarning, match="consider using 'givenName'"):
-        Person.model_validate(
-            {
-                'firstName': 'Jane',
-                'lastName': 'Doe',
-                '@deprecated': {'firstName': 'givenName'},
-            }
-        )
+def person_json(deprecated: object) -> dict[str, object]:
+    return {'firstName': 'Jane', 'lastName': 'Doe', '@deprecated': deprecated}
 
 
-def test_deprecated_field_string_form_emits_warning() -> None:
+@pytest.mark.parametrize(
+    'deprecated',
+    [{'firstName': 'givenName'}, 'firstName (now: givenName)'],
+    ids=['dict', 'string'],
+)
+def test_deprecated_field_emits_warning(deprecated: object) -> None:
     with pytest.warns(DeprecationWarning, match="consider using 'givenName'"):
-        Person.model_validate(
-            {
-                'firstName': 'Jane',
-                'lastName': 'Doe',
-                '@deprecated': 'firstName (now: givenName)',
-            }
-        )
+        Person.model_validate(person_json(deprecated))
+
+
+def test_deprecated_field_without_replacement_emits_warning() -> None:
+    with pytest.warns(
+        DeprecationWarning, match="'firstName', which has no replacement"
+    ):
+        Person.model_validate(person_json({'firstName': None}))
 
 
 def test_deprecation_of_unused_field_stays_silent() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter('error')
-        Person.model_validate(
-            {
-                'firstName': 'Jane',
-                'lastName': 'Doe',
-                '@deprecated': {'unusedField': 'newField'},
-            }
-        )
+        Person.model_validate(person_json({'unusedField': 'newField'}))
 
 
 def test_get_permission_resolves_bools_lists_and_unknowns() -> None:
