@@ -48,14 +48,19 @@ class DeprecationAwareModel(pydantic.BaseModel):
             }
         if isinstance(deprecated_fields, dict):
             for old_field, new_field in deprecated_fields.items():
-                if old_field in model_fields and new_field is not None:
-                    warnings.warn(
-                        f"Model '{cls.__name__}' "
-                        f"defines deprecated field '{old_field}', "
-                        f"consider using '{new_field}' instead.",
-                        DeprecationWarning,
-                        stacklevel=1,
-                    )
+                if old_field not in model_fields:
+                    continue
+                warnings.warn(
+                    f"Model '{cls.__name__}' "
+                    f"defines deprecated field '{old_field}', "
+                    + (
+                        'which has no replacement.'
+                        if new_field is None
+                        else f"consider using '{new_field}' instead."
+                    ),
+                    DeprecationWarning,
+                    stacklevel=1,
+                )
         return data
 
 
