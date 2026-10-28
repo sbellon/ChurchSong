@@ -15,7 +15,7 @@ import requests
 import requests.exceptions
 
 from churchsong.utils import CliError, JsonValue
-from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, is_same_host
+from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, ParamsType, is_same_host
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -417,6 +417,9 @@ class Song(DeprecationAwareModel):
     name: str
     author: str | None
     ccli: str | None
+    # As of now, ChurchTools still returns `arrangements` without being explicitly
+    # requested but has deprecated that ("this will change in a future release").
+    # So, we already pass `include[]=arrangements` to be prepared.
     arrangements: list[Arrangement]
     tags: list[Tag] = []
 
@@ -484,7 +487,11 @@ class ChurchToolsAPI(BaseAPI):
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         try:
             r = self._get(
-                '/api/songs', params={'ids[]': f'{song_id}', 'include': 'tags'}
+                '/api/songs',
+                params={
+                    'ids[]': [song_id],
+                    'include[]': ['tags', 'arrangements'],
+                },
             )
             # Not `_parse()`: the `except` below degrades to an empty tag list.
             result = self._validate(SongsData, r)
@@ -497,7 +504,11 @@ class ChurchToolsAPI(BaseAPI):
         return result.data[0].tags
 
     def _get_songs_page(
-        self, api_url: str, page: int, params: dict[str, str], event: EventShort | None
+        self,
+        api_url: str,
+        page: int,
+        params: ParamsType,
+        event: EventShort | None,
     ) -> SongsData:
         try:
             r = self._get(api_url, params={'page': str(page), **params})
@@ -526,12 +537,18 @@ class ChurchToolsAPI(BaseAPI):
         if event:
             logger.info('Getting songs for %s', event.start_date.date())
             api_url = f'/api/events/{event.id}/agenda/songs'
-            params = {}  # {'include': 'tags'} is sadly not supported by that API.
+            # `include` is not supported by that API, so neither tags nor arrangements
+            # can be asked for; the latter are documented as always included.
+            params: ParamsType = {}
         else:
             logger.info('Getting all songs')
             api_url = '/api/songs'
-            params = {'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
-            require_tags = False  # Tags are already included in the result by default.
+            params = {
+                'include[]': ['tags', 'arrangements'],
+                'limit': str(MAX_SONGS_PAGE_SIZE),
+            }
+            # Tags are already included and do not require a separate fetch.
+            require_tags = False
 
         def inner_generator(page: SongsData, page_no: int) -> typing.Generator[Song]:
             while True:
@@ -571,7 +588,7 @@ class ChurchToolsAPI(BaseAPI):
 
     def get_song(self, song_id: int) -> Song:
         # Not `_parse()`: `_song_files()` catches the error to skip just this song.
-        r = self._get(f'/api/songs/{song_id}')
+        r = self._get(f'/api/songs/{song_id}', params={'include[]': ['arrangements']})
         result = self._validate(SongData, r)
         return result.data
 

@@ -235,7 +235,11 @@ def test_get_songs_iterates_over_all_pages(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '1',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -250,7 +254,11 @@ def test_get_songs_iterates_over_all_pages(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '2',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -283,7 +291,7 @@ def test_get_songs_stops_when_the_server_does_not_advance_the_page(
                 matchers.query_param_matcher(
                     {
                         'page': str(page),
-                        'include': 'tags',
+                        'include[]': ['tags', 'arrangements'],
                         'limit': str(MAX_SONGS_PAGE_SIZE),
                     }
                 )
@@ -316,7 +324,11 @@ def test_get_songs_survives_a_rate_limited_page(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '1',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -325,7 +337,11 @@ def test_get_songs_survives_a_rate_limited_page(
         status=429,
         match=[
             matchers.query_param_matcher(
-                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '2',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -340,7 +356,11 @@ def test_get_songs_survives_a_rate_limited_page(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '2',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -520,7 +540,11 @@ def test_get_songs_reports_a_failing_page_in_the_middle(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '1',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -529,7 +553,11 @@ def test_get_songs_reports_a_failing_page_in_the_middle(
         status=500,
         match=[
             matchers.query_param_matcher(
-                {'page': '2', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '2',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -582,6 +610,18 @@ def test_get_songs_treats_an_event_without_agenda_as_songless(
     total, songs = churchtools_api.get_songs(event)
     assert total == 0
     assert list(songs) == []
+
+
+def test_get_song_asks_for_its_arrangements(
+    churchtools_api: ChurchToolsAPI, mocked_responses: responses.RequestsMock
+) -> None:
+    # Returned by default only until a future release, so it has to be asked for.
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/songs/7',
+        json={'data': make_song_json(7, 'Amazing Grace')},
+        match=[matchers.query_param_matcher({'include[]': 'arrangements'})],
+    )
+    assert churchtools_api.get_song(7).name == 'Amazing Grace'
 
 
 def test_get_person_returns_none_without_the_required_permission(
