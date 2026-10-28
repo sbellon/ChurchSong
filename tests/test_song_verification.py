@@ -277,7 +277,11 @@ def register_all_songs(
         json={'data': songs, 'meta': meta},
         match=[
             matchers.query_param_matcher(
-                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '1',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )
@@ -847,7 +851,11 @@ def test_verify_songs_of_an_event_fetches_tags_separately(
             'data': [make_song_json(42, 'Amazing Grace', ccli=None, tags=['German'])],
             'meta': {'count': 1},
         },
-        match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'ids[]': '42', 'include[]': ['tags', 'arrangements']}
+            )
+        ],
     )
     ChurchToolsSongVerification(churchtools_api).verify_songs(
         date=EVENT_DATE,
@@ -875,7 +883,11 @@ def test_verify_songs_of_an_event_survives_a_song_without_tag_information(
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
         json={'data': [], 'meta': {'count': 0}},
-        match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'ids[]': '42', 'include[]': ['tags', 'arrangements']}
+            )
+        ],
     )
     with caplog.at_level(logging.WARNING):
         ChurchToolsSongVerification(churchtools_api).verify_songs(
@@ -928,7 +940,11 @@ def test_verify_songs_survives_a_failing_tag_fetch(  # noqa: PLR0913, PLR0917 (o
     )
     mocked_responses.get(
         f'{CHURCHTOOLS_BASE_URL}/api/songs',
-        match=[matchers.query_param_matcher({'ids[]': '42', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'ids[]': '42', 'include[]': ['tags', 'arrangements']}
+            )
+        ],
         **failing_tag_fetch,
     )
     mocked_responses.get(
@@ -937,7 +953,11 @@ def test_verify_songs_survives_a_failing_tag_fetch(  # noqa: PLR0913, PLR0917 (o
             'data': [make_song_json(43, 'Be Thou My Vision', ccli=None)],
             'meta': {'count': 1},
         },
-        match=[matchers.query_param_matcher({'ids[]': '43', 'include': 'tags'})],
+        match=[
+            matchers.query_param_matcher(
+                {'ids[]': '43', 'include[]': ['tags', 'arrangements']}
+            )
+        ],
     )
     with caplog.at_level(logging.WARNING):
         ChurchToolsSongVerification(churchtools_api).verify_songs(
@@ -992,7 +1012,11 @@ def test_verify_songs_reports_a_failing_song_page(
         },
         match=[
             matchers.query_param_matcher(
-                {'page': '1', 'include': 'tags', 'limit': str(MAX_SONGS_PAGE_SIZE)}
+                {
+                    'page': '1',
+                    'include[]': ['tags', 'arrangements'],
+                    'limit': str(MAX_SONGS_PAGE_SIZE),
+                }
             )
         ],
     )

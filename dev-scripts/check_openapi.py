@@ -78,6 +78,16 @@ KNOWN_DEVIATIONS: dict[str, str] = {
     '/events/{eventId}/agenda/songs.meta.pagination': (
         'optional in `SongsMeta`, which this endpoint shares with the paginated /songs'
     ),
+    '/events/{eventId}/agenda/songs.data[].arrangements': (
+        'deprecated is returning them unasked; this endpoint takes no `include`, '
+        'but documents them as always included'
+    ),
+    '/songs.data[].arrangements': (
+        'deprecated is returning them unasked; asked for with include[]=arrangements'
+    ),
+    '/songs/{songId}.data.arrangements': (
+        'deprecated is returning them unasked; asked for with include[]=arrangements'
+    ),
 }
 
 type JsonSchema = dict[str, typing.Any]
