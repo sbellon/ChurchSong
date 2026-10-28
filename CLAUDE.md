@@ -112,9 +112,11 @@ service-specific HTTP behaviour that way rather than by putting it into `BaseAPI
 **ChurchTools API models** (`churchtools/__init__.py`) are Pydantic models mirroring the JSON, with
 camelCase aliases and `DeprecationAwareModel` as base — it inspects the `@deprecated` key ChurchTools
 returns and emits `DeprecationWarning` when a model still uses a superseded field. Several models
-carry `model_validator(mode='before')` shims for ChurchTools quirks (null titles, `normal` → `text`
-item type, all-day appointment dates without timezone). When the upstream API changes, that is where
-compatibility patches go — dated comments mark the existing ones.
+carry `model_validator(mode='before')` shims for ChurchTools quirks (all-day appointment dates
+without timezone). ChurchTools is only offered as a hosted service, so there is always just the
+current version: a shim adapts to what the API answers *now*, and one for a superseded answer is
+removed rather than kept for old servers. When the upstream API changes, that is where the patches
+go — dated comments mark the existing ones.
 
 **Permissions are two-tier**, in both clients: each constructor fetches the token's permissions
 once and hard-asserts what basic operation needs (`CliError`), while every optional feature calls

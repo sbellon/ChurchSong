@@ -12,8 +12,6 @@ import pytest
 from churchsong.churchtools import (
     CalendarAppointmentAppointment,
     CalendarAppointmentBase,
-    EventAgendaItem,
-    EventAgendaItemType,
     EventFile,
     EventFileDomainType,
     EventService,
@@ -22,26 +20,6 @@ from churchsong.churchtools import (
     RepeatId,
 )
 from tests.conftest import make_global_permissions
-
-AGENDA_ITEM_META = {'modifiedDate': '2026-08-16T10:00:00Z'}
-
-
-def test_agenda_item_null_title_becomes_empty_string() -> None:
-    item = EventAgendaItem.model_validate({'title': None, 'meta': AGENDA_ITEM_META})
-    assert item.title == ''
-
-
-# 'normal' is the rename that already happened, 'brandnew' stands for the next one.
-@pytest.mark.parametrize('item_type', ['normal', 'brandnew'])
-def test_unknown_agenda_item_type_degrades_to_text(
-    item_type: str, caplog: pytest.LogCaptureFixture
-) -> None:
-    with caplog.at_level(logging.WARNING):
-        item = EventAgendaItem.model_validate(
-            {'title': 'Notes', 'type': item_type, 'meta': AGENDA_ITEM_META}
-        )
-    assert item.type is EventAgendaItemType.TEXT
-    assert f'Unknown agenda item type "{item_type}"' in caplog.text
 
 
 def test_unknown_event_file_domain_type_degrades_to_link(
