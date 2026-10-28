@@ -516,8 +516,8 @@ class ChurchToolsEvent:
                 continue
             # If we have access to the churchdb, we can query the person there and
             # perhaps even get its proper nickname, if set in the database.
-            if event_service.person_id is not None and (
-                person := self.cta.get_person(event_service.person_id)
+            if event_service.person is not None and (
+                person := self.cta.get_person(event_service.person.domain_identifier)
             ):
                 fullname = f'{person.firstname} {person.lastname}'
                 nickname = person.nickname

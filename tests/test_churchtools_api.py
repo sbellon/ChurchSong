@@ -633,7 +633,7 @@ def test_get_person_returns_none_without_the_required_permission(
     api = ChurchToolsAPI(make_config())
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', status=403)
     with caplog.at_level(logging.WARNING):
-        assert api.get_person(1) is None
+        assert api.get_person('1') is None
     assert 'nickname lookup' in caplog.text
 
 
@@ -664,7 +664,7 @@ def test_get_person_returns_none_for_a_person_it_cannot_read(
     # the whole service team information.
     mocked_responses.get(f'{CHURCHTOOLS_BASE_URL}/api/persons/1', **person_response)
     with caplog.at_level(logging.WARNING):
-        assert churchtools_api.get_person(1) is None
+        assert churchtools_api.get_person('1') is None
     assert 'person #1' in caplog.text
     assert reason in caplog.text
 
@@ -690,7 +690,7 @@ def test_get_person_reraises_unexpected_errors(
         f'{CHURCHTOOLS_BASE_URL}/api/persons/1', **failing_person_request
     )
     with pytest.raises(requests.exceptions.RequestException):
-        churchtools_api.get_person(1)
+        churchtools_api.get_person('1')
 
 
 def test_get_person_warns_about_a_missing_nickname(
@@ -702,7 +702,7 @@ def test_get_person_warns_about_a_missing_nickname(
         f'{CHURCHTOOLS_BASE_URL}/api/persons/1', json=make_person_json(None)
     )
     with caplog.at_level(logging.WARNING):
-        person = churchtools_api.get_person(1)
+        person = churchtools_api.get_person('1')
     assert person is not None
     assert person.firstname == 'John'
     assert 'security level person' in caplog.text
