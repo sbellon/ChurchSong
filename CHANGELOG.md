@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.14.4 (2026-10-31)
+
+### Changed
+- updated external dependencies (platformdirs, pypdf, reportlab, tzlocal, xlsxwriter)
+
 ## 0.14.3 (2026-10-24)
 
 ### Changed
