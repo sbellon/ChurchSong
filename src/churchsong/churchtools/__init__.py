@@ -15,7 +15,13 @@ import requests
 import requests.exceptions
 
 from churchsong.utils import CliError, JsonValue
-from churchsong.utils.http import REQUEST_TIMEOUT, BaseAPI, ParamsType, is_same_host
+from churchsong.utils.http import (
+    REQUEST_TIMEOUT,
+    BaseAPI,
+    Feature,
+    ParamsType,
+    is_same_host,
+)
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -450,6 +456,12 @@ class SongData(DeprecationAwareModel):
 
 
 class ChurchToolsAPI(BaseAPI):
+    APPOINTMENT_SLIDES = Feature(
+        'appointment slides', ('churchcal:view', 'churchcal:view category')
+    )
+    NICKNAMES = Feature('nickname lookup', ('churchdb:view alldata',))
+    SONG_SHEETS = Feature('song sheets', ('churchservice:edit events',))
+
     def __init__(self, config: Configuration) -> None:
         # A login token authenticates every single request on its own, which is the
         # documented default: "Login-Tokens erzeugen bei REST-API-Aufrufen
@@ -613,7 +625,7 @@ class ChurchToolsAPI(BaseAPI):
             }:
                 if e.response.status_code == requests.codes['forbidden']:
                     # This permission check is called only for its log message.
-                    self.has_permissions(['churchdb:view alldata'], 'nickname lookup')
+                    self.has_feature(self.NICKNAMES)
                 logger.warning('Skipping person #%s: %s', person_id, e)
                 return None
             raise
@@ -742,9 +754,7 @@ class ChurchToolsAPI(BaseAPI):
         return r
 
     def delete_event_file(self, event: EventFull, file: EventFile) -> None:
-        if not self.has_permissions(
-            ['churchservice:edit events'], 'song sheet deletion'
-        ):
+        if not self.has_feature(self.SONG_SHEETS):
             return
         msg = f'Deleting file "{file.title}" from event "{event.start_date:%Y-%m-%d}"'
         logger.debug(msg)
@@ -753,7 +763,7 @@ class ChurchToolsAPI(BaseAPI):
     def upload_event_file(
         self, event: EventFull, filename: str, content: bytes
     ) -> None:
-        if not self.has_permissions(['churchservice:edit events'], 'song sheet upload'):
+        if not self.has_feature(self.SONG_SHEETS):
             return
         msg = f'Uploading file "{filename}" to event "{event.start_date:%Y-%m-%d}"'
         logger.debug(msg)

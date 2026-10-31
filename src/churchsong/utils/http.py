@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import atexit
+import dataclasses
 import http.cookiejar
 import typing
 import urllib.parse
@@ -126,10 +127,24 @@ class VersionInfo(typing.Protocol):
     The payloads differ in shape, but `get_version()` returns the server version
     from each of them as a string like `"3.136.2"`, which `BaseAPI` parses. It must
     compute from the payload alone: `_fetch_version()` rejects a string that does not
-    parse, so the same string cannot fail later on in `has_version()` either.
+    parse, so the same string cannot fail later on in `missing_requirements()`
+    either.
     """
 
     def get_version(self) -> str: ...
+
+
+@dataclasses.dataclass(frozen=True)
+class Feature:
+    """An optional feature of a client and what the server has to grant for it.
+
+    `name` says what is skipped when the feature is not usable, like
+    `"appointment slides"`.
+    """
+
+    name: str
+    permissions: tuple[str, ...]
+    min_version: str | None = None
 
 
 class BaseAPI:
@@ -241,7 +256,7 @@ class BaseAPI:
 
         The version is logged to be able to tell afterwards which server version a
         run talked to. Unlike the permissions, it is no precondition of the client
-        itself, so a failure only logs a warning and leaves it to `has_version()` to
+        itself, so a failure only logs a warning and leaves it to `has_feature()` to
         skip what depends on it.
         """
         try:
@@ -257,33 +272,35 @@ class BaseAPI:
         self._log.info('%s at %s is version %s', self._service, self._base_url, version)
         return info
 
-    def has_version(self, minimum: str, log_reason: str = '') -> bool:
-        """Whether the server is version `minimum` (like `"3.2"`) or later.
+    def missing_requirements(self, feature: Feature) -> list[str]:
+        """What the server or the token lacks for `feature`, empty if it is usable.
 
-        Works like `has_permissions()`: logs why a feature is skipped, if given the
-        feature in `log_reason`.
-
-        An unknown version counts as too old: its reason was logged when fetching it.
+        An unknown server version counts as too old: its reason was logged when
+        fetching it.
         """
-        if self._version is None:
-            if log_reason:
-                self._log.warning(
-                    'Skipping %s, the %s version is unknown', log_reason, self._service
-                )
-            return False
-        # Cannot fail: `_fetch_version()` has parsed the same string already.
-        version = packaging.version.Version(self._version.get_version())
-        if version < packaging.version.Version(minimum):
-            if log_reason:
-                self._log.warning(
-                    'Skipping %s, it requires %s %s or later, but the server is %s',
-                    log_reason,
-                    self._service,
-                    minimum,
-                    version,
-                )
-            return False
-        return True
+        missing: list[str] = []
+        if missing_perms := self._get_missing_permissions(*feature.permissions):
+            plural = 's' if len(missing_perms) > 1 else ''
+            perms = ', '.join(f'"{perm}"' for perm in missing_perms)
+            missing.append(f'permission{plural} {perms}')
+        if feature.min_version is not None:
+            required = f'{self._service} {feature.min_version} or later'
+            if self._version is None:
+                missing.append(f'{required} (server version unknown)')
+            else:
+                # Cannot fail: `_fetch_version()` has parsed the same string already.
+                version = packaging.version.Version(self._version.get_version())
+                if version < packaging.version.Version(feature.min_version):
+                    missing.append(f'{required} (server is {version})')
+        return missing
+
+    def has_feature(self, feature: Feature) -> bool:
+        """Whether `feature` is usable, logging why it is skipped if not."""
+        if missing := self.missing_requirements(feature):
+            self._log.warning(
+                'Skipping %s, it requires %s', feature.name, ' and '.join(missing)
+            )
+        return not missing
 
     def _get_missing_permissions(self, *required_perms: str) -> list[str]:
         """Return those of `required_perms` that the token does not hold."""
@@ -301,16 +318,6 @@ class BaseAPI:
             )
             self._log.error(msg)
             raise CliError(msg) from None
-
-    def has_permissions(self, required_perms: list[str], log_reason: str = '') -> bool:
-        missing_perms = self._get_missing_permissions(*required_perms)
-        if missing_perms and log_reason:
-            self._log.warning(
-                f'Skipping {log_reason} due to missing permissions: {{}}'.format(
-                    ', '.join(f'"{perm}"' for perm in missing_perms)
-                )
-            )
-        return not missing_perms
 
     def _request(  # noqa: PLR0913
         self,

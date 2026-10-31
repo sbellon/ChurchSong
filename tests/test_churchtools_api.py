@@ -20,6 +20,7 @@ from churchsong.churchtools import (
     EventShort,
 )
 from churchsong.utils import CliError
+from churchsong.utils.http import Feature
 from tests.conftest import (
     CHURCHTOOLS_BASE_URL,
     FakeConfiguration,
@@ -52,16 +53,18 @@ def make_event_json(
 
 
 def test_init_asserts_basic_permissions(churchtools_api: ChurchToolsAPI) -> None:
-    assert churchtools_api.has_permissions(['churchservice:view agenda'])
-    assert not churchtools_api.has_permissions(['churchservice:no such permission'])
+    assert churchtools_api.has_feature(Feature('feat', ('churchservice:view agenda',)))
+    assert not churchtools_api.has_feature(
+        Feature('feat', ('churchservice:no such permission',))
+    )
 
 
 def test_log_records_name_the_churchtools_component(
     churchtools_api: ChurchToolsAPI, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level(logging.WARNING):
-        assert not churchtools_api.has_permissions(
-            ['churchservice:no such permission'], 'the made-up feature'
+        assert not churchtools_api.has_feature(
+            Feature('the made-up feature', ('churchservice:no such permission',))
         )
     # The log file has to be able to tell a ChurchTools warning from an Immich one.
     assert [record.name for record in caplog.records] == ['churchsong.churchtools']
@@ -77,8 +80,8 @@ def test_init_logs_the_server_version(
         api = ChurchToolsAPI(config)
     # For telling afterwards which server version a run talked to.
     assert f'ChurchTools at {CHURCHTOOLS_BASE_URL} is version 3.136.2' in caplog.text
-    assert api.has_version('3.136')
-    assert not api.has_version('3.137')
+    assert not api.missing_requirements(Feature('feat', (), '3.136'))
+    assert api.missing_requirements(Feature('feat', (), '3.137'))
 
 
 def test_init_survives_an_unknown_server_version(
@@ -91,7 +94,7 @@ def test_init_survives_an_unknown_server_version(
     with caplog.at_level(logging.WARNING):
         api = ChurchToolsAPI(config)
     assert 'Cannot determine the ChurchTools version' in caplog.text
-    assert not api.has_version('1')
+    assert api.missing_requirements(Feature('feat', (), '1'))
 
 
 def test_init_rejects_missing_basic_permissions(
@@ -779,7 +782,7 @@ def test_delete_event_file_is_skipped_without_edit_permission(
     )
     with caplog.at_level(logging.WARNING):
         api.delete_event_file(make_event_full(), event_file)
-    assert 'song sheet deletion' in caplog.text
+    assert 'Skipping song sheets' in caplog.text
 
 
 def test_does_not_send_back_session_cookie(

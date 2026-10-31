@@ -74,9 +74,7 @@ def test_upload_is_skipped_without_permission(
     with caplog.at_level(logging.WARNING):
         api = connect_immich(make_config(immich={'upload_tags': ['Upload']}))
         api.upload_media_file(str(make_media_file(tmp_path)))
-    assert f'Skipping media upload due to missing permissions: "{missing}"' in (
-        caplog.text
-    )
+    assert f'Skipping media upload, it requires permission "{missing}"' in (caplog.text)
 
 
 def test_upload_is_skipped_without_upload_tags(
@@ -145,7 +143,7 @@ def test_log_records_name_the_immich_component(
     immich_api: ImmichAPI, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level(logging.WARNING):
-        assert not immich_api.has_permissions(['tag.create'], 'tagging')
+        assert not immich_api.has_feature(ImmichAPI.TAG_CREATION)
     # The log file has to be able to tell an Immich warning from a ChurchTools one.
     assert [record.name for record in caplog.records] == ['churchsong.immich']
 
@@ -534,7 +532,7 @@ def test_backgrounds_are_skipped_without_permission(
     with caplog.at_level(logging.WARNING):
         api = make_background_api(mocked_responses, permissions)
     assert_no_background(api, mocked_responses, tmp_path)
-    assert f'background image download due to missing permissions: "{missing}"' in (
+    assert f'background image download, it requires permission "{missing}"' in (
         caplog.text
     )
 
@@ -551,7 +549,7 @@ def test_backgrounds_are_skipped_on_servers_without_search_filter(
     with caplog.at_level(logging.WARNING):
         api = make_background_api(mocked_responses, server_version=(major, minor, 0))
     assert_no_background(api, mocked_responses, tmp_path)
-    assert f'requires Immich 3.2 or later, but the server is {major}.{minor}.0' in (
+    assert f'requires Immich 3.2 or later (server is {major}.{minor}.0)' in (
         caplog.text
     )
 
@@ -567,9 +565,10 @@ def test_backgrounds_are_skipped_without_server_version(
     # An unknown version does not abort the connector, it only skips what needs one.
     assert_no_background(api, mocked_responses, tmp_path)
     assert 'Cannot determine the Immich version: 500 Server Error' in caplog.text
-    assert 'Skipping background image download, the Immich version is unknown' in (
-        caplog.text
-    )
+    assert (
+        'Skipping background image download, it requires Immich 3.2 or later '
+        '(server version unknown)'
+    ) in caplog.text
 
 
 def test_immich_version_is_logged(

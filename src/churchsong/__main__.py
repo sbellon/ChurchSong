@@ -316,12 +316,8 @@ def _handle_agenda(
                 pps = PowerPointServices(config)
                 pps.create(service_info.leads, service_info.nobody)
                 pps.save()
-        if (
-            config.songbeamer.powerpoint.appointments.template_pptx
-            and cta.has_permissions(
-                ['churchcal:view', 'churchcal:view category'],
-                'appointment slides generation',
-            )
+        if config.songbeamer.powerpoint.appointments.template_pptx and cta.has_feature(
+            cta.APPOINTMENT_SLIDES
         ):
             with optional_steps.guard('appointment slides'):
                 ppa = PowerPointAppointments(config, event.start_date)

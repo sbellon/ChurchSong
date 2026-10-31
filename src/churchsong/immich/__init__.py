@@ -16,7 +16,7 @@ import pydantic
 import requests
 
 from churchsong.utils.file import atomic_replace, safe_filename
-from churchsong.utils.http import BaseAPI
+from churchsong.utils.http import BaseAPI, Feature
 
 if typing.TYPE_CHECKING:
     from churchsong.configuration import Configuration
@@ -111,6 +111,14 @@ class ImmichAPI(BaseAPI):
     # search with random assets of the whole library.
     SEARCH_FILTER_VERSION = '3.2'
 
+    MEDIA_UPLOAD = Feature('media upload', ('asset.upload', 'tag.read', 'tag.asset'))
+    TAG_CREATION = Feature('tag creation', ('tag.create',))
+    BACKGROUNDS = Feature(
+        'background image download',
+        ('album.read', 'asset.read', 'asset.download'),
+        SEARCH_FILTER_VERSION,
+    )
+
     def __init__(self, config: Configuration) -> None:
         """Set up the connector without contacting Immich yet, so this cannot fail.
 
@@ -158,20 +166,9 @@ class ImmichAPI(BaseAPI):
         self._version = self._fetch_version(
             ServerVersionResponse, '/api/server/version'
         )
-        if self._upload_tags and self.has_permissions(
-            ['asset.upload', 'tag.read', 'tag.asset'], 'media upload'
-        ):
+        if self._upload_tags and self.has_feature(self.MEDIA_UPLOAD):
             self._upload_tag_ids = self._get_tag_ids(self._upload_tags)
-        if (
-            self._backgrounds_album
-            and self.has_permissions(
-                ['album.read', 'asset.read', 'asset.download'],
-                'background image download',
-            )
-            and self.has_version(
-                self.SEARCH_FILTER_VERSION, 'background image download'
-            )
-        ):
+        if self._backgrounds_album and self.has_feature(self.BACKGROUNDS):
             self._backgrounds_album_ids = self._get_album_ids(self._backgrounds_album)
 
     @property
@@ -185,7 +182,7 @@ class ImmichAPI(BaseAPI):
         return bool(self._backgrounds_album_ids)
 
     def _create_tag(self, tagname: str) -> UUID | None:
-        if not self.has_permissions(['tag.create'], 'tag creation'):
+        if not self.has_feature(self.TAG_CREATION):
             return None
         try:
             r = self._post('/api/tags', json={'name': tagname})
