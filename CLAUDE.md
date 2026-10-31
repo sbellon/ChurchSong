@@ -86,7 +86,8 @@ the subclass's `super().__init__()` with a comment giving the reason.
   (`CliError`); every optional feature is a `Feature` constant on its client (permissions and
   an optional minimum server version, an unknown version counting as too old), gated by
   `has_feature(X)`, which logs and lets the caller skip; `missing_requirements(X)` gives the
-  reasons without logging. `packaging` stays inside `BaseAPI`.
+  reasons without logging. `packaging` stays inside `BaseAPI`. Every `Feature` needs a row
+  in `selfcheck.py` (`self check`, read-only), which a test enforces.
 - `ImmichAPI` asserts nothing: its constructor makes no request, `connect()` (called inside a
   `guard()`) switches on each configured and permitted feature, and a failure setting up one
   feature switches off just that one. `connect()` only reads; `create_missing_tags()`, in the

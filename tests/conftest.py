@@ -182,10 +182,10 @@ def churchtools_answers_are_checked_against_openapi(
         (endpoint_template(path), model) for path, model in OPENAPI_ENDPOINTS.items()
     }
     answered: set[tuple[str, type]] = set()
-    validate = BaseAPI._validate  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    validate = BaseAPI[typing.Any]._validate  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
     def recording_validate(
-        self: BaseAPI, model: type[typing.Any], r: requests.Response
+        self: BaseAPI[typing.Any], model: type[typing.Any], r: requests.Response
     ) -> typing.Any:  # noqa: ANN401 (whatever the model validates to)
         if isinstance(self, ChurchToolsAPI):
             path = urllib.parse.urlsplit(r.request.url or '').path

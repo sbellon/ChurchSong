@@ -147,10 +147,10 @@ class Feature:
     min_version: str | None = None
 
 
-class BaseAPI:
+class BaseAPI[P: PermissionSet]:
     _base_url: str
     _headers: dict[str, str]
-    _permissions: PermissionSet
+    _permissions: P
     # Stays `None` for a client that does not fetch its version, or cannot.
     _version: VersionInfo | None = None
 
@@ -272,6 +272,16 @@ class BaseAPI:
         self._log.info('%s at %s is version %s', self._service, self._base_url, version)
         return info
 
+    @property
+    def service(self) -> str:
+        """The name of the service, like `"ChurchTools"` or `"Immich"`."""
+        return self._service
+
+    @property
+    def server_version(self) -> str | None:
+        """The server version, `None` if it is unknown."""
+        return None if self._version is None else self._version.get_version()
+
     def missing_requirements(self, feature: Feature) -> list[str]:
         """What the server or the token lacks for `feature`, empty if it is usable.
 
@@ -297,8 +307,12 @@ class BaseAPI:
     def has_feature(self, feature: Feature) -> bool:
         """Whether `feature` is usable, logging why it is skipped if not."""
         if missing := self.missing_requirements(feature):
+            # Marked, so that `self check` can leave it to its own feature rows.
             self._log.warning(
-                'Skipping %s, it requires %s', feature.name, ' and '.join(missing)
+                'Skipping %s, it requires %s',
+                feature.name,
+                ' and '.join(missing),
+                extra={'feature': feature},
             )
         return not missing
 

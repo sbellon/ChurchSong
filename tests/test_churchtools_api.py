@@ -18,6 +18,7 @@ from churchsong.churchtools import (
     EventFile,
     EventFull,
     EventShort,
+    PermissionsGlobalData,
 )
 from churchsong.utils import CliError
 from churchsong.utils.http import Feature
@@ -809,3 +810,14 @@ def test_does_not_send_back_session_cookie(
     upload = mocked_responses.calls[-1].request
     assert 'Cookie' not in upload.headers
     assert upload.headers['Authorization'] == 'Login churchtools-test-token'
+
+
+def test_permission_calendars_follow_the_id_type_of_the_field() -> None:
+    permissions = PermissionsGlobalData.model_validate(make_global_permissions())
+    assert permissions.calendars('churchservice:view agenda') == [1]
+    assert permissions.calendars('churchcal:view category') == [1]
+    # Scoped as well, but by domain, not by calendar.
+    assert permissions.calendars('churchdb:view alldata') is None
+    assert permissions.calendars('churchservice:view') is None  # a mere flag
+    assert permissions.calendars('churchservice:no such permission') is None
+    assert permissions.calendars('nosuchsection:view') is None

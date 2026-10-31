@@ -105,7 +105,7 @@ class AssetBulkUploadCheckResults(BaseModel):
     results: list[AssetBulkUploadCheckResult]
 
 
-class ImmichAPI(BaseAPI):
+class ImmichAPI(BaseAPI[Permissions]):
     # First server version with the structured `filter` of the search endpoints. Older
     # servers silently drop fields they do not know, and would thus answer a filtered
     # search with random assets of the whole library.
@@ -340,7 +340,7 @@ class ImmichAPI(BaseAPI):
                 # Keep flying as the Immich upload should not crash an event.
                 logger.error('Failed to upload "%s" to Immich: %s', filename, e)
 
-    def _fetch_background_candidates(self) -> list[AssetResponse]:
+    def fetch_background_candidates(self) -> list[AssetResponse]:
         # Use the Immich 3.2 API default `size` of 250 random images being returned.
         payload: JsonObject = {
             'filter': {
@@ -375,7 +375,7 @@ class ImmichAPI(BaseAPI):
             # not ask a failing server again.
             self._background_candidates = []
             self._background_index = 0
-            self._background_candidates = self._fetch_background_candidates()
+            self._background_candidates = self.fetch_background_candidates()
         if not self._background_candidates:
             return None
         candidate = self._background_candidates[self._background_index]

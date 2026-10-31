@@ -29,6 +29,10 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class NoEventError(CliError):
+    """No upcoming event, or none with an agenda: missing data, no broken setup."""
+
+
 # The bigger the page, the fewer requests it takes to walk the whole song database.
 # 200 is the maximum, a limit of 201 is already answered with a 400 Bad Request.
 MAX_SONGS_PAGE_SIZE = 200
@@ -136,6 +140,20 @@ class PermissionsGlobalData(DeprecationAwareModel):
                 return typing.cast('typing.Sequence[int]', obj)
             case _:
                 return False
+
+    def calendars(self, perm: str) -> typing.Sequence[CalendarID] | None:
+        """The calendars `perm` is scoped to, `None` if it is not scoped by calendar.
+
+        Told by the field's type: a list of the `CalendarID` alias, not just of `int`.
+        """
+        section, _, name = perm.replace(' ', '_').partition(':')
+        model = getattr(self.data, section, None)
+        if not isinstance(model, pydantic.BaseModel):
+            return None
+        field = type(model).model_fields.get(name)
+        if field is None or typing.get_args(field.annotation) != (CalendarID,):
+            return None
+        return typing.cast('typing.Sequence[CalendarID]', getattr(model, name))
 
 
 class Info(DeprecationAwareModel):
@@ -257,11 +275,17 @@ class ServicesData(DeprecationAwareModel):
     data: list[Service]
 
 
+class EventCalendar(DeprecationAwareModel):
+    domain_identifier: str = pydantic.Field(alias='domainIdentifier')
+    title: str
+
+
 class EventShort(DeprecationAwareModel):
     id: int
     name: str
     start_date: dt.datetime = pydantic.Field(alias='startDate')
     end_date: dt.datetime = pydantic.Field(alias='endDate')
+    calendar: EventCalendar | None = None
 
 
 class EventsData(DeprecationAwareModel):
@@ -455,7 +479,17 @@ class SongData(DeprecationAwareModel):
     data: Song
 
 
-class ChurchToolsAPI(BaseAPI):
+class ChurchToolsAPI(BaseAPI[PermissionsGlobalData]):
+    # Asserted on construction, as an agenda run cannot do without them. What is
+    # optional is a `Feature` below.
+    BASIC_PERMISSIONS = (
+        'churchservice:view',
+        'churchservice:view agenda',
+        'churchservice:view events',
+        'churchservice:view servicegroup',
+        'churchservice:view songcategory',
+    )
+
     APPOINTMENT_SLIDES = Feature(
         'appointment slides', ('churchcal:view', 'churchcal:view category')
     )
@@ -487,18 +521,30 @@ class ChurchToolsAPI(BaseAPI):
             PermissionsGlobalData, '/api/permissions/global'
         )
         self._version = self._fetch_version(Info, '/api/info')
+        self._assert_permissions(*self.BASIC_PERMISSIONS)
 
-        # Assert permissions that are required for basic functionality of the app.
-        # Additional permissions are queried on-demand and other functionality
-        # may be disabled if permissions are missing (like nicknames or appointment
-        # slides).
-        self._assert_permissions(
-            'churchservice:view',
-            'churchservice:view agenda',
-            'churchservice:view events',
-            'churchservice:view servicegroup',
-            'churchservice:view songcategory',
-        )
+    def missing_calendar_coverage(
+        self, perms: typing.Iterable[str], event: EventShort
+    ) -> list[str]:
+        """Which of `perms` do not cover the calendar of `event`, and what they cover.
+
+        Only permissions scoped by calendar count, and nothing if the calendar of
+        `event` is unknown.
+        """
+        if (calendar := event.calendar) is None:
+            return []
+        missing: list[str] = []
+        for perm in perms:
+            if (calendars := self._permissions.calendars(perm)) is None:
+                continue
+            covered = [str(calendar_id) for calendar_id in calendars]
+            if calendar.domain_identifier not in covered:
+                missing.append(
+                    f'"{perm}" covers the calendars {", ".join(covered) or "none"}, '
+                    f'but not the calendar "{calendar.title}" '
+                    f'({calendar.domain_identifier}) of the event'
+                )
+        return missing
 
     def _get_song_tags(self, song_id: int) -> list[Tag]:
         try:
@@ -608,7 +654,7 @@ class ChurchToolsAPI(BaseAPI):
         result = self._validate(SongData, r)
         return result.data
 
-    def _get_calendars(self) -> typing.Generator[Calendar]:
+    def get_calendars(self) -> typing.Generator[Calendar]:
         api_url = '/api/calendars'
         r = self._get(api_url)
         result = self._parse(CalendarsData, r, api_url)
@@ -652,7 +698,7 @@ class ChurchToolsAPI(BaseAPI):
         r = self._get(
             api_url,
             params={
-                'calendar_ids[]': [calendar.id for calendar in self._get_calendars()],
+                'calendar_ids[]': [calendar.id for calendar in self.get_calendars()],
                 'from': f'{event.start_date:%Y-%m-%d}',
                 'to': f'{next_n_weeks:%Y-%m-%d}',
             },
@@ -705,7 +751,7 @@ class ChurchToolsAPI(BaseAPI):
             date = f'{from_date.date():%Y-%m-%d}'
             msg = f'No events present after {date} in ChurchTools.'
             logger.error(msg)
-            raise CliError(msg) from None
+            raise NoEventError(msg) from None
         if agenda_required:
             try:
                 _agenda = self.get_event_agenda(event)
@@ -717,7 +763,7 @@ class ChurchToolsAPI(BaseAPI):
                     date = f'{event.start_date.date():%Y-%m-%d}'
                     msg = f'No event agenda present for {date} in ChurchTools.'
                     logger.error(msg)
-                    raise CliError(msg) from None
+                    raise NoEventError(msg) from None
                 raise
         return event
 

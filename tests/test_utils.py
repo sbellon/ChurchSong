@@ -16,7 +16,7 @@ from churchsong.utils import (
     recursive_expand_envvars,
 )
 from churchsong.utils.file import MAX_FILENAME_LENGTH, atomic_replace, safe_filename
-from churchsong.utils.http import BaseAPI, Feature, is_same_host
+from churchsong.utils.http import BaseAPI, Feature, PermissionSet, is_same_host
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -77,7 +77,7 @@ def test_is_same_host(url1: str, url2: str, *, expected: bool) -> None:
     assert is_same_host(url1, url2) is expected
 
 
-class FakeAPI(BaseAPI):
+class FakeAPI(BaseAPI[PermissionSet]):
     _base_url = 'https://host.test'
     _headers: dict[str, str] = {}  # noqa: RUF012 (only ever read, never mutated)
 

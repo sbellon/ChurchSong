@@ -26,6 +26,7 @@ from churchsong.immich import ImmichAPI
 from churchsong.interactivescreen import DownloadSelection, InteractiveScreen
 from churchsong.powerpoint.appointments import PowerPointAppointments
 from churchsong.powerpoint.services import PowerPointServices
+from churchsong.selfcheck import SelfCheck
 from churchsong.songbeamer import SongBeamer
 from churchsong.songbeamer.sng import SongBackgrounds
 from churchsong.utils import CliError, flattened_split
@@ -238,6 +239,27 @@ def info(ctx: typer.Context) -> None:
         console.print(f'Latest version:      {later_version}', markup=False)
     console.print(f'Configuration file:  {ctx.obj.config_toml}', markup=False)
     console.print(f'User data directory: {ctx.obj.data_dir}', markup=False)
+
+
+@cmd_self.command(
+    help='Check the connection to ChurchTools and Immich without changing anything.'
+)
+def check(
+    ctx: typer.Context,
+    *,
+    verbose: typing.Annotated[
+        bool,
+        typer.Option(  # pyright: ignore[reportUnknownMemberType]
+            '--verbose',
+            '-v',
+            help='Also list the fields ChurchTools marks as deprecated.',
+        ),
+    ] = False,
+) -> None:
+    self_check = SelfCheck(ctx.obj, deprecations=verbose)
+    self_check.run()
+    if not self_check.report():
+        raise typer.Exit(1)
 
 
 @cmd_self.command(help=f'Update the {Configuration.package_name} application.')
