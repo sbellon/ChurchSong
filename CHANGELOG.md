@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.15.0 (2026-10-31)
+
 ### Added
 - command `self check` to check the connection to ChurchTools and Immich: it reads
   what an agenda run reads, without changing anything, and lists which steps and
