@@ -190,6 +190,9 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
             # A configured background image stands for a usable backgrounds album.
             self.backgrounds_enabled = backgrounds is not None
 
+        def create_missing_tags(self) -> None:
+            pass
+
         def download_random_background(
             self, output_dir: pathlib.Path
         ) -> pathlib.Path | None:

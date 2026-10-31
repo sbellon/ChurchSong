@@ -24,9 +24,10 @@ UPLOAD_PERMISSIONS = ['asset.upload', 'tag.read', 'tag.asset']
 
 
 def connect_immich(config: Configuration) -> ImmichAPI:
-    """An `ImmichAPI` connected to the (mocked) Immich instance of `config`."""
+    """An `ImmichAPI` set up for the (mocked) Immich instance like for a run."""
     api = ImmichAPI(config)
     api.connect()
+    api.create_missing_tags()
     return api
 
 
@@ -283,6 +284,31 @@ def test_upload_tags_the_new_asset_with_the_configured_tags(
         'assetIds': ['asset-1'],
         'tagIds': ['t1', 't2'],
     }
+
+
+def test_connect_leaves_missing_tags_alone(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    # No POST /api/tags is registered: creating the tag would fail the test.
+    mock_immich_server(mocked_responses, [*UPLOAD_PERMISSIONS, 'tag.create'])
+    mocked_responses.get(f'{IMMICH_BASE_URL}/api/tags', json=[])
+    api = ImmichAPI(make_config(immich={'upload_tags': ['New']}))
+    api.connect()
+    assert api.missing_upload_tags == ['New']
+    assert not api.upload_enabled
+
+
+def test_creating_the_missing_tags_switches_on_the_upload(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    mock_immich_server(mocked_responses, [*UPLOAD_PERMISSIONS, 'tag.create'])
+    mocked_responses.get(f'{IMMICH_BASE_URL}/api/tags', json=[])
+    mocked_responses.post(
+        f'{IMMICH_BASE_URL}/api/tags', json={'id': 't1', 'name': 'New'}
+    )
+    api = connect_immich(make_config(immich={'upload_tags': ['New']}))
+    assert not api.missing_upload_tags
+    assert api.upload_enabled
 
 
 def test_upload_is_skipped_without_any_usable_tag(

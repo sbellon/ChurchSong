@@ -328,6 +328,7 @@ def _handle_agenda(
     immich = ImmichAPI(config)
     with optional_steps.guard('Immich connector'):
         immich.connect()
+        immich.create_missing_tags()
 
     agenda_items, song_sheets = cte.download_agenda_items(
         download_files=selection.files,

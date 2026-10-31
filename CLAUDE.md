@@ -89,7 +89,9 @@ the subclass's `super().__init__()` with a comment giving the reason.
   reasons without logging. `packaging` stays inside `BaseAPI`.
 - `ImmichAPI` asserts nothing: its constructor makes no request, `connect()` (called inside a
   `guard()`) switches on each configured and permitted feature, and a failure setting up one
-  feature switches off just that one. Callers only ask `upload_enabled` / `backgrounds_enabled`.
+  feature switches off just that one. `connect()` only reads; `create_missing_tags()`, in the
+  same `guard()`, creates the upload tags it did not find. Callers only ask `upload_enabled` /
+  `backgrounds_enabled`.
   No file may end up in Immich untagged. Immich UUIDs are typed by `type UUID = str`.
 
 **ChurchTools models** (`churchtools/__init__.py`) use camelCase aliases and the

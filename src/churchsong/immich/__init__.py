@@ -147,6 +147,8 @@ class ImmichAPI(BaseAPI):
         # Media upload and background download are independent optional features,
         # switched on by `connect()` with the IDs they need.
         self._upload_tag_ids: list[UUID] = []
+        # Upload tags `connect()` did not find, for `create_missing_tags()`.
+        self._missing_upload_tags: list[str] = []
         self._backgrounds_album_ids: list[UUID] = []
 
         # Candidates for background images, fetched on first demand.
@@ -159,6 +161,9 @@ class ImmichAPI(BaseAPI):
         Raises a `CliError` if URL or token are wrong, leaving both features off. A
         feature that is not configured or not permitted stays off, and a failure
         while setting one up only switches off that one.
+
+        Only reads: upload tags that do not exist yet are left to
+        `create_missing_tags()`.
         """
         if not self._base_url:
             return
@@ -167,9 +172,34 @@ class ImmichAPI(BaseAPI):
             ServerVersionResponse, '/api/server/version'
         )
         if self._upload_tags and self.has_feature(self.MEDIA_UPLOAD):
-            self._upload_tag_ids = self._get_tag_ids(self._upload_tags)
+            self._look_up_upload_tags()
         if self._backgrounds_album and self.has_feature(self.BACKGROUNDS):
             self._backgrounds_album_ids = self._get_album_ids(self._backgrounds_album)
+
+    def create_missing_tags(self) -> None:
+        """Create the upload tags `connect()` did not find, if permitted.
+
+        Switches on the media upload if it gets a first usable tag that way.
+        """
+        if not self._missing_upload_tags:
+            return
+        if self.has_feature(self.TAG_CREATION):
+            still_missing: list[str] = []
+            for tagname in self._missing_upload_tags:
+                if (tag_id := self._create_tag(tagname)) is not None:
+                    self._upload_tag_ids.append(tag_id)
+                else:
+                    still_missing.append(tagname)
+            self._missing_upload_tags = still_missing
+        if not self._upload_tag_ids:
+            logger.warning(
+                'Skipping media upload, none of the upload tags exists in Immich'
+            )
+
+    @property
+    def missing_upload_tags(self) -> list[str]:
+        """The configured upload tags that do not exist in Immich."""
+        return list(self._missing_upload_tags)
 
     @property
     def upload_enabled(self) -> bool:
@@ -182,8 +212,6 @@ class ImmichAPI(BaseAPI):
         return bool(self._backgrounds_album_ids)
 
     def _create_tag(self, tagname: str) -> UUID | None:
-        if not self.has_feature(self.TAG_CREATION):
-            return None
         try:
             r = self._post('/api/tags', json={'name': tagname})
             # Not `_parse()`: a tag that cannot be created is left out, as is one
@@ -193,30 +221,24 @@ class ImmichAPI(BaseAPI):
             logger.warning('Failed to create tag "%s" in Immich: %s', tagname, e)
             return None
 
-    def _get_tag_ids(self, tagnames: list[str]) -> list[UUID]:
+    def _look_up_upload_tags(self) -> None:
         try:
             r = self._get('/api/tags')
             # Not `_parse()`: a failure only costs the media upload, not the connector.
             tags = self._validate(TagResponseResults, r).root
         except (requests.RequestException, pydantic.ValidationError) as e:
+            # Nothing counts as missing either: creating tags that may well exist
+            # would only produce duplicates.
             logger.warning(
                 'Skipping media upload, cannot look up the upload tags in Immich: %s', e
             )
-            return []
+            return
         tag2id = {tag.name: tag.id for tag in tags}
-        tag_ids = [
-            tag_id
-            for tagname in tagnames
-            if (
-                (tag_id := tag2id.get(tagname)) is not None
-                or (tag_id := self._create_tag(tagname)) is not None
-            )
-        ]
-        if not tag_ids:
-            logger.warning(
-                'Skipping media upload, none of the upload tags exists in Immich'
-            )
-        return tag_ids
+        for tagname in self._upload_tags:
+            if (tag_id := tag2id.get(tagname)) is not None:
+                self._upload_tag_ids.append(tag_id)
+            else:
+                self._missing_upload_tags.append(tagname)
 
     def _get_album_ids(self, album_name: str) -> list[UUID]:
         # Match the name here instead of passing it as a query parameter, which a
