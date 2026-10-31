@@ -15,7 +15,7 @@ import typer.main
 import typer.testing
 
 from churchsong import __main__ as cli
-from churchsong.churchtools import EventShort
+from churchsong.churchtools import ChurchToolsAPI, EventShort
 from churchsong.churchtools.events import AgendaItemType, Item, Person, ServiceInfo
 from churchsong.churchtools.song_statistics import ChurchToolsSongStatistics
 from churchsong.configuration import BaseModel, Configuration
@@ -27,6 +27,8 @@ if typing.TYPE_CHECKING:
     import pathlib
 
     import responses
+
+    from churchsong.utils.http import Feature
 
 runner = typer.testing.CliRunner()
 
@@ -146,10 +148,10 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
             pipeline.agenda_required = agenda_required
             return make_event_short()
 
-        def has_permissions(
-            self, _required_perms: list[str], log_reason: str = ''
-        ) -> bool:
-            record(f'permissions:{log_reason}')
+        APPOINTMENT_SLIDES = ChurchToolsAPI.APPOINTMENT_SLIDES
+
+        def has_feature(self, feature: Feature) -> bool:
+            record(f'permissions:{feature.name}')
             return appointment_permission
 
         def get_appointments(self, _event: EventShort) -> list[object]:
@@ -187,6 +189,9 @@ def install_fake_pipeline(  # noqa: C901, PLR0913 (one small fake per collaborat
             record('immich')
             # A configured background image stands for a usable backgrounds album.
             self.backgrounds_enabled = backgrounds is not None
+
+        def create_missing_tags(self) -> None:
+            pass
 
         def download_random_background(
             self, output_dir: pathlib.Path
@@ -428,7 +433,7 @@ def test_agenda_command_runs_the_full_pipeline(
         'services',
         'services.create',
         'services.save',
-        'permissions:appointment slides generation',
+        'permissions:appointment slides',
         'appointments',
         'appointments.create',
         'appointments.save',
@@ -690,7 +695,7 @@ def test_agenda_skips_powerpoint_without_configured_templates(
     assert 'services' not in pipeline.steps
     assert 'appointments' not in pipeline.steps
     # Without a template the permission is not even asked for.
-    assert 'permissions:appointment slides generation' not in pipeline.steps
+    assert 'permissions:appointment slides' not in pipeline.steps
     assert 'launch' in pipeline.steps
 
 
@@ -701,7 +706,7 @@ def test_agenda_skips_appointment_slides_without_permission(
     config = make_config(songbeamer=TEMPLATES)
     result = invoke(['agenda', '2026-08-16'], config)
     assert result.exit_code == 0
-    assert 'permissions:appointment slides generation' in pipeline.steps
+    assert 'permissions:appointment slides' in pipeline.steps
     assert 'appointments' not in pipeline.steps
     assert 'services.save' in pipeline.steps  # services slides are unaffected
 

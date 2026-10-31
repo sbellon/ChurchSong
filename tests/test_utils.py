@@ -16,7 +16,7 @@ from churchsong.utils import (
     recursive_expand_envvars,
 )
 from churchsong.utils.file import MAX_FILENAME_LENGTH, atomic_replace, safe_filename
-from churchsong.utils.http import BaseAPI, is_same_host
+from churchsong.utils.http import BaseAPI, Feature, PermissionSet, is_same_host
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -77,7 +77,7 @@ def test_is_same_host(url1: str, url2: str, *, expected: bool) -> None:
     assert is_same_host(url1, url2) is expected
 
 
-class FakeAPI(BaseAPI):
+class FakeAPI(BaseAPI[PermissionSet]):
     _base_url = 'https://host.test'
     _headers: dict[str, str] = {}  # noqa: RUF012 (only ever read, never mutated)
 
@@ -138,7 +138,7 @@ def fetch_version(api: FakeAPI) -> StringVersion | None:
 @pytest.mark.parametrize(
     ('server', 'expected'), [('3.117.9', False), ('3.118.0', True), ('4.0.0', True)]
 )
-def test_has_version_compares_against_the_fetched_version(
+def test_has_feature_compares_against_the_fetched_version(
     mocked_responses: responses.RequestsMock,
     caplog: pytest.LogCaptureFixture,
     server: str,
@@ -149,11 +149,11 @@ def test_has_version_compares_against_the_fetched_version(
     api = FakeAPI()
     api._version = fetch_version(api)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
     with caplog.at_level(logging.WARNING):
-        assert api.has_version('3.118', 'feat') is expected
+        assert api.has_feature(Feature('feat', (), '3.118')) is expected
     if not expected:
         assert (
-            f'Skipping feat, it requires FakeService 3.118 or later, but the server '
-            f'is {server}'
+            'Skipping feat, it requires FakeService 3.118 or later '
+            f'(server is {server})'
         ) in caplog.text
 
 
@@ -175,17 +175,29 @@ def test_fetch_version_yields_none_for_an_unknown_version(
     api = FakeAPI()
     with caplog.at_level(logging.WARNING):
         api._version = fetch_version(api)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
-        assert not api.has_version('1', 'feat')
+        assert not api.has_feature(Feature('feat', (), '1'))
     assert 'Cannot determine the FakeService version' in caplog.text
-    assert 'Skipping feat, the FakeService version is unknown' in caplog.text
+    assert (
+        'Skipping feat, it requires FakeService 1 or later (server version unknown)'
+    ) in caplog.text
 
 
-def test_has_version_is_false_for_a_client_without_version(
+def test_missing_requirements_names_everything_missing_without_logging(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # Without a reason there is nothing to log, like with `has_permissions()`.
+    class Granted:
+        def get_permission(self, perm: str) -> bool:
+            return perm == 'granted'
+
+    api = FakeAPI()
+    api._permissions = Granted()  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    feature = Feature('feat', ('granted', 'one', 'two'), '1')
     with caplog.at_level(logging.WARNING):
-        assert not FakeAPI().has_version('1')
+        assert api.missing_requirements(feature) == [
+            'permissions "one", "two"',
+            'FakeService 1 or later (server version unknown)',
+        ]
+    # Only `has_feature()` logs, so that a caller can report the reasons itself.
     assert not caplog.records
 
 

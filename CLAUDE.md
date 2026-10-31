@@ -83,12 +83,16 @@ the subclass's `super().__init__()` with a comment giving the reason.
   `_fetch_version()` only warns. A call that degrades on an off-shape answer uses `_validate()`
   directly and says why in a "Not `_parse()`" comment.
 - **Permissions are two-tier**: a constructor hard-asserts what basic operation needs
-  (`CliError`); every optional feature calls `has_permissions([...], 'reason')`, which logs and
-  lets the caller skip. Server versions alike: `has_version(MINIMUM_CONSTANT, 'reason')`, an
-  unknown version counting as too old; `packaging` stays inside `BaseAPI`.
+  (`CliError`); every optional feature is a `Feature` constant on its client (permissions and
+  an optional minimum server version, an unknown version counting as too old), gated by
+  `has_feature(X)`, which logs and lets the caller skip; `missing_requirements(X)` gives the
+  reasons without logging. `packaging` stays inside `BaseAPI`. Every `Feature` needs a row
+  in `selfcheck.py` (`self check`, read-only), which a test enforces.
 - `ImmichAPI` asserts nothing: its constructor makes no request, `connect()` (called inside a
   `guard()`) switches on each configured and permitted feature, and a failure setting up one
-  feature switches off just that one. Callers only ask `upload_enabled` / `backgrounds_enabled`.
+  feature switches off just that one. `connect()` only reads; `create_missing_tags()`, in the
+  same `guard()`, creates the upload tags it did not find. Callers only ask `upload_enabled` /
+  `backgrounds_enabled`.
   No file may end up in Immich untagged. Immich UUIDs are typed by `type UUID = str`.
 
 **ChurchTools models** (`churchtools/__init__.py`) use camelCase aliases and the

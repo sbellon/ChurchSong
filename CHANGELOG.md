@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+- command `self check` to check the connection to ChurchTools and Immich: it reads
+  what an agenda run reads, without changing anything, and lists which steps and
+  optional features work, and why the others do not (with `--verbose` also the fields
+  ChurchTools marks as deprecated)
+
+### Changed
+- reworded the log messages of skipped optional features to name everything that is
+  missing, permissions and server version alike
+
 ## 0.14.4 (2026-10-31)
 
 ### Changed

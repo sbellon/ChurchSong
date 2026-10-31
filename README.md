@@ -74,6 +74,23 @@ If you used the simple installation method above, the template was copied there 
 you, if you did a manual install you have to copy `resources/config.toml.example`
 there for yourself.
 
+### Checking the configuration
+
+`ChurchSong self check` connects to ChurchTools and, if configured, Immich, reads
+what an agenda run would read, and lists for every step and optional feature whether
+it works, works with restrictions (`WARN`, with the reason, such as a missing
+permission), fails (`FAIL`), or is not configured (`OFF`). It changes nothing in
+either service, and exits with code 1 if a step fails.
+
+Permissions are checked whether or not the current data needs them: a missing
+`tag.create` is reported even if all upload tags already exist. A ChurchTools permission
+that is limited to certain calendars is checked against the calendar of the next
+event, and the reason names the calendars it covers.
+
+With `--verbose`, it also lists the fields ChurchTools marks as deprecated, each one
+only once. These are no problem of your setup, but a hint that a future version of
+ChurchSong will have to adapt.
+
 ### PowerPoint templates
 
 Depending on configuration you can have two PowerPoint slides created. If you have
