@@ -23,8 +23,8 @@ if typing.TYPE_CHECKING:
 
     from churchsong.utils import JsonObject
 
-# Seconds to wait for the server to send its response.
-REQUEST_TIMEOUT = 30
+# Seconds to wait for the connection to the server, and for its response.
+REQUEST_TIMEOUT = (10, 30)
 
 # Ports that are implied by the scheme and therefore not part of a host's identity.
 DEFAULT_PORTS = {'http': 80, 'https': 443}
@@ -64,13 +64,16 @@ class LoggingRetry(urllib3.util.Retry):
         wait = retry.get_retry_after(response) if response else None
         if wait is None:  # `Retry.sleep()` prefers `Retry-After` over its backoff.
             wait = retry.get_backoff_time()
+        reason = f'status {response.status}' if response else error
         self._log.warning(
             'Waiting %.0fs to retry %s %s after %s (%s attempt(s) left)',
             wait,
             method,
             url,
-            f'status {response.status}' if response else error,
+            reason,
             retry.total,
+            # The same for every attempt, for a reader that shows the user only one.
+            extra={'retry': f'Retried {method} {url} after {reason}'},
         )
         return retry
 
