@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.15.1 (2026-11-01)
+
 ### Changed
 - a connection attempt gives up after 10 instead of 30 seconds
 - `self check` reports the retries of a request as a single line
