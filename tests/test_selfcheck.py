@@ -222,6 +222,22 @@ def test_check_fails_and_stops_on_a_wrong_token(
     assert not self_check.report()
 
 
+def test_check_merges_the_retries_of_a_request_into_one_detail(
+    mocked_responses: responses.RequestsMock,
+) -> None:
+    mocked_responses.get(
+        f'{CHURCHTOOLS_BASE_URL}/api/permissions/global',
+        status=503,
+        headers={'Retry-After': '0'},
+    )
+    results = run_check(make_config())
+    details = results['ChurchTools', 'connection'].details
+    # urllib3 passes the path, while `responses` passes the whole URL.
+    retries = [d for d in details if d.startswith('Retried GET ')]
+    assert len(retries) == 1
+    assert retries[0].endswith('/api/permissions/global after status 503')
+
+
 def test_check_warns_without_an_upcoming_event(
     mocked_responses: responses.RequestsMock,
 ) -> None:

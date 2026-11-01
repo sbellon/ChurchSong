@@ -89,7 +89,8 @@ class _WarningCollector(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         # A feature skipped by `has_feature()` is reported by its own row already.
         if not hasattr(record, 'feature'):
-            self.messages.append(record.getMessage())
+            # One line for all attempts of a request, which `Result.add()` merges.
+            self.messages.append(getattr(record, 'retry', record.getMessage()))
 
 
 class SelfCheck:
