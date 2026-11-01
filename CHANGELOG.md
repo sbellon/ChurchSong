@@ -5,6 +5,7 @@
 ### Changed
 - a connection attempt gives up after 10 instead of 30 seconds
 - `self check` reports the retries of a request as a single line
+- updated external dependencies (pypdf)
 
 ## 0.15.0 (2026-10-31)
 
