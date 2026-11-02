@@ -54,6 +54,9 @@ build-backend = "uv_build"
 package = true
 default-groups = ["dev", "lint", "test"]
 
+[tool.uv.build-backend]
+wheel-exclude = ["CLAUDE.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
