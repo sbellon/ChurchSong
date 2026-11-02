@@ -20,9 +20,6 @@ too. Requires **Python >= 3.14** (PEP 695 generics, PEP 758 `except A, B:`).
 ```sh
 uv sync
 uv run ChurchSong --help
-uv run ChurchSong agenda 2026-08-16
-uv run ChurchSong songs verify all --execute_checks CCLI,Tags
-uv run ChurchSong songs usage 2024-2026 --format rich
 ```
 
 Quality gates (CI: `.github/workflows/code-quality.yml`; all but lockfile/build also run as the
@@ -112,21 +109,6 @@ server answers. `SecurityLevel` gates *fields*, never yields a 403.
 `(list[Item], SongSheets)`; uploading the sheets is the caller's guarded step. `AgendaItemType`
 lives in `configuration.py` because the `[SongBeamer.Color]` TOML keys *are* its values — adding a
 type needs no other change.
-
-**Song backgrounds** (`songbeamer/sng.py`): `SongBackgrounds.add_missing()` inserts a
-`#BackgroundImage` line pointing at a random image of the Immich `backgrounds_album`; an absolute
-path to a missing file counts as none, a relative one is left to SongBeamer. The search needs
-Immich 3.2's structured `filter` (which does not exclude the trash on its own); older servers
-silently drop unknown fields, so the feature is off there. `SngFile` is the one place that decodes
-`.sng` (UTF-8 with BOM, else Windows ANSI, `surrogateescape`) and splits `header` from `body`; `#Key`
-checks see the header only.
-
-**SongBeamer output** (`songbeamer/__init__.py`): the `Schedule.col` grammar and escaping are in the
-module docstring; configured slides are parsed back through `AgendaItem.parse`.
-
-**PowerPoint** (`powerpoint/`): templates are driven by *shape names* (the service name is the
-placeholder name; tables `Weekly Table` / `Irregular Table`). A missing template leaves `_prs` at
-`None` and the classes become no-ops.
 
 **Song verification**: `@SongChecks.register('KEY')`, the key doubling as column header and
 `--execute_checks` value. A check reading `Arrangement.sng_header` must declare
