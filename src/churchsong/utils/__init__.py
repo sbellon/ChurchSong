@@ -2,8 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import os
-import re
+import posixpath
 import typing
 
 from typer._click import ClickException
@@ -12,11 +11,9 @@ CliError = ClickException
 
 
 def expand_envvars(text: str) -> str:
-    return re.sub(
-        r'\${([^${]+)}',
-        lambda x: os.environ.get(x.group(1), f'${{{x.group(1)}}}'),
-        text,
-    )
+    # Not `os.path.expandvars()`: on Windows it expands `%VAR%` too, and nothing after
+    # a single quote, which would leave `${VAR}` in a caption like "Jesus' Name".
+    return posixpath.expandvars(text)
 
 
 type JsonObject = dict[str, 'JsonValue']

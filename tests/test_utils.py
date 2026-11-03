@@ -38,6 +38,14 @@ def test_expand_envvars_keeps_unknown_variable_literal(
     assert expand_envvars('${VARIABLE}') == '${VARIABLE}'
 
 
+def test_expand_envvars_ignores_windows_quoting_and_syntax(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('VARIABLE', 'value')
+    assert expand_envvars("Jesus' Name ${VARIABLE}") == "Jesus' Name value"
+    assert expand_envvars('%VARIABLE%') == '%VARIABLE%'
+
+
 def test_recursive_expand_envvars_walks_nested_structures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
