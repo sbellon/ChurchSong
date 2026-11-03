@@ -259,12 +259,8 @@ class Agenda:
                         filename=other.filename,
                     )
                 )
-            case _:  # pyright: ignore[reportUnnecessaryComparison]
-                msg = (
-                    'Unsupported operand type(s) for +=: '
-                    f'"Agenda" and "{type(other).__name__}"'
-                )
-                raise TypeError(msg)
+            case _:
+                return NotImplemented
         return self
 
     def __getitem__(self, index: int) -> AgendaItem:
