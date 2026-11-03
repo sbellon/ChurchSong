@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 import abc
+import collections
 import enum
 import logging
 import typing
-from collections import defaultdict
 
 import prettytable
 import rich
@@ -190,7 +190,7 @@ class ChurchToolsSongStatistics:
                 )
 
         # Iterate over events and songs and count usage.
-        song_counts: dict[tuple[int, str], int] = defaultdict(int)
+        song_counts = collections.Counter[tuple[int, str]]()
         with Progress('Calculating statistics', total=None) as progress:
             for event in self.cta.get_events(from_date, to_date):
                 _, songs = self.cta.get_songs(event, require_tags=False)
