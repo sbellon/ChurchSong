@@ -13,6 +13,7 @@ Fields the server marks deprecated are listed only if asked for, as notes that
 leave the status alone: a user cannot act on them, and some are read on purpose.
 """
 
+import collections
 import contextlib
 import dataclasses
 import enum
@@ -262,8 +263,8 @@ class SelfCheck:
                 raise
             cte = ChurchToolsEvent(cta, event, self._config)
             count, songs = cta.get_songs(event)
-            for _song in songs:  # walks the pages and fetches missing tags
-                pass
+            # Walks the pages and fetches missing tags.
+            collections.deque(songs, maxlen=0)
             calendar = f' ({event.calendar.title})' if event.calendar else ''
             result.add(
                 Status.OK,

@@ -189,7 +189,9 @@ def test_agenda_str_produces_schedule_col_document() -> None:
 
 def test_agenda_rejects_unsupported_operand() -> None:
     agenda = Agenda(colors=SongBeamerColorConfig())
-    with pytest.raises(TypeError, match='Unsupported operand'):
+    with pytest.raises(
+        TypeError, match=r"unsupported operand type\(s\) for \+=: 'Agenda' and 'str'"
+    ):
         agenda += typing.cast('Item', 'not an item')
 
 

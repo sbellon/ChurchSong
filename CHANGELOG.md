@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- environment variables in the configuration and in slide files can also be written
+  as `$VAR`, besides `${VAR}`
+
 ## 0.15.1 (2026-11-01)
 
 ### Changed

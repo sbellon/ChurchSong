@@ -35,23 +35,9 @@ def parse_year_range(year_str: str) -> DateRange:
         msg = f'Invalid format: {year_str}'
         raise ValueError(msg)
     return DateRange(
-        from_date=dt.datetime(
-            year=from_year,
-            month=1,
-            day=1,
-            hour=0,
-            minute=0,
-            second=0,
-            tzinfo=local_tz,
-        ),
-        to_date=dt.datetime(
-            year=to_year,
-            month=12,
-            day=31,
-            hour=23,
-            minute=59,
-            second=59,
-            tzinfo=local_tz,
+        from_date=dt.datetime(from_year, 1, 1, tzinfo=local_tz),
+        to_date=dt.datetime.combine(
+            dt.date(to_year, 12, 31), dt.time.max, tzinfo=local_tz
         ),
     )
 
