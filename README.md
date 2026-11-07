@@ -16,7 +16,7 @@ as well as present .sng files to contain a background image.
 You can also create song usage statistics in various output formats for chosen time
 periods.
 
-Songsheets in PDF format are created from ChurchTools song database and upload as
+Song sheets in PDF format are created from ChurchTools song database and uploaded as
 event files for the music team to use.
 
 If you have an Immich (https://immich.app/) instance running, you can also automatically
@@ -74,6 +74,9 @@ If you used the simple installation method above, the template was copied there 
 you, if you did a manual install you have to copy `resources/config.toml.example`
 there for yourself.
 
+The comments in `resources/config.toml.example` describe every section and option, and
+which of them are required.
+
 ### Checking the configuration
 
 `ChurchSong self check` connects to ChurchTools and, if configured, Immich, reads
@@ -109,7 +112,7 @@ two columns each. One of the tables needs to be named `Weekly Table` and the oth
 needs to be named `Irregular Table` (use the Select Pane with Alt-F10). Appointments
 will be added to those tables depending on whether they are weekly recurring or not.
 
-#### Immich instance
+### Immich instance
 
 If you have your own Immich instance, you can configure `base_url` and `login_token`
 for your Immich instance.
@@ -188,8 +191,8 @@ optional for all other output formats.
 The time period for the statistics can be specified using either `YYYY`, `-YYYY`,
 `YYYY-`, or `YYYY-YYYY`.
 
-### PDF Songsheets
+### PDF Song Sheets
 
 Two PDFs are created for each event, one containing the song chords and another one
-containing the song leads. Those are upload to the event files and can be used by
+containing the song leads. Those are uploaded to the event files and can be used by
 the music team.
