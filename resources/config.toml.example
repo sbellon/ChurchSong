@@ -1,28 +1,68 @@
+# ChurchSong configuration
+#
+# `ChurchSong self info` shows where this file and the user data directory are, and
+# `ChurchSong self check` shows which steps and optional features work with it.
+#
+# Environment variables like `${USERPROFILE}` are expanded in every value, and relative
+# paths are taken relative to the user data directory. Every section and option is
+# optional unless marked as required; leaving out a PowerPoint template, slides or a
+# color keeps the respective feature off or at its default.
+
 [General]
+# One of "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
 log_level = "INFO"
+# Rotated at 5 MB, keeping 7 old files (default: "./Logs/ChurchSong.log").
 log_file = "./Logs/ChurchSong.log"
 
 [General.Interactive]
+# Draw the check boxes of the interactive menu as ✅ and ❌ instead of ■ and blank;
+# only enable this if your console font has these characters.
 use_unicode_font = true
 
 [ChurchTools]
+# Required: the URL of your ChurchTools instance and the login token of the user
+# ChurchSong acts as; its permissions decide which features work (see `self check`).
 base_url = "https://YOUR-DOMAIN.church.tools"
 login_token = "YOUR_LOGIN_TOKEN"
 
+# Names to use instead of the ones in ChurchTools, on the service slide and in the
+# SongBeamer schedule. The short name on the slide is the nickname, or else the first
+# word of the name. The special key "None" renames the placeholder for a service
+# nobody is assigned to (default: "Nobody", or its translation).
 [ChurchTools.Replacements]
+"None" = "Nobody"
 "Jonathan Doe" = "Jon Doe"
 
 [SongBeamer]
+# Required: where the agenda is downloaded to. `Schedule.col` and the created slides
+# go here, song files into `Songs`, event files into `Files` and Immich background
+# images into `Backgrounds`. It is safe to delete, it is re-created on the next run.
 output_dir = "${USERPROFILE}/Desktop/Output"
 
+# Service slide: the slide master of the template has placeholders whose names (set in
+# the Selection Pane, Alt-F10) are ChurchTools service names. Text placeholders get the
+# short names of the persons in that service, picture placeholders their portrait.
 [SongBeamer.PowerPoint.Services]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/SERVICES.pptx"
+# Portraits are looked up as `<full name>.jpeg` (several persons joined by " + ").
+# A missing portrait falls back to the one of the placeholder for nobody (see
+# [ChurchTools.Replacements]), e.g. `Nobody.jpeg`.
 portraits_dir = "${USERPROFILE}/Desktop/Data/Portraits"
 
+# Appointment slide: the template has two slides with a two-column table each, named
+# `Weekly Table` and `Irregular Table` (in the Selection Pane, Alt-F10). Appointments
+# that are not marked internal are put into them: appointments repeating every week
+# within the week after the event go into the weekly table, all others into the
+# irregular one (as far as the table has room).
 [SongBeamer.PowerPoint.Appointments]
 template_pptx = "${USERPROFILE}/Desktop/Data/PowerPoint/APPOINTMENTS.pptx"
+# How many weeks after the event to look for appointments.
 look_ahead_weeks = 13
 
+# Per table: the `strftime` formats of appointments with a time, of all-day ones and
+# of ones spanning several days (shown as "start - end"), and which appointment field
+# to show as subtitle: the first non-empty one of "subtitle", "description", "link"
+# and "address", in the given order.
 [SongBeamer.PowerPoint.Appointments.Weekly]
 regular_datetime_format = "%a. %H:%M"
 allday_datetime_format = "%A"
@@ -35,9 +75,15 @@ allday_datetime_format = "%a. %d.%m."
 multiday_datetime_format = "%d.%m."
 subtitle_priority = ["address", "link", "description", "subtitle"]
 
+# Additional SongBeamer schedule items, written in the `Schedule.col` syntax: each one
+# an `item` ... `end` block with a `Caption`, a `Color`, optionally a `BGColor`, and
+# optionally a `FileName` to present.
 [SongBeamer.Slides]
+# The `strftime` format of the event date, used as the first schedule item and on the
+# song sheets.
 datetime_format = "%a. %d.%m.%Y %H:%M"
 
+# Items put before the event agenda.
 [SongBeamer.Slides.Opening]
 content = """
     item
@@ -57,6 +103,7 @@ content = """
     end
 """
 
+# Items put after the event agenda (before the list of the service staff).
 [SongBeamer.Slides.Closing]
 content = """
     item
@@ -65,6 +112,8 @@ content = """
     end
 """
 
+# Items put after every schedule item whose caption contains one of the keywords
+# (case-sensitive). There can be several of these sections.
 [[SongBeamer.Slides.Insert]]
 keywords = ["Appointments", "Dates", "News"]
 content = """
@@ -75,6 +124,10 @@ content = """
     end
 """
 
+# Caption colors in the SongBeamer schedule, by kind of item: `Service` (the event
+# date and the service staff), `Header`, `Normal` (agenda text items), `Song`, `File`
+# and `Link` (event files). The values are SongBeamer/Delphi color names; without a
+# section, an item is `clBlack` without background color.
 [SongBeamer.Color.Service]
 color = "clBlack"
 bgcolor = "clAqua"
@@ -99,10 +152,21 @@ bgcolor = "clGrey"
 color = "clBlack"
 bgcolor = "clGrey"
 
+# Optional: your own Immich (https://immich.app/) instance. Leave the section out if
+# you have none.
 [Immich]
 base_url = "https://IMMICH.YOUR-DOMAIN"
+# An API key with the permissions the features below need (see `self check`).
 login_token = "YOUR_LOGIN_TOKEN"
+# Upload event files whose names match one of `include_globbings` and none of
+# `exclude_globbings` (case-insensitive). The upload needs at least one tag in
+# `upload_tags`: every uploaded file gets these tags, and missing tags are created.
+# Permissions: `asset.upload`, `tag.read`, `tag.asset` and, for new tags, `tag.create`.
 include_globbings = ["*.jpeg", "*.jpg", "*.mp4", "*.mov", "*.heic"]
 exclude_globbings = ["*birthday*"]
 upload_tags = ["Upload_By_ChurchSong"]
+# Name of an album whose JPEG and PNG images are used as random backgrounds of songs
+# without a `#BackgroundImage` (or with an absolute path to a missing file). Needs
+# Immich 3.2 or later and the permissions `album.read`, `asset.read` and
+# `asset.download`; the images should have distinct file names.
 backgrounds_album = "Backgrounds"
